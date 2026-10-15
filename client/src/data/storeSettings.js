@@ -1,0 +1,137 @@
+/**
+ * Seed Homepage Builder & Store Settings Configuration Data
+ */
+
+export const initialHomepageContent = {
+  hero: {
+    eyebrow: "Rooted in Ayurveda. Made for Modern Living.",
+    heading: "Embrace Ayurveda.",
+    headingItalic: "Live Naturally.",
+    description: "Explore authentic Ayurvedic herbs, classical churnas, cold-pressed oils, and everyday wellness essentials inspired by India's timeless herbal heritage.",
+    primaryBtnText: "Shop Now",
+    primaryBtnLink: "/products",
+    secondaryBtnText: "Explore Our Story",
+    secondaryBtnLink: "/our-story",
+    image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=1200&q=80",
+    badgeTitle: "Nature Nourishes A Better You",
+    badgeSubtitle: "100% Herbal",
+  },
+  sectionsVisibility: {
+    hero: true,
+    trustBadges: true,
+    shopByCategory: true,
+    bestsellers: true,
+    trending: true,
+    newArrivals: true,
+    featuredCollections: true,
+    promotionalBanners: true,
+    benefitsStrip: true,
+    testimonials: true,
+    blogHighlights: true,
+    newsletter: true,
+  },
+  promotionalBanners: {
+    bannerA: {
+      tag: "Pure Herbs • Natural Vitality ♥",
+      title: "Nature's Wisdom for Everyday Wellness",
+      description: "Clean botanical churnas, golden Lakadong haldi, and wild single-origin honey.",
+      btnText: "Shop Ayurvedic Herbs",
+      btnLink: "/products?category=ayurvedic-herbs",
+      image: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80",
+    },
+    bannerB: {
+      tag: "Eco-Conscious Harvesting",
+      title: "Rediscover the Art of Ayurveda",
+      description: "Together for a cleaner, greener and healthier tomorrow. Zero synthetics, zero plastic waste.",
+      btnText: "Shop Classical Remedies",
+      btnLink: "/products?category=wellness-essentials",
+      image: "https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=800&q=80",
+    },
+  },
+};
+
+export const initialStoreSettings = {
+  general: {
+    storeName: "Divyam Ayurveda",
+    storeTagline: "Pure Herbal Wellness",
+    contactEmail: "care@divyamayurveda.com",
+    contactPhone: "+91 (080) 4567-8900",
+    dispensaryAddress: "108 Botanical Garden Road, Indiranagar, Bengaluru, Karnataka 560038",
+    defaultCurrency: "INR",
+    timezone: "Asia/Kolkata (IST)",
+  },
+  store: {
+    enableCashOnDelivery: true,
+    maxCodLimit: 5000,
+    enableGuestCheckout: true,
+    enableReviewModeration: true,
+    lowStockThreshold: 10,
+    notifyLowStock: true,
+  },
+  shipping: {
+    originState: "Karnataka",
+    originCity: "Bengaluru",
+    originPincode: "560038",
+    standardShippingFee: 40,
+    freeShippingThreshold: 499,
+    expressShippingFee: 99,
+    dispatchLeadTime: "24-48 Hours",
+    zones: [
+      {
+        id: "zone-1",
+        name: "Zone 1 (Local / Intra-State)",
+        tier: "Local",
+        description: "Intra-state delivery within origin state",
+        baseFee: 40,
+        freeThreshold: 499,
+        deliveryDays: "1–2 Business Days",
+      },
+      {
+        id: "zone-2",
+        name: "Zone 2 (Regional)",
+        tier: "Regional",
+        description: "Neighboring states & contiguous transit hubs",
+        baseFee: 65,
+        freeThreshold: 699,
+        deliveryDays: "2–4 Business Days",
+      },
+      {
+        id: "zone-3",
+        name: "Zone 3 (National)",
+        tier: "National",
+        description: "Rest of India major cities, metros and towns",
+        baseFee: 90,
+        freeThreshold: 899,
+        deliveryDays: "4–6 Business Days",
+      },
+      {
+        id: "zone-4",
+        name: "Zone 4 (Special / Remote)",
+        tier: "Remote",
+        description: "North-East states, J&K, Ladakh, and Island territories",
+        baseFee: 140,
+        freeThreshold: 1299,
+        deliveryDays: "6–9 Business Days",
+      },
+    ],
+  },
+  tax: {
+    originState: "Karnataka",
+    taxIncludedInPrice: true,
+    standardGstRate: 12,
+    gstinNumber: "29AABCD1234E1Z5",
+  },
+  notifications: {
+    emailOnNewOrder: true,
+    smsOnDispatch: true,
+    lowStockAlerts: true,
+    dailySalesDigest: false,
+  },
+  appearance: {
+    primaryColor: "#173D2A",
+    secondaryColor: "#386B40",
+    accentColor: "#A9D18E",
+    bannerAnnouncementText: "DISCOVER THE WISDOM OF AYURVEDA — Pure, classical botanical formulations crafted for modern holistic health",
+  },
+};
+

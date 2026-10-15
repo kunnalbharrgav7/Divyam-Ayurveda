@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@theme {
+  --color-forest: #173D2A;
+  --color-deep-forest: #0B2416;
+  --color-secondary-green: #386B40;
+  --color-botanical-light: #A9D18E;
+  --color-warm-white: #FBFAF6;
+  --color-light-bg: #F4F4EE;
+  --color-primary-text: #171A17;
+  --color-secondary-text: #666B64;
+  --color-border-subtle: #E5E7DF;
+  --color-earthy-accent: #B99A67;
+
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  --forest: #173D2A;
+  --deep-forest: #0B2416;
+  --secondary-green: #386B40;
+  --botanical-light: #A9D18E;
+  --warm-white: #FBFAF6;
+  --light-bg: #F4F4EE;
+  --primary-text: #171A17;
+  --secondary-text: #666B64;
+  --border-subtle: #E5E7DF;
+  --earthy-accent: #B99A67;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: #171A17;
+  background-color: #FFFFFF;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, .font-serif {
+  font-family: var(--font-serif);
+}
+
+/* Enforce clean, modern sans-serif across all admin dashboard elements and headings */
+.admin-layout,
+.admin-layout h1,
+.admin-layout h2,
+.admin-layout h3,
+.admin-layout h4,
+.admin-layout h5,
+.admin-layout h6,
+.admin-layout .font-serif:not(.brand-logo) {
+  font-family: var(--font-sans);
+}
+
+.brand-logo {
+  font-family: var(--font-serif);
+}
+
+/* Custom scrollbar for clean botanical feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F4F4EE;
+}
+::-webkit-scrollbar-thumb {
+  background: #A9D18E;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #386B40;
+}
