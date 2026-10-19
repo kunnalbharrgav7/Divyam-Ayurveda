@@ -11,10 +11,10 @@ export const NotFoundPage = () => {
         </div>
 
         <div>
-          <span className="font-serif text-5xl font-bold text-[#173D2A] block mb-2">
+          <span className="font-heading tracking-tight text-5xl font-bold text-[#173D2A] block mb-2">
             404
           </span>
-          <h1 className="font-serif text-2xl font-bold text-[#171A17]">
+          <h1 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">
             Page Out of Balance
           </h1>
           <p className="text-xs sm:text-sm text-[#666B64] mt-2 leading-relaxed">

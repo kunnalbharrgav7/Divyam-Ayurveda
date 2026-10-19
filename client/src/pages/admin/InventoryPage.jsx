@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Boxes,
@@ -19,7 +19,13 @@ import { AdminModal } from "../../components/admin/common/AdminModal";
 import { formatCurrency } from "../../utils/formatters";
 
 export const InventoryPage = () => {
-  const { products, updateProductStock, auditLogs } = useAdmin();
+  const { products, updateProductStock, auditLogs, fetchAdminProducts } = useAdmin();
+
+  // Stock changes whenever customers order; load the latest figures once when the page opens
+  useEffect(() => {
+    fetchAdminProducts?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterHealth, setFilterHealth] = useState("all");
@@ -29,6 +35,8 @@ export const InventoryPage = () => {
   const [adjustAmount, setAdjustAmount] = useState(10);
   const [adjustReason, setAdjustReason] = useState("Warehouse Stock Inward (Supplier)");
   const [adjustNote, setAdjustNote] = useState("");
+  const [adjustSaving, setAdjustSaving] = useState(false);
+  const [adjustError, setAdjustError] = useState("");
 
   // Filtered Inventory List
   const filteredInventory = useMemo(() => {
@@ -77,13 +85,14 @@ export const InventoryPage = () => {
     setAdjustAmount(10);
     setAdjustReason("Warehouse Stock Inward (Supplier)");
     setAdjustNote("");
+    setAdjustError("");
     setAdjustModalOpen(true);
   };
 
-  // Execute stock adjustment
-  const handleExecuteAdjust = (e) => {
+  // Execute stock adjustment (saved to the database before the modal closes)
+  const handleExecuteAdjust = async (e) => {
     e.preventDefault();
-    if (!selectedProduct) return;
+    if (!selectedProduct || adjustSaving) return;
 
     let newStock = selectedProduct.stock;
     const qty = Number(adjustAmount);
@@ -97,8 +106,16 @@ export const InventoryPage = () => {
     }
 
     const fullReason = `${adjustReason}${adjustNote ? ` - Note: ${adjustNote}` : ""}`;
-    updateProductStock(selectedProduct.id, newStock, fullReason);
-    setAdjustModalOpen(false);
+    setAdjustSaving(true);
+    setAdjustError("");
+    try {
+      await updateProductStock(selectedProduct.id, newStock, fullReason);
+      setAdjustModalOpen(false);
+    } catch (err) {
+      setAdjustError(err.message || "Failed to update stock. Please try again.");
+    } finally {
+      setAdjustSaving(false);
+    }
   };
 
   const columns = [
@@ -308,9 +325,10 @@ export const InventoryPage = () => {
               <button
                 type="button"
                 onClick={handleExecuteAdjust}
-                className="px-4 py-2 text-xs font-semibold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs"
+                disabled={adjustSaving}
+                className="px-4 py-2 text-xs font-semibold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Apply Inventory Adjustment
+                {adjustSaving ? "Saving..." : "Apply Inventory Adjustment"}
               </button>
             </>
           }
@@ -367,9 +385,11 @@ export const InventoryPage = () => {
               </label>
               <input
                 type="number"
-                min="1"
+                min={adjustType === "set" ? 0 : 1}
                 value={adjustAmount}
-                onChange={(e) => setAdjustAmount(Math.max(1, Number(e.target.value)))}
+                onChange={(e) =>
+                  setAdjustAmount(Math.max(adjustType === "set" ? 0 : 1, Number(e.target.value)))
+                }
                 required
                 className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white"
               />
@@ -429,6 +449,12 @@ export const InventoryPage = () => {
                 units
               </span>
             </div>
+
+            {adjustError && (
+              <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-700">
+                {adjustError}
+              </div>
+            )}
           </form>
         </AdminModal>
       )}

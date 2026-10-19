@@ -1,0 +1,91 @@
+export const ORDER_STATUS = {
+  PENDING_PAYMENT: "pending_payment",
+  CONFIRMED: "confirmed",
+  PROCESSING: "processing",
+  PACKED: "packed",
+  SHIPPED: "shipped",
+  DISPATCHED: "dispatched",
+  OUT_FOR_DELIVERY: "out_for_delivery",
+  DELIVERED: "delivered",
+  CANCELLED: "cancelled",
+  RETURN_REQUESTED: "return_requested",
+  RETURNED: "returned",
+};
+
+export const ORDER_STATUS_TRANSITIONS = {
+  [ORDER_STATUS.PENDING_PAYMENT]: [
+    ORDER_STATUS.CONFIRMED,
+    ORDER_STATUS.PROCESSING,
+    ORDER_STATUS.PACKED,
+    ORDER_STATUS.SHIPPED,
+    ORDER_STATUS.DISPATCHED,
+    ORDER_STATUS.CANCELLED,
+  ],
+  [ORDER_STATUS.CONFIRMED]: [
+    ORDER_STATUS.PROCESSING,
+    ORDER_STATUS.PACKED,
+    ORDER_STATUS.SHIPPED,
+    ORDER_STATUS.DISPATCHED,
+    ORDER_STATUS.OUT_FOR_DELIVERY,
+    ORDER_STATUS.DELIVERED,
+    ORDER_STATUS.CANCELLED,
+  ],
+  [ORDER_STATUS.PROCESSING]: [
+    ORDER_STATUS.PACKED,
+    ORDER_STATUS.SHIPPED,
+    ORDER_STATUS.DISPATCHED,
+    ORDER_STATUS.OUT_FOR_DELIVERY,
+    ORDER_STATUS.DELIVERED,
+    ORDER_STATUS.CANCELLED,
+  ],
+  [ORDER_STATUS.PACKED]: [
+    ORDER_STATUS.SHIPPED,
+    ORDER_STATUS.DISPATCHED,
+    ORDER_STATUS.OUT_FOR_DELIVERY,
+    ORDER_STATUS.DELIVERED,
+    ORDER_STATUS.CANCELLED,
+  ],
+  [ORDER_STATUS.SHIPPED]: [
+    ORDER_STATUS.DISPATCHED,
+    ORDER_STATUS.OUT_FOR_DELIVERY,
+    ORDER_STATUS.DELIVERED,
+    ORDER_STATUS.CANCELLED,
+  ],
+  [ORDER_STATUS.DISPATCHED]: [
+    ORDER_STATUS.SHIPPED,
+    ORDER_STATUS.OUT_FOR_DELIVERY,
+    ORDER_STATUS.DELIVERED,
+    ORDER_STATUS.CANCELLED,
+  ],
+  [ORDER_STATUS.OUT_FOR_DELIVERY]: [
+    ORDER_STATUS.DELIVERED,
+    ORDER_STATUS.CANCELLED,
+  ],
+  [ORDER_STATUS.DELIVERED]: [
+    ORDER_STATUS.RETURN_REQUESTED,
+    ORDER_STATUS.RETURNED,
+  ],
+  [ORDER_STATUS.RETURN_REQUESTED]: [
+    ORDER_STATUS.RETURNED,
+    ORDER_STATUS.DELIVERED,
+  ],
+  [ORDER_STATUS.CANCELLED]: [],
+  [ORDER_STATUS.RETURNED]: [],
+};
+
+export const isValidOrderTransition = (currentStatus, newStatus, isStaff = false) => {
+  if (!newStatus) return false;
+  const curr = String(currentStatus || "").toLowerCase().trim();
+  const next = String(newStatus || "").toLowerCase().trim();
+  if (curr === next) return true;
+
+  // Staff and Admin can set any valid order status
+  if (isStaff) {
+    return Object.values(ORDER_STATUS).includes(next);
+  }
+
+  const allowed = ORDER_STATUS_TRANSITIONS[curr] || [];
+  return allowed.includes(next);
+};
+
+

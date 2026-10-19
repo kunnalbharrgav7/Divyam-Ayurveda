@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import { toStatusKey, getStatusLabel } from "../../utils/orderStatus";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   ShoppingBag,
@@ -18,7 +19,13 @@ import { AdminTable } from "../../components/admin/common/AdminTable";
 import { formatCurrency, formatDate } from "../../utils/formatters";
 
 export const OrdersPage = () => {
-  const { orders, updateOrderStatus } = useAdmin();
+  const { orders, updateOrderStatus, updatePaymentStatus, refreshOrders } = useAdmin();
+
+  useEffect(() => {
+    if (refreshOrders) {
+      refreshOrders();
+    }
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -28,8 +35,9 @@ export const OrdersPage = () => {
   // Filter orders
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
+      const idStr = String(o.id || o.orderNumber || "").toLowerCase();
       const matchSearch =
-        o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        idStr.includes(searchTerm.toLowerCase()) ||
         o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.phone?.includes(searchTerm);
@@ -88,16 +96,35 @@ export const OrdersPage = () => {
     document.body.removeChild(link);
   };
 
+  // Dropdown values are the display labels; unknown statuses fall back to Pending
+  const normalizeSelectStatus = (st) => {
+    const label = getStatusLabel(st);
+    return ["Pending", "Confirmed", "Processing", "Dispatched", "Out for Delivery", "Delivered", "Cancelled"].includes(label)
+      ? label
+      : "Pending";
+  };
+
   const getStatusBadge = (status) => {
-    switch (status) {
-      case "Delivered":
+    const s = toStatusKey(status);
+    switch (s) {
+      case "delivered":
         return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "Dispatched":
+      case "out_for_delivery":
+        return "bg-indigo-100 text-indigo-800 border-indigo-200";
+      case "dispatched":
+      case "shipped":
         return "bg-blue-100 text-blue-800 border-blue-200";
-      case "Processing":
+      case "processing":
+      case "packed":
         return "bg-amber-100 text-amber-800 border-amber-200";
-      case "Cancelled":
+      case "confirmed":
+        return "bg-teal-100 text-teal-800 border-teal-200";
+      case "cancelled":
         return "bg-rose-100 text-rose-800 border-rose-200";
+      case "return_requested":
+        return "bg-orange-100 text-orange-800 border-orange-200";
+      case "returned":
+        return "bg-purple-100 text-purple-800 border-purple-200";
       default:
         return "bg-stone-100 text-stone-800 border-stone-200";
     }
@@ -143,32 +170,59 @@ export const OrdersPage = () => {
     },
     {
       header: "Amount",
-      render: (row) => (
-        <div>
-          <span className="font-bold text-stone-900 text-xs sm:text-sm">
-            {formatCurrency(row.totalAmount || row.total)}
-          </span>
-          <div className="text-[10px] text-stone-500 uppercase">
-            {row.paymentMethod || "UPI / Prepaid"}
+      render: (row) => {
+        const isOnline =
+          String(row.paymentMethod || "").toLowerCase().includes("online") ||
+          String(row.paymentMethod || "").toLowerCase().includes("card") ||
+          String(row.paymentMethod || "").toLowerCase().includes("upi") ||
+          String(row.paymentMethod || "").toLowerCase().includes("cashfree");
+        const methodLabel = isOnline ? "Online Payment" : "Cash on Delivery (COD)";
+
+        return (
+          <div>
+            <span className="font-bold text-stone-900 text-xs sm:text-sm">
+              {formatCurrency(row.totalAmount || row.total)}
+            </span>
+            <div className="text-[11px] font-medium text-stone-500 mt-0.5">
+              {methodLabel}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       header: "Payment",
-      render: (row) => (
-        <span
-          className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-            row.paymentStatus === "Paid"
-              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-              : row.paymentStatus === "Refunded"
-              ? "bg-stone-100 text-stone-700"
-              : "bg-amber-50 text-amber-800 border border-amber-200"
-          }`}
-        >
-          {row.paymentStatus || "Paid"}
-        </span>
-      ),
+      render: (row) => {
+        const payStatus = row.paymentStatus || "Pending";
+        const getPaymentBadge = (status) => {
+          switch (status) {
+            case "Paid":
+              return "bg-emerald-50 text-emerald-800 border-emerald-200";
+            case "Refunded":
+              return "bg-purple-50 text-purple-800 border-purple-200";
+            case "Failed":
+              return "bg-rose-50 text-rose-800 border-rose-200";
+            default:
+              return "bg-amber-50 text-amber-800 border-amber-200";
+          }
+        };
+
+        return (
+          <select
+            value={payStatus}
+            onChange={(e) => updatePaymentStatus(row.id, e.target.value)}
+            className={`px-2 py-0.5 text-xs font-semibold rounded-full border cursor-pointer ${getPaymentBadge(
+              payStatus
+            )} focus:outline-none focus:ring-1 focus:ring-emerald-700`}
+            title="Update payment status"
+          >
+            <option value="Paid">Paid</option>
+            <option value="Pending">Pending</option>
+            <option value="Refunded">Refunded</option>
+            <option value="Failed">Failed</option>
+          </select>
+        );
+      },
     },
     {
       header: "Order Status",
@@ -190,17 +244,31 @@ export const OrdersPage = () => {
       align: "right",
       render: (row) => (
         <div className="flex items-center justify-end gap-2">
+          {["Return Requested", "Returned"].includes(row.orderStatus || row.status) ? (
+            <Link to="/admin/returns-refunds" className="px-2 py-1 text-xs rounded-lg border border-amber-200 bg-amber-50 text-amber-900 font-semibold">
+              Manage in Returns
+            </Link>
+          ) : (
           <select
-            value={row.orderStatus || row.status}
-            onChange={(e) => updateOrderStatus(row.id, e.target.value)}
+            value={normalizeSelectStatus(row.orderStatus || row.status)}
+            onChange={async (e) => {
+              try {
+                await updateOrderStatus(row.id, e.target.value);
+              } catch (err) {
+                alert(`Status update failed: ${err.message}`);
+              }
+            }}
             className="px-2 py-1 text-xs rounded-lg border border-stone-200 bg-white hover:border-stone-400 text-stone-800"
           >
             <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
             <option value="Processing">Processing</option>
             <option value="Dispatched">Dispatched</option>
+            <option value="Out for Delivery">Out for Delivery</option>
             <option value="Delivered">Delivered</option>
             <option value="Cancelled">Cancelled</option>
           </select>
+          )}
 
           <Link
             to={`/admin/orders/${row.id}`}

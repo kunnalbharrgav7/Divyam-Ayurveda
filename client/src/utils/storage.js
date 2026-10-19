@@ -2,6 +2,23 @@
  * LocalStorage wrapper with error handling and serialization
  */
 
+// Rebuildable caches (they are re-fetched from the API). When the ~5 MB quota is full these are
+// dropped first so that user data such as the cart and wishlist can still be saved.
+const EVICTABLE_CACHE_KEYS = [
+  "divyam_ayurveda_products",
+  "divyam_ayurveda_categories",
+  "divyam_ayurveda_collections",
+  "divyam_ayurveda_brands",
+  "divyam_ayurveda_ingredients",
+  "divyam_ayurveda_blog",
+];
+
+const isQuotaError = (error) =>
+  error?.name === "QuotaExceededError" ||
+  error?.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+  error?.code === 22 ||
+  error?.code === 1014;
+
 export const storage = {
   get: (key, defaultValue = null) => {
     try {
@@ -13,11 +30,29 @@ export const storage = {
     }
   },
 
+  /** Returns true when the value was saved. */
   set: (key, value) => {
+    let json;
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      json = JSON.stringify(value);
+      localStorage.setItem(key, json);
+      return true;
     } catch (error) {
-      console.warn(`Error writing to localStorage key "${key}":`, error);
+      if (json !== undefined && isQuotaError(error)) {
+        for (const cacheKey of EVICTABLE_CACHE_KEYS) {
+          if (cacheKey === key || localStorage.getItem(cacheKey) === null) continue;
+          try {
+            localStorage.removeItem(cacheKey);
+            localStorage.setItem(key, json);
+            console.warn(`localStorage was full; cleared cache "${cacheKey}" to save "${key}".`);
+            return true;
+          } catch (retryError) {
+            if (!isQuotaError(retryError)) break;
+          }
+        }
+      }
+      console.error(`Could not save "${key}" to localStorage (storage full?):`, error);
+      return false;
     }
   },
 
@@ -37,4 +72,3 @@ export const storage = {
     }
   },
 };
-

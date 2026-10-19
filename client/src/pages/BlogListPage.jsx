@@ -3,24 +3,40 @@ import { Link } from "react-router-dom";
 import { Clock, BookOpen, ArrowRight } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { contentService } from "../services/api";
-import { blogPosts as defaultBlogPosts } from "../data/blogPosts";
 import { formatDate } from "../utils/formatters";
 
 export const BlogListPage = () => {
-  const [posts, setPosts] = useState(defaultBlogPosts);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchPosts = async () => {
       try {
         const data = await contentService.getBlogPosts();
-        if (data && data.length > 0) {
+        if (isMounted && Array.isArray(data)) {
           setPosts(data);
         }
       } catch (err) {
         console.error("Error loading blog posts:", err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
     fetchPosts();
+
+    const handleUpdate = () => {
+      fetchPosts();
+    };
+
+    window.addEventListener("divyam_blog_updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("divyam_blog_updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
   }, []);
 
   return (
@@ -33,7 +49,7 @@ export const BlogListPage = () => {
           <span className="text-xs font-semibold uppercase tracking-wider text-[#386B40] flex items-center justify-center gap-1.5">
             <BookOpen size={14} /> Traditional Insights
           </span>
-          <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[#171A17]">
+          <h1 className="font-heading tracking-tight text-3xl sm:text-5xl font-bold text-[#171A17]">
             Ayurveda Education &amp; Insights
           </h1>
           <p className="text-xs sm:text-sm text-[#666B64] leading-relaxed">
@@ -42,10 +58,21 @@ export const BlogListPage = () => {
         </div>
 
         {/* Articles Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 my-8">
-          {posts.map((post) => (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 my-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-3xl border border-[#E5E7DF] h-80 animate-pulse" />
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="py-16 text-center text-stone-500">
+            No articles published yet. Check back soon for traditional Ayurvedic insights!
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 my-8">
+            {posts.map((post) => (
             <article
-              key={post.id}
+              key={post.id || post._id || post.slug}
               className="bg-white rounded-3xl border border-[#E5E7DF] overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-md hover:border-[#A9D18E]/60 shadow-xs"
             >
               <Link to={`/blog/${post.slug}`} className="block relative aspect-16/10 overflow-hidden bg-stone-50 flex items-center justify-center p-3">
@@ -72,7 +99,7 @@ export const BlogListPage = () => {
                 </div>
 
                 <Link to={`/blog/${post.slug}`} className="block mb-3">
-                  <h2 className="font-serif text-xl font-bold text-[#171A17] group-hover:text-[#173D2A] transition-colors leading-snug">
+                  <h2 className="font-heading tracking-tight text-xl font-bold text-[#171A17] group-hover:text-[#173D2A] transition-colors leading-snug">
                     {post.title}
                   </h2>
                 </Link>
@@ -95,6 +122,7 @@ export const BlogListPage = () => {
             </article>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

@@ -13,6 +13,22 @@ export const CategoriesPage = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
 
+  const [newSubName, setNewSubName] = useState("");
+  const [newSubDesc, setNewSubDesc] = useState("");
+  const [activeTab, setActiveTab] = useState("general"); // "general" | "subcategories"
+
+  const AYURVEDIC_SUGGESTIONS = [
+    "Classical Churnas",
+    "Herbal Tailams",
+    "Daily Rasayanas",
+    "Single Extracts",
+    "Swara Juices",
+    "Digestive Vati",
+    "Organic Infusions",
+    "Face & Skin Serums",
+    "Detox Formulations",
+  ];
+
   const defaultCategoryForm = {
     name: "",
     slug: "",
@@ -20,30 +36,80 @@ export const CategoriesPage = () => {
     image: "/images/ProductImages/Ashuwaganda.png",
     order: 1,
     featured: true,
+    subcategories: [],
   };
 
   const [formData, setFormData] = useState(defaultCategoryForm);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const handleOpenAdd = () => {
     setSelectedCategory(null);
+    setNewSubName("");
+    setNewSubDesc("");
+    setActiveTab("general");
+    setSaveError("");
     setFormData({
       ...defaultCategoryForm,
       order: categories.length + 1,
+      subcategories: [],
     });
     setModalOpen(true);
   };
 
-  const handleOpenEdit = (cat) => {
+  const handleOpenEdit = (cat, initialTab = "general") => {
     setSelectedCategory(cat);
+    setNewSubName("");
+    setNewSubDesc("");
+    setActiveTab(initialTab);
+    setSaveError("");
     setFormData({
       name: cat.name,
       slug: cat.slug,
       description: cat.description || "",
       image: cat.image || "",
-      order: cat.order || 1,
-      featured: cat.featured ?? true,
+      order: cat.displayOrder ?? cat.order ?? 1,
+      featured: cat.isFeatured ?? cat.featured ?? true,
+      subcategories: Array.isArray(cat.subcategories) ? [...cat.subcategories] : [],
     });
     setModalOpen(true);
+  };
+
+  const handleAddSubcategory = () => {
+    if (!newSubName.trim()) return;
+    const name = newSubName.trim();
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "");
+
+    const exists = (formData.subcategories || []).some(
+      (s) => s.slug === slug || s.name.toLowerCase() === name.toLowerCase()
+    );
+    if (exists) {
+      alert(`Subcategory "${name}" is already added to this category.`);
+      return;
+    }
+
+    const newSub = {
+      id: "sub-" + Date.now(),
+      name,
+      slug,
+      description: newSubDesc.trim(),
+    };
+    setFormData((prev) => ({
+      ...prev,
+      subcategories: [...(prev.subcategories || []), newSub],
+    }));
+    setNewSubName("");
+    setNewSubDesc("");
+  };
+
+  const handleRemoveSubcategory = (subId) => {
+    setFormData((prev) => ({
+      ...prev,
+      subcategories: (prev.subcategories || []).filter((s) => s.id !== subId),
+    }));
   };
 
   const handleNameChange = (e) => {
@@ -59,26 +125,43 @@ export const CategoriesPage = () => {
     }));
   };
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    if (!formData.name.trim()) return;
+  const handleSave = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (saving) return;
+    if (!formData.name.trim()) {
+      alert("Please provide a category name.");
+      setActiveTab("general");
+      return;
+    }
 
     const payload = {
       ...formData,
       id: selectedCategory ? selectedCategory.id : "cat-" + Date.now(),
-      order: Number(formData.order),
+      order: Number(formData.order) || 1,
+      subcategories: Array.isArray(formData.subcategories) ? formData.subcategories : [],
     };
 
-    saveCategory(payload);
-    setModalOpen(false);
+    setSaving(true);
+    setSaveError("");
+    try {
+      await saveCategory(payload);
+      setModalOpen(false);
+    } catch (err) {
+      setSaveError(err.message || "Failed to save category.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteConfirm = () => {
-    if (categoryToDelete) {
-      deleteCategory(categoryToDelete);
-      setCategoryToDelete(null);
-      setDeleteConfirmOpen(false);
+  const handleDeleteConfirm = async () => {
+    if (!categoryToDelete) return;
+    try {
+      await deleteCategory(categoryToDelete);
+    } catch (err) {
+      alert(err.message || "Failed to delete category.");
     }
+    setCategoryToDelete(null);
+    setDeleteConfirmOpen(false);
   };
 
   // Helper to count products in a category
@@ -152,14 +235,35 @@ export const CategoriesPage = () => {
                   </div>
                 </div>
 
-                <div className="p-4">
+                <div className="p-4 space-y-3">
                   <p className="text-xs text-stone-600 line-clamp-2 leading-relaxed">
                     {cat.description || "Holistic Ayurvedic formulations and therapeutic remedies."}
                   </p>
+
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
+                      <span>Subcategories</span>
+                      <span className="text-emerald-700 font-bold">{cat.subcategories?.length || 0}</span>
+                    </div>
+                    {cat.subcategories && cat.subcategories.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {cat.subcategories.map((sub) => (
+                          <span
+                            key={sub.id}
+                            className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/60"
+                          >
+                            {sub.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-stone-400 italic">No subcategories defined</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="px-4 py-3 bg-stone-50/80 border-t border-stone-100 flex items-center justify-between">
+              <div className="px-4 py-3 bg-stone-50/80 border-t border-stone-100 flex items-center justify-between gap-2 flex-wrap">
                 <Link
                   to={`/category/${cat.slug}`}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 hover:underline"
@@ -168,12 +272,21 @@ export const CategoriesPage = () => {
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Link>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => handleOpenEdit(cat)}
-                    className="p-1.5 text-stone-500 hover:text-emerald-800 hover:bg-white rounded-lg transition-colors"
-                    title="Edit category"
+                    onClick={() => handleOpenEdit(cat, "subcategories")}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 rounded-lg transition-colors cursor-pointer"
+                    title="Manage subcategories for this category"
+                  >
+                    <Package className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Subcategories ({cat.subcategories?.length || 0})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(cat, "general")}
+                    className="p-1.5 text-stone-500 hover:text-emerald-800 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                    title="Edit category details"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
@@ -183,7 +296,7 @@ export const CategoriesPage = () => {
                       setCategoryToDelete(cat.id);
                       setDeleteConfirmOpen(true);
                     }}
-                    className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-white rounded-lg transition-colors"
+                    className="p-1.5 text-stone-500 hover:text-rose-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
                     title="Delete category"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -199,101 +312,361 @@ export const CategoriesPage = () => {
       <AdminModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
+        maxWidth="max-w-3xl"
         title={selectedCategory ? `Edit: ${selectedCategory.name}` : "Create New Category"}
-        subtitle="Categories group products and power top navigation in the store"
+        subtitle="Configure therapeutic category classifications and storefront subcategories"
         footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setModalOpen(false)}
-              className="px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              className="px-4 py-2 text-xs font-semibold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs"
-            >
-              {selectedCategory ? "Update Category" : "Create Category"}
-            </button>
-          </>
+          <div className="flex items-center justify-between w-full flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-lg">
+                {formData.subcategories?.length || 0} subcategories configured
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              {activeTab === "general" ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("subcategories")}
+                  className="px-4 py-2 text-xs font-semibold bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Package className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Configure Subcategories ({formData.subcategories?.length || 0}) &rarr;</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("general")}
+                  className="px-4 py-2 text-xs font-semibold bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <FolderTree className="w-3.5 h-3.5 text-stone-600" />
+                  <span>&larr; Category Details</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="px-5 py-2 text-xs font-bold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {saving ? "Saving..." : selectedCategory ? "Update Category" : "Create Category"}
+              </button>
+            </div>
+          </div>
         }
       >
-        <form onSubmit={handleSave} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-stone-700 mb-1">
-              Category Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={handleNameChange}
-              required
-              placeholder="e.g. Respiratory & Prana Care"
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
-            />
+        <div className="space-y-4">
+          {saveError && (
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-700">
+              {saveError}
+            </div>
+          )}
+
+          {/* Prominent Navigation Tabs Header */}
+          <div className="flex items-center gap-2 border-b border-stone-200 pb-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab("general")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "general"
+                  ? "bg-[#173D2A] text-white shadow-xs"
+                  : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
+              }`}
+            >
+              <FolderTree className="w-3.5 h-3.5" />
+              <span>1. Category Details</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("subcategories")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "subcategories"
+                  ? "bg-[#173D2A] text-white shadow-xs"
+                  : "bg-stone-100 text-stone-600 hover:bg-stone-200/70"
+              }`}
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>2. Subcategories</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  activeTab === "subcategories"
+                    ? "bg-white/20 text-white"
+                    : "bg-emerald-100 text-emerald-800"
+                }`}
+              >
+                {formData.subcategories?.length || 0}
+              </span>
+            </button>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-stone-700 mb-1">
-              URL Slug
-            </label>
-            <input
-              type="text"
-              value={formData.slug}
-              onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white font-mono text-xs focus:ring-[#173D2A]"
-            />
-          </div>
+          {activeTab === "general" ? (
+            /* TAB 1: General Category Details */
+            <div className="space-y-4">
+              {/* Direct Callout linking directly to Subcategories */}
+              <div className="p-3 bg-emerald-50/80 border border-emerald-200/80 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-800 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                    {formData.subcategories?.length || 0}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-emerald-950 block">
+                      Subcategories: {formData.subcategories?.length || 0} Defined
+                    </span>
+                    <span className="text-[11px] text-emerald-700 line-clamp-1">
+                      {formData.subcategories?.length > 0
+                        ? formData.subcategories.map((s) => s.name).join(", ")
+                        : "No subcategories yet. Click button to add subcategories for this category."}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("subcategories")}
+                  className="px-3 py-1.5 bg-[#173D2A] hover:bg-[#0B2416] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-xs whitespace-nowrap shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Manage Subcategories ({formData.subcategories?.length || 0})</span>
+                </button>
+              </div>
 
-          <AdminImageUpload
-            label="Banner / Thumbnail Image"
-            value={formData.image}
-            onChange={(img) => setFormData({ ...formData, image: img })}
-            helperText="Upload category banner or card artwork (PNG, JPG, WEBP)"
-          />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Category Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={handleNameChange}
+                    required
+                    placeholder="e.g. Respiratory & Prana Care"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:outline-hidden focus:ring-1 focus:ring-[#173D2A]"
+                  />
+                </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-stone-700 mb-1">
-              Description
-            </label>
-            <textarea
-              rows={3}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Category overview displayed on catalog pages..."
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
-            />
-          </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    URL Slug
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white font-mono text-xs focus:outline-hidden focus:ring-1 focus:ring-[#173D2A]"
+                  />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Display Sort Order
-              </label>
-              <input
-                type="number"
-                value={formData.order}
-                onChange={(e) => setFormData({ ...formData, order: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
+              <AdminImageUpload
+                label="Banner / Thumbnail Image"
+                value={formData.image}
+                onChange={(img) => setFormData({ ...formData, image: img })}
+                helperText="Upload category banner or card artwork (PNG, JPG, WEBP)"
+                compact={true}
               />
-            </div>
-            <div className="flex items-center pt-5">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.featured}
-                  onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                  className="w-4 h-4 rounded border-stone-300 text-[#173D2A] focus:ring-[#173D2A]"
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Category overview displayed on catalog pages..."
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:outline-hidden focus:ring-1 focus:ring-[#173D2A]"
                 />
-                <span className="text-xs font-medium text-stone-700">
-                  Feature in Top Nav Bar
-                </span>
-              </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Display Sort Order
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.order}
+                    onChange={(e) => setFormData({ ...formData, order: e.target.value })}
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
+                  />
+                </div>
+                <div className="flex items-center pt-5">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.featured}
+                      onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+                      className="w-4 h-4 rounded border-stone-300 text-[#173D2A] focus:ring-[#173D2A]"
+                    />
+                    <span className="text-xs font-medium text-stone-700">
+                      Feature in Top Nav Bar
+                    </span>
+                  </label>
+                </div>
+              </div>
             </div>
-          </div>
-        </form>
+          ) : (
+            /* TAB 2: Subcategories Dedicated Workspace */
+            <div className="space-y-4">
+              <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 flex items-start gap-3">
+                <Package className="w-5 h-5 text-emerald-800 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-emerald-950">
+                    Subcategories for {formData.name || "This Category"}
+                  </h4>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed mt-0.5">
+                    Subcategories power the storefront mega menu, category filter chips, catalog sidebar, and admin product forms.
+                  </p>
+                </div>
+              </div>
+
+              {/* Add New Subcategory Box */}
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Plus className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Add New Subcategory</span>
+                  </span>
+                  <span className="text-[11px] text-stone-400">Press Enter or click Add</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                  <div className="sm:col-span-5">
+                    <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                      Subcategory Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Hair & Scalp Tailams"
+                      value={newSubName}
+                      onChange={(e) => setNewSubName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddSubcategory();
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 bg-white focus:outline-hidden focus:ring-1 focus:ring-[#173D2A]"
+                    />
+                  </div>
+                  <div className="sm:col-span-7">
+                    <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                      Description (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Short therapeutic benefits or formulations..."
+                      value={newSubDesc}
+                      onChange={(e) => setNewSubDesc(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddSubcategory();
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 bg-white focus:outline-hidden focus:ring-1 focus:ring-[#173D2A]"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick suggestions chips */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-stone-500 font-medium">Quick suggestions:</span>
+                  {AYURVEDIC_SUGGESTIONS.map((sug) => (
+                    <button
+                      key={sug}
+                      type="button"
+                      onClick={() => {
+                        setNewSubName(sug);
+                        setNewSubDesc(`Authentic classical Ayurvedic ${sug.toLowerCase()}`);
+                      }}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white hover:bg-emerald-50 text-stone-600 hover:text-emerald-800 border border-stone-200 transition-colors cursor-pointer"
+                    >
+                      + {sug}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddSubcategory}
+                    disabled={!newSubName.trim()}
+                    className="px-4 py-2 bg-[#173D2A] disabled:bg-stone-300 text-white rounded-xl text-xs font-bold hover:bg-[#0B2416] transition-colors inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Subcategory</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* List of Configured Subcategories */}
+              <div>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-xs font-bold text-stone-700">
+                    Current Subcategories ({formData.subcategories?.length || 0})
+                  </span>
+                  <span className="text-[10px] text-stone-400">
+                    Saved directly into this category definition
+                  </span>
+                </div>
+
+                {formData.subcategories && formData.subcategories.length > 0 ? (
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {formData.subcategories.map((sub, idx) => (
+                      <div
+                        key={sub.id || idx}
+                        className="flex items-center justify-between bg-white border border-stone-200 rounded-xl p-3 shadow-2xs hover:border-emerald-300 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0 pr-3">
+                          <span className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-200/60 text-emerald-800 font-bold text-[11px] flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-stone-900">{sub.name}</span>
+                              <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-stone-100 text-stone-600">
+                                /{sub.slug}
+                              </span>
+                            </div>
+                            {sub.description && (
+                              <p className="text-[11px] text-stone-500 truncate mt-0.5">
+                                {sub.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSubcategory(sub.id)}
+                          className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                          title="Delete subcategory"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center bg-stone-50 border border-dashed border-stone-300 rounded-2xl">
+                    <Package className="w-8 h-8 text-stone-300 mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-stone-700">No subcategories defined yet</p>
+                    <p className="text-[11px] text-stone-400 mt-1 max-w-sm mx-auto">
+                      Type a subcategory name above (e.g., &quot;Daily Immunity Swaras&quot; or &quot;Single Classical Herbs&quot;) and click &quot;Add Subcategory&quot;.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </AdminModal>
 
       {/* Delete Confirmation */}

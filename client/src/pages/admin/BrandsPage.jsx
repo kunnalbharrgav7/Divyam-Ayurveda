@@ -22,10 +22,13 @@ export const BrandsPage = () => {
   };
 
   const [formData, setFormData] = useState(defaultForm);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const handleOpenAdd = () => {
     setSelectedBrand(null);
     setFormData(defaultForm);
+    setSaveError("");
     setModalOpen(true);
   };
 
@@ -34,34 +37,46 @@ export const BrandsPage = () => {
     setFormData({
       name: b.name,
       origin: b.origin || "",
-      established: b.established || 2020,
+      established: b.established ?? "",
       description: b.description || "",
       certified: b.certified ?? true,
       logo: b.logo || "",
     });
+    setSaveError("");
     setModalOpen(true);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
+    if (!formData.name.trim() || saving) return;
 
     const payload = {
       ...formData,
       id: selectedBrand ? selectedBrand.id : "brand-" + Date.now(),
-      established: Number(formData.established),
+      established: formData.established === "" ? null : Number(formData.established),
     };
 
-    saveBrand(payload);
-    setModalOpen(false);
+    setSaving(true);
+    setSaveError("");
+    try {
+      await saveBrand(payload);
+      setModalOpen(false);
+    } catch (err) {
+      setSaveError(err.message || "Failed to save brand.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteConfirm = () => {
-    if (brandToDelete) {
-      deleteBrand(brandToDelete);
-      setBrandToDelete(null);
-      setDeleteConfirmOpen(false);
+  const handleDeleteConfirm = async () => {
+    if (!brandToDelete) return;
+    try {
+      await deleteBrand(brandToDelete);
+    } catch (err) {
+      window.alert(err.message || "Failed to delete brand.");
     }
+    setBrandToDelete(null);
+    setDeleteConfirmOpen(false);
   };
 
   return (
@@ -115,7 +130,8 @@ export const BrandsPage = () => {
                 {brand.name}
               </h3>
               <p className="text-xs text-stone-500 mt-0.5">
-                Origin: {brand.origin || "India"} • Est. {brand.established}
+                Origin: {brand.origin || "India"}
+                {brand.established ? ` \u2022 Est. ${brand.established}` : ""}
               </p>
 
               <p className="text-xs text-stone-600 mt-3 leading-relaxed">
@@ -165,9 +181,10 @@ export const BrandsPage = () => {
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 text-xs font-semibold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs"
+              disabled={saving}
+              className="px-4 py-2 text-xs font-semibold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {selectedBrand ? "Update Brand" : "Create Brand"}
+              {saving ? "Saving..." : selectedBrand ? "Update Brand" : "Create Brand"}
             </button>
           </>
         }
@@ -247,6 +264,12 @@ export const BrandsPage = () => {
               </span>
             </label>
           </div>
+
+          {saveError && (
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-700">
+              {saveError}
+            </div>
+          )}
         </form>
       </AdminModal>
 

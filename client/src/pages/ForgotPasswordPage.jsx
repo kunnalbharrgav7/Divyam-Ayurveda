@@ -24,7 +24,7 @@ export const ForgotPasswordPage = () => {
             <div className="w-12 h-12 rounded-2xl bg-[#173D2A] text-[#A9D18E] flex items-center justify-center mx-auto mb-3 shadow-xs">
               <Leaf size={24} />
             </div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#171A17]">
+            <h1 className="font-heading tracking-tight text-2xl sm:text-3xl font-bold text-[#171A17]">
               Reset Password
             </h1>
             <p className="text-xs sm:text-sm text-[#666B64] mt-1">

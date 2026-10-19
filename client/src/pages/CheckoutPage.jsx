@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import {
   ShieldCheck,
   Truck,
@@ -9,25 +9,45 @@ import {
   Lock,
   ArrowLeft,
   AlertCircle,
+  Gift,
 } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { useReturns } from "../context/ReturnContext";
 import { useOrders } from "../context/OrderContext";
 import { useAdmin } from "../context/AdminContext";
+import { useReferrals } from "../context/ReferralContext";
 import { formatINR } from "../utils/formatters";
 import { calculateShippingAndTax, INDIAN_STATES } from "../utils/shippingCalculator";
 
 export const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { cartItems, subtotal, discountTotal, clearCart } = useCart();
-  const { user, addresses } = useAuth();
+  // Checkout only covers the items ticked in the cart (in-stock items; see CartContext)
+  const {
+    checkoutItems: cartItems,
+    checkoutSubtotal: subtotal, // amount payable for the items, already after product discounts
+    checkoutOriginalSubtotal: mrpSubtotal, // the same items at original (MRP) prices
+    checkoutDiscountTotal: discountTotal, // product savings = mrpSubtotal - subtotal
+    offerDiscount, // extra saving from an auto-applied offer or coupon code (verified by the server on order)
+    appliedOffer,
+    refreshOffers,
+    removeCheckedOutItems,
+  } = useCart();
+  const { user, addresses, isAuthenticated } = useAuth();
+  const { storeCredit, refresh: refreshCredit } = useReturns();
+  const [useCredit, setUseCredit] = useState(false);
   const { placeOrder } = useOrders();
   const { storeSettings } = useAdmin();
+  const { activeAttribution, previewDiscount, clearAttribution, applyReferralCode } = useReferrals();
+  const [codeInput, setCodeInput] = useState("");
+  const [codeMessage, setCodeMessage] = useState("");
+  const [applyingCode, setApplyingCode] = useState(false);
+  const [referralPreview, setReferralPreview] = useState({ discount: 0, reason: "" });
 
   const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0] || {};
 
-  // Form State
+  // Form State - Unconditionally declared at top level
   const [formData, setFormData] = useState({
     fullName: user?.name || defaultAddr.fullName || "",
     email: user?.email || "",
@@ -43,25 +63,80 @@ export const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("cod"); // cod, online
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderCompleted, setOrderCompleted] = useState(false);
+
+  // Offers can change at any time: re-check them when checkout opens (and while it stays open)
+  useEffect(() => {
+    refreshOffers();
+    const timer = setInterval(refreshOffers, 60000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Dynamic Shipping & Tax calculation based on destination state & distance zone
   const shippingTaxCalc = calculateShippingAndTax({
     destinationState: formData.state,
-    subtotal,
+    subtotal: Math.max(0, subtotal - offerDiscount), // GST and free-shipping eligibility use the amount actually paid
     deliveryMethod,
     settings: storeSettings,
   });
 
+  // Guard: Unauthenticated guests cannot proceed to checkout
+  if (!isAuthenticated) {
+    return (
+      <Navigate
+        to="/login"
+        state={{
+          from: "/checkout",
+          message: "Please sign in or create an account to proceed to checkout. Your cart items are saved.",
+        }}
+        replace
+      />
+    );
+  }
+
+  // Guard: Cannot checkout with empty cart unless order was just placed
+  if (cartItems.length === 0 && !orderCompleted) {
+    return <Navigate to="/cart" replace />;
+  }
+
   const standardFee = shippingTaxCalc.isFreeEligible ? 0 : Number(shippingTaxCalc.zone?.baseFee || 50);
   const expressFee = shippingTaxCalc.isFreeEligible ? 60 : standardFee + 50;
   const calculatedShipping = shippingTaxCalc.shippingFee;
-  const finalTotal = Math.max(0, subtotal - discountTotal + calculatedShipping);
+  
+  // Referral discount: the server decides what the invitation is worth (and checks it again when the order is placed).
+  // It applies to a signed-in customer's first order and cannot be combined with a coupon or offer.
+  const referralCode = activeAttribution?.code || "";
+  const offerApplied = Boolean(appliedOffer);
+  useEffect(() => {
+    if (!referralCode) return setReferralPreview({ discount: 0, reason: "" });
+    if (!isAuthenticated) return setReferralPreview({ discount: 0, reason: "Sign in or create an account to use your friend's referral code." });
+    if (offerApplied) return setReferralPreview({ discount: 0, reason: "A referral code cannot be combined with a coupon or offer." });
+    if (subtotal <= 0) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const res = await previewDiscount(referralCode, subtotal);
+      if (!cancelled) setReferralPreview(res.valid ? { discount: res.discount, reason: "" } : { discount: 0, reason: res.reason || "" });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [referralCode, isAuthenticated, offerApplied, subtotal, previewDiscount]);
+  const referralDiscount = referralPreview.discount;
+  const totalCombinedDiscounts = discountTotal + offerDiscount + referralDiscount;
+  // MRP - product savings - referral + shipping. (`subtotal` is already net of product savings,
+  // so deducting `totalCombinedDiscounts` from it would count the savings twice.)
+  const orderTotal = Math.max(0, mrpSubtotal - totalCombinedDiscounts + calculatedShipping);
+  // Store credit (from refunds) can cover everything except the last rupee, so there is always something to pay
+  const creditApplied = useCredit ? Math.min(storeCredit, Math.max(0, Math.floor(orderTotal) - 1)) : 0;
+  const finalTotal = Math.max(0, orderTotal - creditApplied);
 
   // If cart is empty, redirect
   if (cartItems.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h2 className="font-serif text-2xl font-bold mb-3">Your Cart is Empty</h2>
+        <h2 className="font-heading tracking-tight text-2xl font-bold mb-3">Your Cart is Empty</h2>
         <p className="text-sm text-stone-500 mb-6">
           Please add Ayurvedic formulations before proceeding to checkout.
         </p>
@@ -124,9 +199,15 @@ export const CheckoutPage = () => {
           total: item.price * item.quantity,
         })),
         pricing: {
-          subtotal,
+          subtotal: mrpSubtotal, // subtotal - discount - referral + shipping = total
           shipping: calculatedShipping,
-          discount: discountTotal,
+          discount: discountTotal + offerDiscount, // product savings + offer/coupon saving
+          offerDiscount,
+          couponCode: appliedOffer?.code || null,
+          referralDiscount,
+          referralCode: referralDiscount > 0 ? referralCode : null,
+          totalCombinedDiscounts,
+          storeCredit: creditApplied,
           total: finalTotal,
           tax: shippingTaxCalc.totalTax,
           taxType: shippingTaxCalc.taxType,
@@ -138,17 +219,24 @@ export const CheckoutPage = () => {
         },
         deliveryMethod,
         paymentMethod:
-          paymentMethod === "cod" ? "Cash on Delivery" : "Online Payment (Demo UPI/Card)",
-        paymentStatus: paymentMethod === "cod" ? "Pending on Delivery" : "Paid (Demo)",
+          paymentMethod === "cod" ? "Cash on Delivery (COD)" : "Online Payment",
+        paymentStatus: paymentMethod === "cod" ? "Pending" : "Paid",
         notes: formData.notes,
       };
 
       const createdOrder = await placeOrder(orderPayload);
-      clearCart();
-      navigate(`/order-confirmation/${createdOrder.id}`);
+      if (creditApplied > 0) refreshCredit();
+
+      if (referralDiscount > 0) clearAttribution(); // the invitation is used up with this first order
+
+      setOrderCompleted(true);
+      removeCheckedOutItems();
+      const confirmationId = createdOrder.orderNumber || createdOrder.id;
+      navigate(`/order-confirmation/${confirmationId}`);
     } catch (err) {
       console.error("Order creation failed:", err);
-      alert("Failed to submit demo order. Please retry.");
+      refreshOffers(); // e.g. the offer changed while the customer was on this page
+      alert(err.message || "Failed to submit order. Please retry.");
     } finally {
       setIsSubmitting(false);
     }
@@ -165,7 +253,7 @@ export const CheckoutPage = () => {
         />
 
         <div className="pb-4 mb-6 border-b border-[#E5E7DF]">
-          <h1 className="font-serif text-3xl font-bold text-[#171A17]">
+          <h1 className="font-heading tracking-tight text-3xl font-bold text-[#171A17]">
             Botanical Dispensary Checkout
           </h1>
           <p className="text-xs sm:text-sm text-[#666B64] mt-1 flex items-center gap-1.5">
@@ -180,7 +268,7 @@ export const CheckoutPage = () => {
             <div className="lg:col-span-7 space-y-6">
               {/* 1. Contact Information */}
               <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 shadow-xs space-y-4">
-                <h3 className="font-serif text-lg font-bold text-[#171A17] flex items-center gap-2">
+                <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17] flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-[#173D2A] text-white text-xs flex items-center justify-center font-sans">
                     1
                   </span>
@@ -252,7 +340,7 @@ export const CheckoutPage = () => {
 
               {/* 2. Shipping Address */}
               <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 shadow-xs space-y-4">
-                <h3 className="font-serif text-lg font-bold text-[#171A17] flex items-center gap-2">
+                <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17] flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-[#173D2A] text-white text-xs flex items-center justify-center font-sans">
                     2
                   </span>
@@ -398,7 +486,7 @@ export const CheckoutPage = () => {
 
               {/* 3. Delivery Method */}
               <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 shadow-xs space-y-4">
-                <h3 className="font-serif text-lg font-bold text-[#171A17] flex items-center gap-2">
+                <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17] flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-[#173D2A] text-white text-xs flex items-center justify-center font-sans">
                     3
                   </span>
@@ -470,11 +558,11 @@ export const CheckoutPage = () => {
 
               {/* 4. Payment Selection */}
               <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 shadow-xs space-y-4">
-                <h3 className="font-serif text-lg font-bold text-[#171A17] flex items-center gap-2">
+                <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17] flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-[#173D2A] text-white text-xs flex items-center justify-center font-sans">
                     4
                   </span>
-                  <span>Payment Method (Demo Mode)</span>
+                  <span>Payment Method</span>
                 </h3>
 
                 <div className="space-y-3 text-xs">
@@ -505,7 +593,7 @@ export const CheckoutPage = () => {
                     </div>
                   </label>
 
-                  {/* Online Payment Demo */}
+                  {/* Online Payment */}
                   <label
                     className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
                       paymentMethod === "online"
@@ -524,10 +612,13 @@ export const CheckoutPage = () => {
                     <div className="space-y-1">
                       <div className="font-bold text-[#171A17] flex items-center gap-1.5">
                         <CreditCard size={16} className="text-[#386B40]" />
-                        <span>Online Payment — Instant Demo Checkout</span>
+                        <span>Online Payment (Cashfree PG)</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-200">
+                          Secure &amp; Instant
+                        </span>
                       </div>
                       <p className="text-stone-500">
-                        Demo simulated UPI (GPay, PhonePe), Cards &amp; NetBanking. No real money charged.
+                        Instant, encrypted checkout via Cashfree PG (UPI, Cards &amp; NetBanking).
                       </p>
                     </div>
                   </label>
@@ -537,7 +628,7 @@ export const CheckoutPage = () => {
 
             {/* Right Column: Order Summary & Place Order Button (5 cols) */}
             <div className="lg:col-span-5 bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 space-y-6 shadow-xs sticky top-28">
-              <h3 className="font-serif text-xl font-bold text-[#171A17] pb-3 border-b border-[#E5E7DF]">
+              <h3 className="font-heading tracking-tight text-xl font-bold text-[#171A17] pb-3 border-b border-[#E5E7DF]">
                 Order Items ({cartItems.length})
               </h3>
 
@@ -568,14 +659,75 @@ export const CheckoutPage = () => {
               {/* Price Breakdown */}
               <div className="border-t border-[#E5E7DF] pt-4 space-y-2 text-xs sm:text-sm">
                 <div className="flex justify-between text-[#666B64]">
-                  <span>Subtotal</span>
-                  <span className="font-semibold text-[#171A17]">{formatINR(subtotal)}</span>
+                  <span>Subtotal (MRP)</span>
+                  <span className="font-semibold text-[#171A17]">{formatINR(mrpSubtotal)}</span>
                 </div>
                 {discountTotal > 0 && (
                   <div className="flex justify-between text-emerald-700">
                     <span>Discount</span>
                     <span className="font-semibold">-{formatINR(discountTotal)}</span>
                   </div>
+                )}
+                {offerDiscount > 0 && appliedOffer && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>
+                      {appliedOffer.title || appliedOffer.code}
+                      <span className="block text-[10px] text-emerald-600/80">
+                        {appliedOffer.source === "auto" ? "Offer auto-applied" : `Coupon ${appliedOffer.code}`}
+                      </span>
+                    </span>
+                    <span className="font-semibold">-{formatINR(offerDiscount)}</span>
+                  </div>
+                )}
+                {referralDiscount > 0 && (
+                  <div className="flex justify-between items-center text-emerald-800 bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+                    <span className="flex items-center gap-1.5 font-medium text-xs">
+                      <Gift size={13} className="text-emerald-700 shrink-0" />
+                      <span>Friend Referral Discount ({activeAttribution?.code})</span>
+                    </span>
+                    <span className="font-bold text-xs">-{formatINR(referralDiscount)}</span>
+                  </div>
+                )}
+                {/* Friend's referral code, typed in by hand (a link saves it automatically) */}
+                {!referralCode ? (
+                  <div className="space-y-1">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={codeInput}
+                        onChange={(e) => {
+                          setCodeInput(e.target.value.toUpperCase());
+                          setCodeMessage("");
+                        }}
+                        placeholder="Referral code from a friend"
+                        className="flex-1 min-w-0 px-3 py-2 text-xs font-mono bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40]"
+                      />
+                      <button
+                        type="button"
+                        disabled={applyingCode || !codeInput.trim()}
+                        onClick={async () => {
+                          setApplyingCode(true);
+                          const res = await applyReferralCode(codeInput);
+                          setApplyingCode(false);
+                          setCodeMessage(res.valid ? "" : res.reason || "This referral code is not valid.");
+                          if (res.valid) setCodeInput("");
+                        }}
+                        className="px-3 py-2 text-xs font-semibold rounded-xl bg-[#173D2A] text-white disabled:opacity-50"
+                      >
+                        {applyingCode ? "Checking…" : "Apply"}
+                      </button>
+                    </div>
+                    {codeMessage && <p className="text-[11px] text-rose-700">{codeMessage}</p>}
+                  </div>
+                ) : (
+                  <button type="button" onClick={clearAttribution} className="text-[11px] text-stone-500 underline">
+                    Remove referral code {referralCode}
+                  </button>
+                )}
+                {referralCode && referralDiscount === 0 && referralPreview.reason && (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5">
+                    Referral code {referralCode}: {referralPreview.reason}
+                  </p>
                 )}
                 <div className="flex justify-between text-[#666B64]">
                   <div>
@@ -617,9 +769,19 @@ export const CheckoutPage = () => {
                   </div>
                 </div>
 
+                {storeCredit > 0 && (
+                  <label className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs cursor-pointer">
+                    <span className="flex items-center gap-2">
+                      <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} />
+                      <span className="font-semibold text-emerald-900">Use store credit ({formatINR(storeCredit)} available)</span>
+                    </span>
+                    {creditApplied > 0 && <span className="font-bold text-emerald-800">-{formatINR(creditApplied)}</span>}
+                  </label>
+                )}
+
                 <div className="border-t border-[#E5E7DF] pt-3 flex justify-between items-baseline">
                   <div>
-                    <span className="text-base font-serif font-bold text-[#171A17] block">
+                    <span className="text-base font-heading tracking-tight font-bold text-[#171A17] block">
                       Total Payable
                     </span>
                     <span className="text-[11px] text-stone-400">

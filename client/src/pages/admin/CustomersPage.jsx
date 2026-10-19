@@ -16,8 +16,8 @@ export const CustomersPage = () => {
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       const matchSearch =
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.phone?.includes(searchTerm) ||
         c.city?.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -33,13 +33,16 @@ export const CustomersPage = () => {
     return filteredCustomers.slice(start, start + pageSize);
   }, [filteredCustomers, currentPage, pageSize]);
 
-  const handleToggleBlock = (c) => {
+  const handleToggleBlock = async (c) => {
     const newStatus = c.status === "Blocked" ? "Active" : "Blocked";
-    saveCustomer({
-      ...c,
-      status: newStatus,
-    });
+    try {
+      await saveCustomer({ id: c.id, status: newStatus });
+    } catch (err) {
+      window.alert(err.message || "Could not update this customer.");
+    }
   };
+
+  const formatLocation = (c) => [c.city, c.state].filter(Boolean).join(", ") || "No address saved";
 
   const columns = [
     {
@@ -65,10 +68,8 @@ export const CustomersPage = () => {
       header: "Phone & Location",
       render: (row) => (
         <div>
-          <div className="text-xs text-stone-800">{row.phone || "+91 98765 43210"}</div>
-          <div className="text-[11px] text-stone-400">
-            {row.city || "Mumbai"}, {row.state || "Maharashtra"}
-          </div>
+          <div className="text-xs text-stone-800">{row.phone || "No phone"}</div>
+          <div className="text-[11px] text-stone-400">{formatLocation(row)}</div>
         </div>
       ),
     },
@@ -92,7 +93,7 @@ export const CustomersPage = () => {
       header: "Joined Date",
       render: (row) => (
         <span className="text-xs text-stone-500">
-          {formatDate(row.joinedAt || row.createdAt || "2026-01-15")}
+          {row.joinedAt || row.createdAt ? formatDate(row.joinedAt || row.createdAt) : "—"}
         </span>
       ),
     },

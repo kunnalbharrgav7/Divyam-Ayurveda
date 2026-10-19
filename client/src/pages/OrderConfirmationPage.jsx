@@ -48,7 +48,7 @@ export const OrderConfirmationPage = () => {
   if (!order) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <h2 className="font-serif text-2xl font-bold mb-2">Order Not Found</h2>
+        <h2 className="font-heading tracking-tight text-2xl font-bold mb-2">Order Not Found</h2>
         <p className="text-sm text-stone-500 mb-6">
           Could not locate order ID &ldquo;{orderId}&rdquo;.
         </p>
@@ -66,14 +66,14 @@ export const OrderConfirmationPage = () => {
     <div className="bg-[#FBFAF6] min-h-screen py-10">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Success Card Header */}
-        <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-10 text-center shadow-xs mb-8">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 size={36} />
+        <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-10 text-center shadow-xs mb-8 animate-in fade-in duration-300">
+          <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-4 animate-in zoom-in-75 duration-300">
+            <CheckCircle2 size={36} className="text-emerald-700" />
           </div>
           <span className="text-xs font-bold uppercase tracking-wider text-[#386B40]">
             Order Successfully Placed
           </span>
-          <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#171A17] mt-1 mb-2">
+          <h1 className="font-heading tracking-tight text-3xl sm:text-4xl font-bold text-[#171A17] mt-1 mb-2">
             Thank You, {order.customer?.name}!
           </h1>
           <p className="text-sm text-[#666B64] max-w-lg mx-auto leading-relaxed">
@@ -104,7 +104,7 @@ export const OrderConfirmationPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Shipping & Payment Box */}
           <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 space-y-4">
-            <h3 className="font-serif text-lg font-bold text-[#171A17] flex items-center gap-2">
+            <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17] flex items-center gap-2">
               <MapPin size={18} className="text-[#386B40]" />
               <span>Shipping Information</span>
             </h3>
@@ -130,7 +130,7 @@ export const OrderConfirmationPage = () => {
 
           {/* Timeline & Dispatch Box */}
           <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 space-y-4">
-            <h3 className="font-serif text-lg font-bold text-[#171A17] flex items-center gap-2">
+            <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17] flex items-center gap-2">
               <Truck size={18} className="text-[#386B40]" />
               <span>Fulfillment Status</span>
             </h3>
@@ -171,7 +171,7 @@ export const OrderConfirmationPage = () => {
 
         {/* Ordered Products Table */}
         <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 shadow-xs mb-8">
-          <h3 className="font-serif text-lg font-bold text-[#171A17] pb-4 mb-4 border-b border-[#E5E7DF]">
+          <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17] pb-4 mb-4 border-b border-[#E5E7DF]">
             Ordered Formulations
           </h3>
 
@@ -214,7 +214,7 @@ export const OrderConfirmationPage = () => {
               </span>
             </div>
             <div className="border-t border-[#E5E7DF] pt-3 flex justify-between items-baseline">
-              <span className="text-base font-serif font-bold text-[#171A17]">Total Paid</span>
+              <span className="text-base font-heading tracking-tight font-bold text-[#171A17]">Total Paid</span>
               <span className="text-2xl font-bold text-[#173D2A]">
                 {formatINR(order.pricing?.total)}
               </span>

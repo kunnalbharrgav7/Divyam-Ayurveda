@@ -1,0 +1,94 @@
+[
+  {
+    "_id": "6ad346cf84d5491fed184ff4",
+    "__v": 0,
+    "appearance": {
+      "primaryColor": "#173D2A",
+      "secondaryColor": "#386B40",
+      "accentColor": "#A9D18E",
+      "bannerAnnouncementText": "DISCOVER THE WISDOM OF AYURVEDA — Pure, classical botanical formulations crafted for modern holistic health"
+    },
+    "createdAt": "2026-10-17T09:58:39.214Z",
+    "general": {
+      "storeName": "Divyam Ayurveda",
+      "storeTagline": "Pure Herbal Wellness",
+      "contactEmail": "care@divyamayurveda.com",
+      "contactPhone": "+91 (080) 4567-8900",
+      "dispensaryAddress": "108 Botanical Garden Road, Indiranagar, Bengaluru, Karnataka 560038",
+      "defaultCurrency": "INR",
+      "timezone": "Asia/Kolkata (IST)"
+    },
+    "notifications": {
+      "emailOnNewOrder": true,
+      "smsOnDispatch": true,
+      "lowStockAlerts": true,
+      "dailySalesDigest": false
+    },
+    "shipping": {
+      "originState": "Karnataka",
+      "originCity": "Bengaluru",
+      "originPincode": "560038",
+      "standardShippingFee": 40,
+      "freeShippingThreshold": 499,
+      "expressShippingFee": 99,
+      "dispatchLeadTime": "24-48 Hours",
+      "zones": [
+        {
+          "id": "zone-1",
+          "name": "Zone 1 (Local / Intra-State)",
+          "tier": "Local",
+          "description": "Intra-state delivery within origin state",
+          "baseFee": 40,
+          "freeThreshold": 499,
+          "deliveryDays": "1–2 Business Days",
+          "_id": "6ad4cd6333104d223e93ed00"
+        },
+        {
+          "id": "zone-2",
+          "name": "Zone 2 (Regional)",
+          "tier": "Regional",
+          "description": "Neighboring states & contiguous transit hubs",
+          "baseFee": 65,
+          "freeThreshold": 699,
+          "deliveryDays": "2–4 Business Days",
+          "_id": "6ad4cd6333104d223e93ed01"
+        },
+        {
+          "id": "zone-3",
+          "name": "Zone 3 (National)",
+          "tier": "National",
+          "description": "Rest of India major cities, metros and towns",
+          "baseFee": 90,
+          "freeThreshold": 899,
+          "deliveryDays": "4–6 Business Days",
+          "_id": "6ad4cd6333104d223e93ed02"
+        },
+        {
+          "id": "zone-4",
+          "name": "Zone 4 (Special / Remote)",
+          "tier": "Remote",
+          "description": "North-East states, J&K, Ladakh, and Island territories",
+          "baseFee": 140,
+          "freeThreshold": 1299,
+          "deliveryDays": "6–9 Business Days",
+          "_id": "6ad4cd6333104d223e93ed03"
+        }
+      ]
+    },
+    "store": {
+      "enableCashOnDelivery": true,
+      "maxCodLimit": 5000,
+      "enableGuestCheckout": true,
+      "enableReviewModeration": true,
+      "lowStockThreshold": 10,
+      "notifyLowStock": true
+    },
+    "tax": {
+      "originState": "Karnataka",
+      "taxIncludedInPrice": true,
+      "standardGstRate": 12,
+      "gstinNumber": "29AABCD1234E1Z5"
+    },
+    "updatedAt": "2026-10-18T13:45:07.803Z"
+  }
+]

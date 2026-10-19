@@ -1,0 +1,45 @@
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: divyam_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: divyam_ayurveda
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: divyam_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: .
+    container_name: divyam_api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGODB_URI: mongodb://mongo:27017/divyam_ayurveda
+      REDIS_URL: redis://redis:6379
+      CLIENT_ORIGIN: http://localhost:5173
+      JWT_ACCESS_SECRET: replace_with_64_plus_random_bytes_super_secret_divyam_access_token_key_2026
+      JWT_REFRESH_SECRET: replace_with_different_64_plus_random_bytes_super_secret_divyam_refresh_key_2026
+      COOKIE_SECURE: "false"
+      OBJECT_STORAGE_PROVIDER: local
+    depends_on:
+      - mongo
+      - redis
+
+volumes:
+  mongo_data:
+  redis_data:
+

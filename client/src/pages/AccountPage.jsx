@@ -1,3 +1,4 @@
+import { INDIAN_STATES } from "../utils/shippingCalculator";
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -15,20 +16,35 @@ import {
   Eye,
   X,
   Star,
+  Gift,
+  RotateCcw,
 } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { useAuth } from "../context/AuthContext";
 import { useOrders } from "../context/OrderContext";
+import { useReturns } from "../context/ReturnContext";
+import { ReturnRequestModal } from "../components/returns/ReturnRequestModal";
+import { MyReturnsPanel, RETURN_STATUS_LABEL, RETURN_STATUS_STYLE } from "../components/returns/MyReturnsPanel";
 import { formatINR, formatDate } from "../utils/formatters";
+import { ReferralLinkCard } from "../components/referrals/ReferralLinkCard";
+import { ReferralShareActions } from "../components/referrals/ReferralShareActions";
+import { ReferralStats } from "../components/referrals/ReferralStats";
+import { ReferralHowItWorks } from "../components/referrals/ReferralHowItWorks";
+import { ReferralHistory } from "../components/referrals/ReferralHistory";
+import { WalletLedger } from "../components/referrals/WalletLedger";
 
 export const AccountPage = () => {
   const { user, isAuthenticated, logout, updateProfile, addresses, addAddress, deleteAddress, setDefaultAddress } = useAuth();
   const { orders } = useOrders();
+  const { returns, eligibility, getReturnForOrder, refresh: refreshReturns } = useReturns();
+  const [returnOrder, setReturnOrder] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Tab management: "overview" | "orders" | "addresses" | "profile"
+  // Tab management: "overview" | "orders" | "referrals" | "addresses" | "profile"
   const getInitialTab = () => {
+    if (location.pathname.includes("/referrals") || location.search.includes("tab=referrals")) return "referrals";
+    if (location.pathname.includes("/returns") || location.search.includes("tab=returns")) return "returns";
     if (location.pathname.includes("/orders")) return "orders";
     if (location.pathname.includes("/addresses")) return "addresses";
     if (location.pathname.includes("/profile")) return "profile";
@@ -56,6 +72,9 @@ export const AccountPage = () => {
     phone: user?.phone || "",
   });
   const [profileSuccess, setProfileSuccess] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [addressError, setAddressError] = useState("");
+  const [savingAddress, setSavingAddress] = useState(false);
 
   // Selected Order for detail modal
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -74,27 +93,48 @@ export const AccountPage = () => {
     navigate("/");
   };
 
-  const handleProfileSubmit = (e) => {
+  const handleProfileSubmit = async (e) => {
     e.preventDefault();
-    updateProfile(profileForm);
-    setProfileSuccess(true);
-    setTimeout(() => setProfileSuccess(false), 2500);
+    setProfileError("");
+    try {
+      await updateProfile(profileForm);
+      setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 2500);
+    } catch (err) {
+      setProfileError(err.message || "Could not update your profile.");
+    }
   };
 
-  const handleCreateAddress = (e) => {
+  const handleCreateAddress = async (e) => {
     e.preventDefault();
-    if (!newAddr.street || !newAddr.city || !newAddr.pincode) return;
-    addAddress(newAddr);
-    setShowAddressModal(false);
-    setNewAddr({
-      fullName: user?.name || "",
-      phone: user?.phone || "",
-      street: "",
-      city: "",
-      state: "Karnataka",
-      pincode: "",
-      type: "Home",
-    });
+    if (!newAddr.street || !newAddr.city || !newAddr.pincode || savingAddress) return;
+    setSavingAddress(true);
+    setAddressError("");
+    try {
+      await addAddress(newAddr);
+      setShowAddressModal(false);
+      setNewAddr({
+        fullName: user?.name || "",
+        phone: user?.phone || "",
+        street: "",
+        city: "",
+        state: "Karnataka",
+        pincode: "",
+        type: "Home",
+      });
+    } catch (err) {
+      setAddressError(err.message || "Could not save this address.");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const handleAddressAction = async (action) => {
+    try {
+      await action();
+    } catch (err) {
+      window.alert(err.message || "Something went wrong. Please try again.");
+    }
   };
 
   return (
@@ -116,7 +156,7 @@ export const AccountPage = () => {
               <span className="text-xs font-semibold uppercase tracking-wider text-[#A9D18E]">
                 Ayurveda Wellness Member
               </span>
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold">{user.name}</h1>
+              <h1 className="font-heading tracking-tight text-2xl sm:text-3xl font-bold">{user.name}</h1>
               <p className="text-xs text-stone-200 mt-0.5">
                 {user.email} &bull; Member since {user.memberSince || "2025"}
               </p>
@@ -139,6 +179,8 @@ export const AccountPage = () => {
             {[
               { id: "overview", label: "Dashboard Overview", icon: ShieldCheck },
               { id: "orders", label: `My Orders (${orders.length})`, icon: Package },
+              { id: "returns", label: `Returns & Refunds${returns.length ? ` (${returns.length})` : ""}`, icon: RotateCcw },
+              { id: "referrals", label: "Refer & Earn (Rewards)", icon: Gift },
               { id: "addresses", label: `Saved Addresses (${addresses.length})`, icon: MapPin },
               { id: "profile", label: "Profile Settings", icon: Settings },
             ].map((tab) => {
@@ -166,7 +208,7 @@ export const AccountPage = () => {
             {activeTab === "overview" && (
               <div className="space-y-8">
                 <div>
-                  <h2 className="font-serif text-2xl font-bold text-[#171A17]">
+                  <h2 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">
                     Account Overview
                   </h2>
                   <p className="text-xs sm:text-sm text-[#666B64] mt-1">
@@ -193,7 +235,7 @@ export const AccountPage = () => {
                 {/* Recent Orders Preview */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-serif text-lg font-bold text-[#171A17]">
+                    <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17]">
                       Recent Orders
                     </h3>
                     <button
@@ -243,6 +285,73 @@ export const AccountPage = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Referral Program Overview Banner */}
+                <div className="bg-gradient-to-br from-[#173D2A] to-[#0B2416] text-white rounded-3xl p-6 sm:p-7 relative overflow-hidden shadow-xs border border-[#A9D18E]/20">
+                  <div className="absolute right-0 bottom-0 w-48 h-48 bg-[#A9D18E]/10 rounded-full blur-2xl pointer-events-none" />
+                  <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1.5 max-w-lg">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/10 text-[#A9D18E] text-[11px] font-bold uppercase tracking-wider border border-white/10">
+                        <Gift size={12} />
+                        <span>Refer & Earn Program</span>
+                      </div>
+                      <h3 className="font-heading tracking-tight text-xl sm:text-2xl font-bold text-white">
+                        Invite Friends & Earn ₹100
+                      </h3>
+                      <p className="text-xs text-stone-300 leading-relaxed">
+                        Give your friends 10% OFF their first Ayurvedic wellness order. Earn ₹100 in rewards whenever they place an order above ₹499.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setActiveTab("referrals")}
+                      className="px-5 py-2.5 bg-[#A9D18E] hover:bg-[#8FBE72] text-[#0B2416] text-xs font-bold rounded-xl shadow-xs transition-colors shrink-0 flex items-center gap-2"
+                    >
+                      <span>View Referral Hub</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* REFERRALS & REWARDS TAB */}
+            {activeTab === "referrals" && (
+              <div className="space-y-8">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold uppercase tracking-wider mb-2 border border-emerald-200">
+                    <Gift size={13} />
+                    <span>Wellness Referral Circle</span>
+                  </div>
+                  <h2 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">
+                    Refer Friends & Earn Ayurvedic Rewards
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#666B64] mt-1">
+                    Share your unique link or code. Friends receive 10% OFF their first order, and you earn ₹100 in wellness rewards.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                  <div className="xl:col-span-7 space-y-6">
+                    <ReferralLinkCard />
+                    <ReferralShareActions />
+                  </div>
+                  <div className="xl:col-span-5">
+                    <ReferralHowItWorks />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17]">
+                    Your Referral Performance
+                  </h3>
+                  <ReferralStats />
+                </div>
+
+                <div className="space-y-4">
+                  <ReferralHistory />
+                  <WalletLedger />
+                </div>
               </div>
             )}
 
@@ -250,7 +359,7 @@ export const AccountPage = () => {
             {activeTab === "orders" && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="font-serif text-2xl font-bold text-[#171A17]">
+                  <h2 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">
                     Order History
                   </h2>
                   <p className="text-xs sm:text-sm text-[#666B64] mt-1">
@@ -343,12 +452,43 @@ export const AccountPage = () => {
                           >
                             Track Shipment &rarr;
                           </Link>
-                          <button
-                            onClick={() => setSelectedOrder(ord)}
-                            className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold"
-                          >
-                            View Order Details
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {(() => {
+                              const ret = getReturnForOrder(ord.id);
+                              const el = eligibility[ord.id];
+                              if (ret) {
+                                return (
+                                  <button
+                                    onClick={() => setActiveTab("returns")}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${RETURN_STATUS_STYLE[ret.status] || "bg-stone-100"}`}
+                                  >
+                                    Return: {RETURN_STATUS_LABEL[ret.status] || ret.status}
+                                  </button>
+                                );
+                              }
+                              if (el?.eligible) {
+                                return (
+                                  <button
+                                    onClick={() => setReturnOrder(ord)}
+                                    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1"
+                                    title={`${el.daysLeft} day(s) left to return`}
+                                  >
+                                    <RotateCcw size={12} /> Return / Refund
+                                  </button>
+                                );
+                              }
+                              if (el && ord.rawStatus === "delivered" && el.reason) {
+                                return <span className="text-[11px] text-stone-400" title={el.reason}>Return window closed</span>;
+                              }
+                              return null;
+                            })()}
+                            <button
+                              onClick={() => setSelectedOrder(ord)}
+                              className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold"
+                            >
+                              View Order Details
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -357,12 +497,15 @@ export const AccountPage = () => {
               </div>
             )}
 
+            {/* RETURNS TAB */}
+            {activeTab === "returns" && <MyReturnsPanel />}
+
             {/* 3. ADDRESSES TAB */}
             {activeTab === "addresses" && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="font-serif text-2xl font-bold text-[#171A17]">
+                    <h2 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">
                       Saved Addresses
                     </h2>
                     <p className="text-xs sm:text-sm text-[#666B64] mt-1">
@@ -370,13 +513,22 @@ export const AccountPage = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => setShowAddressModal(true)}
+                    onClick={() => {
+                      setAddressError("");
+                      setShowAddressModal(true);
+                    }}
                     className="px-4 py-2 bg-[#173D2A] hover:bg-[#0B2416] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
                   >
                     <Plus size={14} />
                     <span>Add Address</span>
                   </button>
                 </div>
+
+                {addresses.length === 0 && (
+                  <div className="p-8 rounded-2xl border border-dashed border-[#E5E7DF] bg-white text-center text-xs text-stone-500">
+                    You haven't saved any delivery addresses yet. Add one for faster checkout.
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {addresses.map((addr) => (
@@ -411,14 +563,14 @@ export const AccountPage = () => {
                           </span>
                         ) : (
                           <button
-                            onClick={() => setDefaultAddress(addr.id)}
+                            onClick={() => handleAddressAction(() => setDefaultAddress(addr.id))}
                             className="text-[#386B40] font-semibold hover:underline"
                           >
                             Set as Default
                           </button>
                         )}
                         <button
-                          onClick={() => deleteAddress(addr.id)}
+                          onClick={() => handleAddressAction(() => deleteAddress(addr.id))}
                           className="text-stone-400 hover:text-rose-600 transition-colors p-1"
                           title="Delete Address"
                         >
@@ -435,7 +587,7 @@ export const AccountPage = () => {
             {activeTab === "profile" && (
               <div className="space-y-6 max-w-xl">
                 <div>
-                  <h2 className="font-serif text-2xl font-bold text-[#171A17]">
+                  <h2 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">
                     Personal Information
                   </h2>
                   <p className="text-xs sm:text-sm text-[#666B64] mt-1">
@@ -446,6 +598,11 @@ export const AccountPage = () => {
                 {profileSuccess && (
                   <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs border border-emerald-200">
                     Profile successfully updated!
+                  </div>
+                )}
+                {profileError && (
+                  <div className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs border border-rose-200">
+                    {profileError}
                   </div>
                 )}
 
@@ -469,9 +626,11 @@ export const AccountPage = () => {
                     <input
                       type="email"
                       value={profileForm.email}
-                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                      className="w-full p-2.5 bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40]"
+                      readOnly
+                      title="Your email address is your login and can't be changed"
+                      className="w-full p-2.5 bg-stone-100 text-stone-500 border border-[#E5E7DF] rounded-xl cursor-not-allowed focus:outline-none"
                     />
+                    <p className="text-[11px] text-stone-400 mt-1">Your email is your login and can't be changed.</p>
                   </div>
 
                   <div>
@@ -504,7 +663,7 @@ export const AccountPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E7DF]">
-              <h3 className="font-serif text-lg font-bold text-[#171A17]">Add New Address</h3>
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17]">Add New Address</h3>
               <button
                 onClick={() => setShowAddressModal(false)}
                 className="p-1 rounded-lg hover:bg-stone-100 text-stone-500"
@@ -545,6 +704,21 @@ export const AccountPage = () => {
                   className="w-full p-2 bg-stone-50 border rounded-xl"
                 />
               </div>
+              <div>
+                <label className="block font-semibold text-[#171A17] mb-1">State</label>
+                <select
+                  required
+                  value={newAddr.state}
+                  onChange={(e) => setNewAddr({ ...newAddr, state: e.target.value })}
+                  className="w-full p-2 bg-stone-50 border rounded-xl"
+                >
+                  {INDIAN_STATES.map((st) => (
+                    <option key={st} value={st}>
+                      {st}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block font-semibold text-[#171A17] mb-1">City</label>
@@ -571,6 +745,12 @@ export const AccountPage = () => {
                 </div>
               </div>
 
+              {addressError && (
+                <div className="p-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200">
+                  {addressError}
+                </div>
+              )}
+
               <div className="pt-3 flex gap-2">
                 <button
                   type="button"
@@ -581,9 +761,10 @@ export const AccountPage = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-[#173D2A] text-white font-semibold"
+                  disabled={savingAddress}
+                  className="flex-1 py-2 rounded-xl bg-[#173D2A] text-white font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Save Address
+                  {savingAddress ? "Saving..." : "Save Address"}
                 </button>
               </div>
             </form>
@@ -592,13 +773,24 @@ export const AccountPage = () => {
       )}
 
       {/* Order Details Modal */}
+      {returnOrder && (
+        <ReturnRequestModal
+          order={returnOrder}
+          onClose={() => setReturnOrder(null)}
+          onSubmitted={() => {
+            setReturnOrder(null);
+            setActiveTab("returns");
+          }}
+        />
+      )}
+
       {selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E7DF]">
               <div>
                 <span className="text-[11px] font-bold text-[#386B40] uppercase">Order Details</span>
-                <h3 className="font-serif text-lg font-bold font-mono text-[#171A17]">
+                <h3 className="font-heading tracking-tight text-lg font-bold font-mono text-[#171A17]">
                   {selectedOrder.id}
                 </h3>
               </div>

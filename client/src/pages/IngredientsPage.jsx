@@ -1,21 +1,45 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Search, Sparkles, Leaf, ArrowRight } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
-import { ingredients } from "../data/ingredients";
+import { contentService } from "../services/api";
 
 export const IngredientsPage = () => {
+  const [ingredientsList, setIngredientsList] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredIngredients = ingredients.filter((ing) => {
-    const q = searchTerm.toLowerCase();
-    return (
-      ing.name.toLowerCase().includes(q) ||
-      ing.sanskritName.toLowerCase().includes(q) ||
-      ing.botanicalName.toLowerCase().includes(q) ||
-      ing.traditionalUses.toLowerCase().includes(q)
-    );
-  });
+  useEffect(() => {
+    let isMounted = true;
+    const fetchIngs = async () => {
+      try {
+        const data = await contentService.getIngredients();
+        if (isMounted && Array.isArray(data)) {
+          setIngredientsList(data);
+        }
+      } catch (err) {
+        console.error("Failed to load ingredients:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchIngs();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredIngredients = useMemo(() => {
+    return ingredientsList.filter((ing) => {
+      const q = searchTerm.toLowerCase();
+      return (
+        ing.name?.toLowerCase().includes(q) ||
+        ing.sanskritName?.toLowerCase().includes(q) ||
+        ing.botanicalName?.toLowerCase().includes(q) ||
+        ing.traditionalUses?.toLowerCase().includes(q)
+      );
+    });
+  }, [ingredientsList, searchTerm]);
 
   return (
     <div className="bg-[#FBFAF6] min-h-screen py-8">
@@ -27,7 +51,7 @@ export const IngredientsPage = () => {
           <span className="text-xs font-semibold uppercase tracking-wider text-[#386B40] flex items-center justify-center gap-1.5">
             <Leaf size={14} /> Botanical Materia Medica
           </span>
-          <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#171A17]">
+          <h1 className="font-heading tracking-tight text-3xl sm:text-4xl font-bold text-[#171A17]">
             Ayurvedic Herb Directory
           </h1>
           <p className="text-xs sm:text-sm text-[#666B64] leading-relaxed">
@@ -50,8 +74,19 @@ export const IngredientsPage = () => {
         </div>
 
         {/* Directory Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 my-8">
-          {filteredIngredients.map((item) => (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 my-8">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-white rounded-3xl border border-[#E5E7DF] p-6 h-64 animate-pulse" />
+            ))}
+          </div>
+        ) : filteredIngredients.length === 0 ? (
+          <div className="py-16 text-center text-stone-500">
+            No herbal ingredients found matching "{searchTerm}".
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 my-8">
+            {filteredIngredients.map((item) => (
             <div
               key={item.id}
               className="bg-white rounded-3xl border border-[#E5E7DF] overflow-hidden p-6 flex flex-col justify-between shadow-xs hover:border-[#A9D18E] transition-all"
@@ -67,7 +102,7 @@ export const IngredientsPage = () => {
                     />
                   </div>
                   <div>
-                    <h3 className="font-serif text-lg font-bold text-[#171A17]">
+                    <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17]">
                       {item.name}
                     </h3>
                     <p className="text-xs text-[#386B40] font-medium font-sans">
@@ -113,6 +148,7 @@ export const IngredientsPage = () => {
             </div>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

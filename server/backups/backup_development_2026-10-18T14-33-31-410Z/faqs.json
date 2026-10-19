@@ -1,0 +1,90 @@
+[
+  {
+    "_id": "6ad346cf84d5491fed184fe5",
+    "question": "Are Divyam Ayurveda products 100% natural and chemical-free?",
+    "__v": 0,
+    "answer": "Yes. All Divyam Ayurveda products are formulated using non-GMO, sustainably harvested wild botanicals and whole herbs. We do not use parabens, synthetic fillers, mineral oils, artificial coloring, or chemical preservatives.",
+    "category": "products",
+    "createdAt": "2026-10-17T09:58:39.199Z",
+    "displayOrder": 0,
+    "isActive": true,
+    "updatedAt": "2026-10-18T13:45:07.763Z"
+  },
+  {
+    "_id": "6ad346cf84d5491fed184fe6",
+    "question": "Are your products tested for heavy metals and pesticides?",
+    "__v": 0,
+    "answer": "Every single production batch undergoes stringent laboratory testing for heavy metals (Lead, Mercury, Cadmium, Arsenic), pesticide residues, and microbial counts according to Ayush and FSSAI standards before release.",
+    "category": "products",
+    "createdAt": "2026-10-17T09:58:39.202Z",
+    "displayOrder": 0,
+    "isActive": true,
+    "updatedAt": "2026-10-18T13:45:07.765Z"
+  },
+  {
+    "_id": "6ad346cf84d5491fed184fe7",
+    "question": "How do I determine which Ayurvedic product is right for my dosha?",
+    "__v": 0,
+    "answer": "Each product details its primary dosha action (Vata, Pitta, or Kapha) on the label and product page. If you are unsure about your dominant Prakriti or currently experiencing chronic symptoms, we recommend consulting a qualified Ayurvedic practitioner.",
+    "category": "usage",
+    "createdAt": "2026-10-17T09:58:39.203Z",
+    "displayOrder": 0,
+    "isActive": true,
+    "updatedAt": "2026-10-18T13:45:07.766Z"
+  },
+  {
+    "_id": "6ad346cf84d5491fed184fe8",
+    "question": "Can I consume multiple Ayurvedic formulations together?",
+    "__v": 0,
+    "answer": "Classical formulations such as Triphala Churna and Ashwagandha can generally be integrated into daily wellness routines without conflicts. However, maintain a 30-minute interval between different preparations or consult our support team for guidance.",
+    "category": "usage",
+    "createdAt": "2026-10-17T09:58:39.203Z",
+    "displayOrder": 0,
+    "isActive": true,
+    "updatedAt": "2026-10-18T13:45:07.766Z"
+  },
+  {
+    "_id": "6ad346cf84d5491fed184fe9",
+    "question": "What are your standard delivery timelines across India?",
+    "__v": 0,
+    "answer": "Orders are dispatched within 24-48 business hours from our central Ayurvedic dispensary. Delivery to metro cities takes 2-4 business days, while tier-2 and tier-3 regions typically receive parcels within 4-7 business days.",
+    "category": "orders",
+    "createdAt": "2026-10-17T09:58:39.204Z",
+    "displayOrder": 0,
+    "isActive": true,
+    "updatedAt": "2026-10-18T13:45:07.767Z"
+  },
+  {
+    "_id": "6ad346cf84d5491fed184fea",
+    "question": "Do you offer Cash on Delivery (COD)?",
+    "__v": 0,
+    "answer": "Yes, Cash on Delivery is available across most serviceable PIN codes in India for orders up to ₹5,000. Online payments via UPI, Credit/Debit cards, and Net Banking are also supported.",
+    "category": "orders",
+    "createdAt": "2026-10-17T09:58:39.205Z",
+    "displayOrder": 0,
+    "isActive": true,
+    "updatedAt": "2026-10-18T13:45:07.768Z"
+  },
+  {
+    "_id": "6ad346cf84d5491fed184feb",
+    "question": "What is your return and exchange policy?",
+    "__v": 0,
+    "answer": "We accept returns for unopened, sealed products in their original packaging within 7 days of delivery if the parcel arrived damaged or the wrong item was dispatched. Please refer to our Returns Policy page for complete details.",
+    "category": "returns",
+    "createdAt": "2026-10-17T09:58:39.205Z",
+    "displayOrder": 0,
+    "isActive": true,
+    "updatedAt": "2026-10-18T13:45:07.770Z"
+  },
+  {
+    "_id": "6ad346cf84d5491fed184fec",
+    "question": "How long does a refund take to process?",
+    "__v": 0,
+    "answer": "Once the returned parcel is received and inspected at our warehouse, the refund is initiated within 48 hours. Depending on your bank, it reflects in your original payment method in 5-7 business days.",
+    "category": "returns",
+    "createdAt": "2026-10-17T09:58:39.206Z",
+    "displayOrder": 0,
+    "isActive": true,
+    "updatedAt": "2026-10-18T13:45:07.771Z"
+  }
+]

@@ -1,10 +1,11 @@
 import React, { useState, useRef } from "react";
 import { Upload, X, Image as ImageIcon, Link2, Check, RefreshCw } from "lucide-react";
+import { compressImageFile } from "../../../utils/imageCompressor";
 
 /**
  * AdminImageUpload Component
  * Replaces plain URL text inputs with an interactive file uploader.
- * Supports file drag-and-drop, local file picking (converted to base64 Data URL),
+ * Supports file drag-and-drop, local file picking (compressed to WebP, then stored as a Data URL),
  * live thumbnail preview, change/remove actions, and an optional URL paste toggle.
  */
 export const AdminImageUpload = ({
@@ -29,21 +30,19 @@ export const AdminImageUpload = ({
     }
   };
 
-  // Process file into base64 Data URL
-  const processFile = (file) => {
+  // Compress the file (resize + WebP) and hand it back as a Data URL
+  const processFile = async (file) => {
     if (!file.type.startsWith("image/")) {
       alert("Please upload a valid image file (PNG, JPG, WEBP, etc.)");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target.result;
-      if (onChange) {
-        onChange(base64);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const dataUrl = await compressImageFile(file, { maxDimension: 1920 });
+      if (onChange) onChange(dataUrl);
+    } catch (err) {
+      alert(err.message || "Could not process this image. Please try another file.");
+    }
   };
 
   // Drag and drop handlers

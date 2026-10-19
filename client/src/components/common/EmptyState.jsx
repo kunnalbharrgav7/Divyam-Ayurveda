@@ -15,7 +15,7 @@ export const EmptyState = ({
       <div className="w-16 h-16 rounded-full bg-[#F4F4EE] flex items-center justify-center text-[#173D2A] mb-4">
         <Icon size={32} />
       </div>
-      <h3 className="text-xl font-serif font-semibold text-[#171A17] mb-2">{title}</h3>
+      <h3 className="text-xl font-heading tracking-tight font-semibold text-[#171A17] mb-2">{title}</h3>
       <p className="text-sm text-[#666B64] max-w-md mb-6">{description}</p>
       {onAction ? (
         <button

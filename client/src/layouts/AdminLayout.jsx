@@ -10,9 +10,9 @@ export const AdminLayout = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
 
-  // If not logged in as admin, redirect to admin login
+  // If not logged in as admin, redirect to unified login
   if (!isAdmin || !adminUser) {
-    return <Navigate to="/admin/login" state={{ from: location.pathname }} replace />;
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   return (

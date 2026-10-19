@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -28,7 +28,14 @@ export const ProductsPage = () => {
     deleteProduct,
     saveProduct,
     deleteBulkProducts,
+    fetchAdminProducts,
   } = useAdmin();
+
+  // Stock changes whenever customers order; load the latest figures once when the page opens
+  useEffect(() => {
+    fetchAdminProducts?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const navigate = useNavigate();
 
   // Filters & State
@@ -271,9 +278,16 @@ export const ProductsPage = () => {
         const displayName = catObj?.name || row.category || row.categoryId || "Ayurvedic Herbs";
 
         return (
-          <span className="inline-block px-2.5 py-1 rounded-md text-xs font-medium bg-stone-100 text-stone-700">
-            {displayName}
-          </span>
+          <div className="flex flex-col gap-0.5 items-start">
+            <span className="inline-block px-2.5 py-0.5 rounded-md text-xs font-medium bg-stone-100 text-stone-700">
+              {displayName}
+            </span>
+            {row.subcategory && (
+              <span className="text-[10px] text-emerald-700 font-medium px-1">
+                ↳ {row.subcategory}
+              </span>
+            )}
+          </div>
         );
       },
     },
@@ -284,7 +298,7 @@ export const ProductsPage = () => {
           <span className="font-semibold text-stone-900">
             {formatCurrency(row.price)}
           </span>
-          {row.compareAtPrice && (
+          {Number(row.compareAtPrice) > 0 && (
             <span className="text-xs text-stone-400 line-through ml-1.5">
               {formatCurrency(row.compareAtPrice)}
             </span>

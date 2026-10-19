@@ -10,6 +10,7 @@ import {
   Sparkles,
   ShieldCheck,
   CheckCircle2,
+  XCircle,
   AlertTriangle,
   Clock,
   TrendingUp,

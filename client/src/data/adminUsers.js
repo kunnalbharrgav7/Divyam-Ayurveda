@@ -31,74 +31,11 @@ export const ROLE_DEFINITIONS = {
     description: "Unrestricted administrative control across all store operations and configurations.",
     permissions: PERMISSIONS_LIST.map((p) => p.id),
   },
-  "Admin": {
-    name: "Admin",
-    description: "Broad store operations management excluding sensitive role delegation.",
-    permissions: PERMISSIONS_LIST.filter((p) => p.id !== "roles.manage" && p.id !== "users.manage").map((p) => p.id),
-  },
-  "Product Manager": {
-    name: "Product Manager",
-    description: "Dedicated access to products, categories, brands, collections, and stock inventory.",
-    permissions: [
-      "products.view",
-      "products.create",
-      "products.edit",
-      "products.delete",
-      "inventory.manage",
-      "categories.manage",
-      "reports.view",
-    ],
-  },
-  "Order Manager": {
-    name: "Order Manager",
-    description: "Fulfillment and delivery processing, customer shipping, returns, and refunds.",
-    permissions: [
-      "orders.view",
-      "orders.update",
-      "refunds.manage",
-      "customers.view",
-      "reports.view",
-    ],
-  },
-  "Content Manager": {
-    name: "Content Manager",
-    description: "Homepage sections, banner management, informational pages, and blog management.",
-    permissions: [
-      "content.manage",
-      "discounts.manage",
-      "products.view",
-    ],
-  },
-  "Support Specialist": {
-    name: "Support Specialist",
-    description: "Review moderation, contact inquiries, support tickets, and customer inquiries.",
-    permissions: [
-      "support.manage",
-      "reviews.moderate",
-      "customers.view",
-      "orders.view",
-    ],
-  },
-  "Analyst": {
-    name: "Analyst",
-    description: "Read-only analytics, financial performance, and inventory metrics.",
-    permissions: [
-      "reports.view",
-      "products.view",
-      "orders.view",
-      "customers.view",
-    ],
-  },
 };
 
 // Aliases for programmatic and snake_case references
-ROLE_DEFINITIONS.catalog_manager = ROLE_DEFINITIONS["Product Manager"];
-ROLE_DEFINITIONS.order_fulfillment = ROLE_DEFINITIONS["Order Manager"];
-ROLE_DEFINITIONS.customer_support = ROLE_DEFINITIONS["Support Specialist"];
-ROLE_DEFINITIONS.marketing_manager = ROLE_DEFINITIONS["Content Manager"];
 ROLE_DEFINITIONS.super_admin = ROLE_DEFINITIONS["Super Admin"];
-ROLE_DEFINITIONS.admin = ROLE_DEFINITIONS["Admin"];
-ROLE_DEFINITIONS.analyst = ROLE_DEFINITIONS["Analyst"];
+ROLE_DEFINITIONS.admin = ROLE_DEFINITIONS["Super Admin"];
 
 export const initialAdminUsers = [
   {
@@ -112,49 +49,6 @@ export const initialAdminUsers = [
     avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80",
     createdAt: "2024-01-01T00:00:00Z",
   },
-  {
-    id: "admin-02",
-    name: "Dr. Rajesh Sharma",
-    email: "rajesh@divyamayurveda.demo",
-    role: "Product Manager",
-    phone: "+91 98765 00002",
-    status: "active",
-    lastLogin: "2 hours ago",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
-    createdAt: "2024-03-15T00:00:00Z",
-  },
-  {
-    id: "admin-03",
-    name: "Sunita Verma",
-    email: "sunita@divyamayurveda.demo",
-    role: "Order Manager",
-    phone: "+91 98765 00003",
-    status: "active",
-    lastLogin: "Yesterday",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-    createdAt: "2024-04-10T00:00:00Z",
-  },
-  {
-    id: "admin-04",
-    name: "Rohan Nair",
-    email: "rohan@divyamayurveda.demo",
-    role: "Support Specialist",
-    phone: "+91 98765 00004",
-    status: "active",
-    lastLogin: "3 days ago",
-    avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&q=80",
-    createdAt: "2024-05-20T00:00:00Z",
-  },
-  {
-    id: "admin-05",
-    name: "Meenakshi Iyer",
-    email: "meenakshi@divyamayurveda.demo",
-    role: "Analyst",
-    phone: "+91 98765 00005",
-    status: "active",
-    lastLogin: "5 days ago",
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80",
-    createdAt: "2024-06-01T00:00:00Z",
-  },
 ];
+
 

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, Layers } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { ProductCard } from "../components/products/ProductCard";
 import { EmptyState } from "../components/common/EmptyState";
@@ -7,6 +9,9 @@ import { categoryService, productService } from "../services/api";
 
 export const CategoryPage = () => {
   const { slug } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedSubcategory = searchParams.get("subcategory") || "all";
+
   const [category, setCategory] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,9 +22,11 @@ export const CategoryPage = () => {
       try {
         const cat = await categoryService.getCategoryBySlug(slug);
         setCategory(cat);
+
         const result = await productService.getProducts({
           category: slug,
-          limit: 20,
+          subcategory: selectedSubcategory !== "all" ? selectedSubcategory : undefined,
+          limit: 30,
         });
         setProducts(result.products);
       } catch (err) {
@@ -30,7 +37,21 @@ export const CategoryPage = () => {
     };
 
     loadCategoryData();
-  }, [slug]);
+  }, [slug, selectedSubcategory]);
+
+  const handleSubcategorySelect = (subSlug) => {
+    if (subSlug === "all") {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("subcategory");
+      setSearchParams(nextParams);
+    } else {
+      setSearchParams({ subcategory: subSlug });
+    }
+  };
+
+  const currentSubcategoryObj = category?.subcategories?.find(
+    (s) => s.slug === selectedSubcategory || s.id === selectedSubcategory
+  );
 
   if (!loading && !category) {
     return (
@@ -43,6 +64,18 @@ export const CategoryPage = () => {
         />
       </div>
     );
+  }
+
+  const breadcrumbItems = [
+    { label: "Products", href: "/products" },
+    {
+      label: category?.name || slug,
+      href: selectedSubcategory !== "all" ? `/category/${slug}` : undefined,
+    },
+  ];
+
+  if (selectedSubcategory !== "all" && currentSubcategoryObj) {
+    breadcrumbItems.push({ label: currentSubcategoryObj.name });
   }
 
   return (
@@ -58,10 +91,11 @@ export const CategoryPage = () => {
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:text-left">
           <div className="max-w-2xl space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#A9D18E]">
-              Ayurvedic Collection
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#A9D18E] flex items-center justify-center sm:justify-start gap-1.5">
+              <Layers size={13} />
+              <span>Ayurvedic Collection</span>
             </span>
-            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold">
+            <h1 className="font-heading tracking-tight text-3xl sm:text-4xl lg:text-5xl font-bold">
               {category?.name}
             </h1>
             <p className="text-sm sm:text-base text-stone-200 leading-relaxed pt-1">
@@ -73,27 +107,69 @@ export const CategoryPage = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {/* Breadcrumbs */}
-        <Breadcrumbs
-          items={[
-            { label: "Products", href: "/products" },
-            { label: category?.name || slug },
-          ]}
-        />
+        <Breadcrumbs items={breadcrumbItems} />
 
-        {/* Product Count Header */}
-        <div className="flex items-center justify-between py-4 mb-6 border-b border-[#E5E7DF]">
-          <span className="text-xs font-medium text-stone-500">
-            Showing <span className="font-bold text-[#171A17]">{products.length}</span> formulations in {category?.name}
-          </span>
+        {/* Subcategories Filter Pills */}
+        {category?.subcategories && category.subcategories.length > 0 && (
+          <div className="mt-4 mb-6">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => handleSubcategorySelect("all")}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  selectedSubcategory === "all"
+                    ? "bg-[#173D2A] text-white shadow-xs"
+                    : "bg-white text-stone-700 border border-[#E5E7DF] hover:bg-stone-50"
+                }`}
+              >
+                All {category.name}
+              </button>
+
+              {category.subcategories.map((sub) => {
+                const isActive = selectedSubcategory === sub.slug || selectedSubcategory === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => handleSubcategorySelect(sub.slug)}
+                    className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-[#173D2A] text-white shadow-xs"
+                        : "bg-white text-stone-700 border border-[#E5E7DF] hover:bg-stone-50 hover:border-[#386B40]/60"
+                    }`}
+                  >
+                    {sub.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Product Count Header & Subcategory Description */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 mb-6 border-b border-[#E5E7DF] gap-2">
+          <div>
+            <span className="text-xs font-medium text-stone-500">
+              Showing <span className="font-bold text-[#171A17]">{products.length}</span>{" "}
+              {selectedSubcategory !== "all" && currentSubcategoryObj
+                ? `formulations in ${currentSubcategoryObj.name}`
+                : `formulations in ${category?.name}`}
+            </span>
+            {currentSubcategoryObj?.description && (
+              <p className="text-xs text-[#666B64] mt-0.5">
+                {currentSubcategoryObj.description}
+              </p>
+            )}
+          </div>
           <Link
             to="/products"
-            className="text-xs font-semibold text-[#173D2A] hover:underline"
+            className="text-xs font-semibold text-[#173D2A] hover:underline shrink-0"
           >
             All Products &rarr;
           </Link>
         </div>
 
-        {/* Product Grid */}
+        {/* Product Grid with Smooth Transition */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((n) => (
@@ -102,17 +178,23 @@ export const CategoryPage = () => {
           </div>
         ) : products.length === 0 ? (
           <EmptyState
-            title="No formulations in this category yet"
-            description="Our herbal team is preparing fresh seasonal batches for this section."
-            actionText="View Other Products"
-            actionLink="/products"
+            title="No formulations found in this subcategory"
+            description="Try selecting another subcategory or browse the full Ayurvedic collection."
+            actionText="View All Formulations"
+            onAction={() => handleSubcategorySelect("all")}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <motion.div
+            key={selectedSubcategory}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+          >
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

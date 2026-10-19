@@ -17,6 +17,7 @@ import {
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { formatCurrency } from "../../utils/formatters";
+import { compressImageFile } from "../../utils/imageCompressor";
 
 export const ProductFormPage = () => {
   const { productId } = useParams();
@@ -31,6 +32,8 @@ export const ProductFormPage = () => {
     slug: "",
     sku: "",
     category: categories[0]?.name || "Digestive Health",
+    subcategory: "",
+    subcategoryId: "",
     brand: "Divyam Ayurveda",
     price: 499,
     compareAtPrice: 699,
@@ -78,6 +81,8 @@ export const ProductFormPage = () => {
   const [newIngredientName, setNewIngredientName] = useState("");
   const [newIngredientSanskrit, setNewIngredientSanskrit] = useState("");
   const [toastMessage, setToastMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   // Load existing product if editing
   useEffect(() => {
@@ -120,6 +125,8 @@ export const ProductFormPage = () => {
             return catObj?.name || existing.category || defaultFormData.category;
           })(),
           benefits: existing.benefits || defaultFormData.benefits,
+          subcategory: existing.subcategory || "",
+          subcategoryId: existing.subcategoryId || "",
           ingredients: existing.ingredients || defaultFormData.ingredients,
           dosha: existing.dosha || defaultFormData.dosha,
           variants: existing.variants || defaultFormData.variants,
@@ -134,14 +141,8 @@ export const ProductFormPage = () => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const readers = files.map(
-      (file) =>
-        new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.readAsDataURL(file);
-        })
-    );
+    // Resize + re-encode each photo (WebP, max 1600px) before it is stored
+    const readers = files.map((file) => compressImageFile(file, { maxDimension: 1600 }));
 
     Promise.all(readers).then((newUploads) => {
       setFormData((prev) => {
@@ -318,10 +319,11 @@ export const ProductFormPage = () => {
   };
 
   // Submit Handler
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitError("");
     if (!formData.title) {
-      alert("Please provide a product title.");
+      setSubmitError("Please provide a product title.");
       return;
     }
 
@@ -342,15 +344,28 @@ export const ProductFormPage = () => {
         c.slug === formData.category
     );
     const resolvedCatName = matchedCategoryObj?.name || formData.category;
-    const resolvedCatId = matchedCategoryObj?.id || matchedCategoryObj?.slug || "ayurvedic-herbs";
+    const resolvedCatId = matchedCategoryObj?.slug || matchedCategoryObj?.id || "ayurvedic-herbs";
+
+    const matchedSubcategoryObj = matchedCategoryObj?.subcategories?.find(
+      (s) =>
+        s.name?.toLowerCase() === (formData.subcategory || "").toLowerCase() ||
+        s.id === formData.subcategoryId ||
+        s.slug === formData.subcategoryId ||
+        s.id === formData.subcategory ||
+        s.slug === formData.subcategory
+    );
+    const resolvedSubcategoryName = matchedSubcategoryObj?.name || formData.subcategory || "";
+    const resolvedSubcategoryId = matchedSubcategoryObj?.slug || matchedSubcategoryObj?.id || formData.subcategoryId || "";
 
     const payload = {
       ...formData,
-      id: isEdit ? productId : "prod-" + Date.now(),
+      id: isEdit ? productId : undefined,
       title: formData.title,
       name: formData.title,
       category: resolvedCatName,
       categoryId: resolvedCatId,
+      subcategory: resolvedSubcategoryName,
+      subcategoryId: resolvedSubcategoryId,
       image: primaryImg,
       images: orderedImages,
       gallery: orderedImages,
@@ -359,17 +374,40 @@ export const ProductFormPage = () => {
       compareAtPrice: Number(formData.compareAtPrice) || null,
       stock: Number(formData.stock),
       stockQuantity: Number(formData.stock),
+      // Send the API field names explicitly; formData may still hold stale copies of them
+      isFeatured: Boolean(formData.isFeatured),
+      isBestSeller: Boolean(formData.isBestseller),
+      isBestseller: Boolean(formData.isBestseller),
+      isTrending: Boolean(formData.isTrending),
+      isNew: Boolean(formData.isNewArrival),
+      isNewArrival: Boolean(formData.isNewArrival),
       reorderThreshold: Number(formData.reorderThreshold),
       costPrice: Number(formData.costPrice),
       updatedAt: new Date().toISOString(),
     };
 
-    saveProduct(payload);
-    setToastMessage("Product saved successfully!");
-    setTimeout(() => {
-      navigate("/admin/products");
-    }, 800);
+    setSaving(true);
+    try {
+      await saveProduct(payload);
+      setToastMessage(isEdit ? "Product updated in database successfully!" : "Product saved to database successfully!");
+      setTimeout(() => {
+        navigate("/admin/products");
+      }, 700);
+    } catch (err) {
+      console.error("Save product failed:", err);
+      setSubmitError(err.message || "Failed to save product to database. Please check your network or login.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const selectedCategoryObj = categories.find(
+    (c) =>
+      c.name?.toLowerCase() === (formData.category || "").toLowerCase() ||
+      c.id === formData.category ||
+      c.slug === formData.category
+  );
+  const currentSubcategories = selectedCategoryObj?.subcategories || [];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-12">
@@ -402,13 +440,21 @@ export const ProductFormPage = () => {
           </button>
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-[#173D2A] text-white hover:bg-[#0B2416] shadow-sm transition-colors"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-[#173D2A] text-white hover:bg-[#0B2416] shadow-sm transition-colors disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            <span>Save Product</span>
+            <span>{saving ? "Saving to Database..." : (isEdit ? "Update Formulation" : "Save Formulation")}</span>
           </button>
         </div>
       </div>
+
+      {submitError && (
+        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{submitError}</span>
+        </div>
+      )}
 
       {toastMessage && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
@@ -817,7 +863,15 @@ export const ProductFormPage = () => {
                 <select
                   name="category"
                   value={formData.category}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    const newCatName = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      category: newCatName,
+                      subcategory: "",
+                      subcategoryId: "",
+                    }));
+                  }}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
                 >
                   {categories.map((c) => (
@@ -826,6 +880,40 @@ export const ProductFormPage = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Subcategory
+                </label>
+                <select
+                  name="subcategory"
+                  value={formData.subcategory || ""}
+                  onChange={(e) => {
+                    const selectedName = e.target.value;
+                    const selectedSub = currentSubcategories.find(
+                      (s) => s.name === selectedName || s.slug === selectedName
+                    );
+                    setFormData((prev) => ({
+                      ...prev,
+                      subcategory: selectedName,
+                      subcategoryId: selectedSub?.slug || selectedSub?.id || "",
+                    }));
+                  }}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
+                >
+                  <option value="">-- None / Select Subcategory --</option>
+                  {currentSubcategories.map((sub) => (
+                    <option key={sub.id} value={sub.name}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+                {currentSubcategories.length === 0 && (
+                  <p className="text-[10px] text-stone-400 mt-1 italic">
+                    No subcategories defined for this category.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1109,7 +1197,7 @@ export const ProductFormPage = () => {
                     <span className="font-bold text-stone-900 text-sm">
                       {formatCurrency(formData.price)}
                     </span>
-                    {formData.compareAtPrice && (
+                    {Number(formData.compareAtPrice) > 0 && (
                       <span className="text-[11px] text-stone-400 line-through">
                         {formatCurrency(formData.compareAtPrice)}
                       </span>

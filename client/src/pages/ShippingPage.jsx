@@ -13,7 +13,7 @@ export const ShippingPage = () => {
             <span className="text-xs font-semibold uppercase tracking-wider text-[#386B40] flex items-center gap-1.5">
               <Truck size={14} /> Logistics &amp; Dispensary Dispatch
             </span>
-            <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#171A17]">
+            <h1 className="font-heading tracking-tight text-3xl sm:text-4xl font-bold text-[#171A17]">
               Shipping &amp; Delivery Policy
             </h1>
             <p className="text-xs text-stone-500">Last updated: January 2026</p>
@@ -21,7 +21,7 @@ export const ShippingPage = () => {
 
           <div className="space-y-6 text-xs sm:text-sm text-[#171A17] leading-relaxed">
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
                 1. Order Processing Timelines
               </h3>
               <p className="text-[#666B64]">
@@ -30,7 +30,7 @@ export const ShippingPage = () => {
             </section>
 
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
                 2. Shipping Rates &amp; Free Delivery
               </h3>
               <p className="text-[#666B64]">
@@ -41,7 +41,7 @@ export const ShippingPage = () => {
             </section>
 
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
                 3. Estimated Delivery Duration
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -61,7 +61,7 @@ export const ShippingPage = () => {
             </section>
 
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
                 4. Cash on Delivery (COD) Rules
               </h3>
               <p className="text-[#666B64]">

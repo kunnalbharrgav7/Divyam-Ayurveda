@@ -13,7 +13,7 @@ export const PrivacyPage = () => {
             <span className="text-xs font-semibold uppercase tracking-wider text-[#386B40] flex items-center gap-1.5">
               <Lock size={14} /> Data Protection &amp; Integrity
             </span>
-            <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#171A17]">
+            <h1 className="font-heading tracking-tight text-3xl sm:text-4xl font-bold text-[#171A17]">
               Privacy Policy
             </h1>
             <p className="text-xs text-stone-500">Effective Date: January 1, 2026</p>
@@ -21,7 +21,7 @@ export const PrivacyPage = () => {
 
           <div className="space-y-6 text-xs sm:text-sm text-[#171A17] leading-relaxed">
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
                 1. Information We Collect
               </h3>
               <p className="text-[#666B64]">
@@ -30,7 +30,7 @@ export const PrivacyPage = () => {
             </section>
 
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
                 2. Payment Security
               </h3>
               <p className="text-[#666B64]">
@@ -39,7 +39,7 @@ export const PrivacyPage = () => {
             </section>
 
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
                 3. Zero Third-Party Data Selling
               </h3>
               <p className="text-[#666B64]">
@@ -48,7 +48,7 @@ export const PrivacyPage = () => {
             </section>
 
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
                 4. Cookies &amp; Local Persistence
               </h3>
               <p className="text-[#666B64]">

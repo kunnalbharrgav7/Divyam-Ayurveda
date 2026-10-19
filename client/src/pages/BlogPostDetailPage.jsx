@@ -66,7 +66,7 @@ export const BlogPostDetailPage = () => {
               {post.category}
             </span>
 
-            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#171A17] leading-tight">
+            <h1 className="font-heading tracking-tight text-3xl sm:text-4xl lg:text-5xl font-bold text-[#171A17] leading-tight">
               {post.title}
             </h1>
 
@@ -98,7 +98,7 @@ export const BlogPostDetailPage = () => {
           </div>
 
           {/* Excerpt Lead */}
-          <p className="text-base sm:text-lg text-stone-700 italic border-l-4 border-[#386B40] pl-4 font-serif">
+          <p className="text-base sm:text-lg text-stone-700 italic border-l-4 border-[#386B40] pl-4 font-heading tracking-tight">
             {post.excerpt}
           </p>
 

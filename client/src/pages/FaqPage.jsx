@@ -1,23 +1,60 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Search, ChevronDown, HelpCircle, MessageSquare } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
-import { faqs, faqCategories } from "../data/faqs";
+import { contentService } from "../services/api";
 
 export const FaqPage = () => {
+  const [faqsList, setFaqsList] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [openFaqId, setOpenFaqId] = useState("faq-01");
+  const [openFaqId, setOpenFaqId] = useState(null);
 
-  const filteredFaqs = faqs.filter((item) => {
-    const matchesCat =
-      selectedCategory === "all" || item.category === selectedCategory;
-    const matchesSearch =
-      searchQuery.trim() === "" ||
-      item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.answer.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesSearch;
-  });
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFaqs = async () => {
+      try {
+        const data = await contentService.getFaqs();
+        if (isMounted && Array.isArray(data)) {
+          setFaqsList(data);
+          if (data.length > 0) setOpenFaqId(data[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to load FAQs:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchFaqs();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const categories = useMemo(() => {
+    const set = new Set();
+    faqsList.forEach((f) => {
+      if (f.category) set.add(f.category);
+    });
+    return [
+      { id: "all", label: "All Questions" },
+      ...Array.from(set).map((cat) => ({ id: cat, label: cat })),
+    ];
+  }, [faqsList]);
+
+  const filteredFaqs = useMemo(() => {
+    return faqsList.filter((item) => {
+      const matchesCat =
+        selectedCategory === "all" || item.category === selectedCategory;
+      const matchesSearch =
+        searchQuery.trim() === "" ||
+        item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.answer.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCat && matchesSearch;
+    });
+  }, [faqsList, selectedCategory, searchQuery]);
 
   const toggleFaq = (id) => {
     setOpenFaqId((prev) => (prev === id ? null : id));
@@ -33,7 +70,7 @@ export const FaqPage = () => {
           <div className="w-12 h-12 rounded-2xl bg-[#173D2A]/10 text-[#173D2A] flex items-center justify-center mx-auto mb-2">
             <HelpCircle size={24} />
           </div>
-          <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[#171A17]">
+          <h1 className="font-heading tracking-tight text-3xl sm:text-5xl font-bold text-[#171A17]">
             Frequently Asked Questions
           </h1>
           <p className="text-xs sm:text-sm text-[#666B64] leading-relaxed">
@@ -56,7 +93,7 @@ export const FaqPage = () => {
 
         {/* Category Pills */}
         <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
-          {faqCategories.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
@@ -73,7 +110,13 @@ export const FaqPage = () => {
 
         {/* Accordion List */}
         <div className="bg-white rounded-3xl border border-[#E5E7DF] divide-y divide-[#E5E7DF] overflow-hidden shadow-xs mb-12">
-          {filteredFaqs.length === 0 ? (
+          {loading ? (
+            <div className="p-6 space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-10 bg-stone-100 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : filteredFaqs.length === 0 ? (
             <div className="p-8 text-center text-xs text-stone-500">
               No matching questions found. Try a different search keyword or contact our support team.
             </div>
@@ -86,7 +129,7 @@ export const FaqPage = () => {
                     onClick={() => toggleFaq(faq.id)}
                     className="w-full flex items-center justify-between text-left gap-4 focus:outline-none"
                   >
-                    <span className="font-serif font-bold text-base sm:text-lg text-[#171A17] hover:text-[#173D2A] transition-colors">
+                    <span className="font-heading tracking-tight font-bold text-base sm:text-lg text-[#171A17] hover:text-[#173D2A] transition-colors">
                       {faq.question}
                     </span>
                     <div
@@ -98,11 +141,21 @@ export const FaqPage = () => {
                     </div>
                   </button>
 
-                  {isOpen && (
-                    <div className="mt-3 pt-3 border-t border-stone-100 text-xs sm:text-sm text-[#666B64] leading-relaxed animate-in fade-in duration-200">
-                      {faq.answer}
-                    </div>
-                  )}
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 pt-3 border-t border-stone-100 text-xs sm:text-sm text-[#666B64] leading-relaxed">
+                          {faq.answer}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })
@@ -116,7 +169,7 @@ export const FaqPage = () => {
               <MessageSquare size={20} />
             </div>
             <div>
-              <h4 className="font-serif font-bold text-[#171A17] text-base">
+              <h4 className="font-heading tracking-tight font-bold text-[#171A17] text-base">
                 Still have questions?
               </h4>
               <p className="text-xs text-[#666B64]">

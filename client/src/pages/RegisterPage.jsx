@@ -1,22 +1,29 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { User, Mail, Phone, Lock, ArrowRight } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { User, Mail, Phone, Lock, ArrowRight, Loader2, Gift } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
+import { useReferrals } from "../context/ReferralContext";
 
 export const RegisterPage = () => {
+  const { activeAttribution } = useReferrals();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
+    referralCode: activeAttribution?.code || "",
   });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     if (!formData.name.trim()) {
       setError("Please enter your name.");
       return;
@@ -30,8 +37,20 @@ export const RegisterPage = () => {
       return;
     }
 
-    register(formData);
-    navigate("/account");
+    setLoading(true);
+    try {
+      const res = await register(formData);
+      if (res.success) {
+        const redirectPath = location.state?.from || "/account";
+        navigate(redirectPath, { replace: true });
+      } else {
+        setError(res.error || "Failed to create account. Please try again.");
+      }
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,7 +58,7 @@ export const RegisterPage = () => {
       <div className="max-w-md mx-auto px-4 sm:px-6">
         <Breadcrumbs items={[{ label: "Register" }]} />
 
-        <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 shadow-xs mt-4">
+        <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 shadow-xs mt-4 animate-in fade-in zoom-in-98 duration-300">
           <div className="text-center mb-6">
             <Link to="/" className="inline-block mb-3 hover:opacity-90 transition-opacity" aria-label="Divyam Ayurveda">
               <img
@@ -48,13 +67,20 @@ export const RegisterPage = () => {
                 className="h-14 sm:h-16 w-auto mx-auto object-contain"
               />
             </Link>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#171A17]">
+            <h1 className="font-heading tracking-tight text-2xl sm:text-3xl font-bold text-[#171A17]">
               Join Divyam Ayurveda
             </h1>
             <p className="text-xs sm:text-sm text-[#666B64] mt-1">
               Begin your journey into traditional wellness and pure Indian botanicals.
             </p>
           </div>
+
+          {location.state?.message && (
+            <div className="mb-4 p-3 rounded-xl bg-amber-50 text-amber-900 text-xs border border-amber-200 flex items-center gap-2">
+              <Lock size={15} className="text-amber-700 shrink-0" />
+              <span>{location.state.message}</span>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-xs border border-rose-200">
@@ -127,18 +153,44 @@ export const RegisterPage = () => {
               </div>
             </div>
 
+            <div>
+              <label className="block font-semibold text-[#171A17] mb-1">
+                Referral Code <span className="font-normal text-stone-400">(optional)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.referralCode}
+                  onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
+                  placeholder="Got a code from a friend?"
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40] font-mono"
+                />
+                <Gift size={16} className="absolute left-3 top-3 text-stone-400" />
+              </div>
+            </div>
+
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-[#173D2A] hover:bg-[#0B2416] text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-[#173D2A] hover:bg-[#0B2416] text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs disabled:opacity-70 cursor-pointer"
             >
-              <span>Create Account</span>
-              <ArrowRight size={15} />
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Creating Account...</span>
+                </>
+              ) : (
+                <>
+                  <span>Create Account</span>
+                  <ArrowRight size={15} />
+                </>
+              )}
             </button>
           </form>
 
           <div className="mt-6 pt-4 border-t border-[#E5E7DF] text-center text-xs text-stone-500">
             Already have an account?{" "}
-            <Link to="/login" className="font-bold text-[#173D2A] hover:underline">
+            <Link to="/login" state={location.state} className="font-bold text-[#173D2A] hover:underline">
               Sign In
             </Link>
           </div>

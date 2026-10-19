@@ -11,14 +11,12 @@ import {
   Star,
   Check,
 } from "lucide-react";
-import { useAuth } from "../../../context/AuthContext";
 import { useAdmin } from "../../../context/AdminContext";
 import { AdminSearchModal } from "../common/AdminSearchModal";
 
 export const AdminHeader = ({ isCollapsed, setIsMobileOpen }) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const { adminUser } = useAuth();
   const { lowStockCount, pendingOrdersCount, pendingReviewsCount, orders } = useAdmin();
   const location = useLocation();
 
@@ -209,21 +207,6 @@ export const AdminHeader = ({ isCollapsed, setIsMobileOpen }) => {
                 </div>
               </>
             )}
-          </div>
-
-          {/* Admin User Badge */}
-          <div className="flex items-center gap-2 pl-2 border-l border-stone-200">
-            <div className="w-8 h-8 rounded-full bg-[#173D2A] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-              {adminUser?.name ? adminUser.name.charAt(0) : "A"}
-            </div>
-            <div className="hidden lg:block text-left text-xs">
-              <div className="font-semibold text-stone-900 leading-tight">
-                {adminUser?.name || "Administrator"}
-              </div>
-              <div className="text-[10px] text-stone-500">
-                {adminUser?.roleName || "Super Admin"}
-              </div>
-            </div>
           </div>
         </div>
       </header>

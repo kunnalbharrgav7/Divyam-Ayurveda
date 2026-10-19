@@ -1,5 +1,27 @@
 import React from "react";
-import { Leaf, Heart, Sprout, Truck, ShieldCheck, Headphones } from "lucide-react";
+import { Leaf, Heart, Sprout, Truck, Headphones, ShieldCheck } from "lucide-react";
+import { motion } from "framer-motion";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 18, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 300, damping: 24 },
+  },
+};
 
 export const TrustBadges = ({ className = "" }) => {
   const badges = [
@@ -26,22 +48,35 @@ export const TrustBadges = ({ className = "" }) => {
   ];
 
   return (
-    <div className={`grid grid-cols-2 lg:grid-cols-4 gap-4 py-6 border-t border-b border-[#E5E7DF] ${className}`}>
+    <motion.div
+      className={`grid grid-cols-2 lg:grid-cols-4 gap-4 py-6 border-t border-b border-[#E5E7DF] ${className}`}
+      variants={containerVariants}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, margin: "-20px" }}
+    >
       {badges.map((b, idx) => {
         const Icon = b.icon;
         return (
-          <div key={idx} className="flex items-center gap-3 px-2">
-            <div className="w-10 h-10 rounded-full bg-[#173D2A]/10 text-[#173D2A] flex items-center justify-center shrink-0">
+          <motion.div
+            key={idx}
+            variants={itemVariants}
+            whileHover={{ y: -3 }}
+            className="flex items-center gap-3.5 p-2 rounded-xl transition-all duration-300 group hover:bg-[#173D2A]/4 cursor-default"
+          >
+            <div className="w-11 h-11 rounded-full bg-[#173D2A]/10 text-[#173D2A] flex items-center justify-center shrink-0 transition-all duration-300 group-hover:bg-[#173D2A] group-hover:text-[#A9D18E] group-hover:rotate-6 group-hover:scale-110 shadow-xs">
               <Icon size={20} />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-[#171A17] leading-tight">{b.title}</h4>
-              <p className="text-xs text-[#666B64] mt-0.5">{b.desc}</p>
+              <h4 className="text-xs sm:text-sm font-semibold text-[#171A17] group-hover:text-[#173D2A] transition-colors leading-tight">
+                {b.title}
+              </h4>
+              <p className="text-[11px] sm:text-xs text-[#666B64] mt-0.5">{b.desc}</p>
             </div>
-          </div>
+          </motion.div>
         );
       })}
-    </div>
+    </motion.div>
   );
 };
 
@@ -64,30 +99,42 @@ export const BenefitsStrip = ({ className = "" }) => {
     },
     {
       icon: Headphones,
-      title: "Dedicated Customer Support",
+      title: "Dedicated Support",
       desc: "We're always here for you.",
     },
   ];
 
   return (
-    <div className={`bg-[#F4F4EE] rounded-2xl p-6 lg:p-8 ${className}`}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className={`bg-gradient-to-br from-[#F4F4EE] via-[#F8F8F4] to-[#F0EFE9] border border-[#E5E7DF]/80 rounded-2xl p-6 lg:p-8 shadow-xs ${className}`}>
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+        variants={containerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-30px" }}
+      >
         {benefits.map((b, idx) => {
           const Icon = b.icon;
           return (
-            <div key={idx} className="flex items-start gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-white border border-[#E5E7DF] text-[#173D2A] flex items-center justify-center shrink-0 shadow-xs">
+            <motion.div
+              key={idx}
+              variants={itemVariants}
+              whileHover={{ y: -5, scale: 1.01 }}
+              className="flex items-start gap-4 p-4 rounded-xl bg-white/70 backdrop-blur-xs border border-[#E5E7DF]/70 hover:border-[#A9D18E] hover:shadow-md transition-all duration-300 group cursor-default"
+            >
+              <div className="w-12 h-12 rounded-xl bg-[#173D2A]/10 border border-[#173D2A]/15 text-[#173D2A] flex items-center justify-center shrink-0 shadow-xs transition-all duration-300 group-hover:bg-[#173D2A] group-hover:text-[#A9D18E] group-hover:scale-110 group-hover:-rotate-6">
                 <Icon size={22} />
               </div>
-              <div>
-                <h4 className="text-sm font-semibold text-[#171A17]">{b.title}</h4>
-                <p className="text-xs text-[#666B64] mt-0.5">{b.desc}</p>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-bold text-[#171A17] group-hover:text-[#173D2A] transition-colors">
+                  {b.title}
+                </h4>
+                <p className="text-xs text-[#666B64] mt-1 leading-snug">{b.desc}</p>
               </div>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
     </div>
   );
 };
-

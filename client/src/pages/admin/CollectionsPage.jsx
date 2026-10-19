@@ -22,10 +22,13 @@ export const CollectionsPage = () => {
   };
 
   const [formData, setFormData] = useState(defaultForm);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const handleOpenAdd = () => {
     setSelectedCollection(null);
     setFormData(defaultForm);
+    setSaveError("");
     setModalOpen(true);
   };
 
@@ -37,8 +40,9 @@ export const CollectionsPage = () => {
       slug: col.slug,
       image: col.image || "",
       description: col.description || "",
-      featured: col.featured ?? true,
+      featured: col.featured ?? col.isFeatured ?? true,
     });
+    setSaveError("");
     setModalOpen(true);
   };
 
@@ -55,9 +59,9 @@ export const CollectionsPage = () => {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.title.trim()) return;
+    if (!formData.title.trim() || saving) return;
 
     const payload = {
       ...formData,
@@ -65,16 +69,27 @@ export const CollectionsPage = () => {
       name: formData.title,
     };
 
-    saveCollection(payload);
-    setModalOpen(false);
+    setSaving(true);
+    setSaveError("");
+    try {
+      await saveCollection(payload);
+      setModalOpen(false);
+    } catch (err) {
+      setSaveError(err.message || "Failed to save collection.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteConfirm = () => {
-    if (collectionToDelete) {
-      deleteCollection(collectionToDelete);
-      setCollectionToDelete(null);
-      setDeleteConfirmOpen(false);
+  const handleDeleteConfirm = async () => {
+    if (!collectionToDelete) return;
+    try {
+      await deleteCollection(collectionToDelete);
+    } catch (err) {
+      window.alert(err.message || "Failed to delete collection.");
     }
+    setCollectionToDelete(null);
+    setDeleteConfirmOpen(false);
   };
 
   return (
@@ -179,9 +194,10 @@ export const CollectionsPage = () => {
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 text-xs font-semibold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs"
+              disabled={saving}
+              className="px-4 py-2 text-xs font-semibold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {selectedCollection ? "Update Collection" : "Create Collection"}
+              {saving ? "Saving..." : selectedCollection ? "Update Collection" : "Create Collection"}
             </button>
           </>
         }
@@ -244,6 +260,12 @@ export const CollectionsPage = () => {
               className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
             />
           </div>
+
+          {saveError && (
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-700">
+              {saveError}
+            </div>
+          )}
         </form>
       </AdminModal>
 

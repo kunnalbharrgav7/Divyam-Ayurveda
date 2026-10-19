@@ -1,0 +1,260 @@
+[
+  {
+    "_id": "6ad3468884d5491fed184f58",
+    "slug": null,
+    "__v": 0,
+    "benefits": [],
+    "botanicalName": "Azadirachta indica",
+    "createdAt": "2026-10-17T09:57:28.620Z",
+    "description": "",
+    "doshaEffect": "",
+    "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80",
+    "name": "Neem",
+    "sanskritName": "Nimba (निम्ब)",
+    "status": "active",
+    "updatedAt": "2026-10-17T12:08:39.717Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851e8",
+    "slug": "ashwagandha",
+    "__v": 0,
+    "benefits": [
+      "Premier Rasayana adaptogen, promotes physical vigor, mental endurance, and restful restorative sleep."
+    ],
+    "botanicalName": "Withania somnifera",
+    "createdAt": "2026-10-18T13:45:07.454Z",
+    "description": "Premier Rasayana adaptogen, promotes physical vigor, mental endurance, and restful restorative sleep.",
+    "doshaBalance": "Balances Vata & Kapha",
+    "doshaEffect": "Balances Vata & Kapha",
+    "featuredInProducts": [
+      "Organic Ashwagandha Extract",
+      "Classical Mahanarayan Tailam",
+      "Swarna Kesar Chyawanprash Rasayana"
+    ],
+    "image": "https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=600&q=80",
+    "name": "Ashwagandha",
+    "partUsed": "Dried Root",
+    "sanskritName": "Aśvagandhā (अश्वगंधा)",
+    "status": "active",
+    "traditionalUses": "Premier Rasayana adaptogen, promotes physical vigor, mental endurance, and restful restorative sleep.",
+    "updatedAt": "2026-10-18T13:45:07.454Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851e9",
+    "slug": "turmeric-haldi",
+    "__v": 0,
+    "benefits": [
+      "Renowned for high curcumin content, supports healthy inflammation management, clean skin glow, and natural cellular defense."
+    ],
+    "botanicalName": "Curcuma longa",
+    "createdAt": "2026-10-18T13:45:07.458Z",
+    "description": "Renowned for high curcumin content, supports healthy inflammation management, clean skin glow, and natural cellular defense.",
+    "doshaBalance": "Balances Tridoshas (especially Kapha & Pitta)",
+    "doshaEffect": "Balances Tridoshas (especially Kapha & Pitta)",
+    "featuredInProducts": [
+      "Organic Turmeric Powder",
+      "Neem & Tea Tree Clarifying Face Wash"
+    ],
+    "image": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=600&q=80",
+    "name": "Turmeric (Haldi)",
+    "partUsed": "Rhizome",
+    "sanskritName": "Haridrā (हरिद्रा)",
+    "status": "active",
+    "traditionalUses": "Renowned for high curcumin content, supports healthy inflammation management, clean skin glow, and natural cellular defense.",
+    "updatedAt": "2026-10-18T13:45:07.458Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851ea",
+    "slug": "amla-amalaki",
+    "__v": 0,
+    "benefits": [
+      "One of nature's richest bio-sources of Vitamin C. Enhances Agni without aggravating Pitta, nourishes hair roots, and shields ocular tissues."
+    ],
+    "botanicalName": "Phyllanthus emblica / Emblica officinalis",
+    "createdAt": "2026-10-18T13:45:07.462Z",
+    "description": "One of nature's richest bio-sources of Vitamin C. Enhances Agni without aggravating Pitta, nourishes hair roots, and shields ocular tissues.",
+    "doshaBalance": "Pacifies all three Doshas (Tridoshahara)",
+    "doshaEffect": "Pacifies all three Doshas (Tridoshahara)",
+    "featuredInProducts": [
+      "Pure Wild Amla Swaras Juice",
+      "Classical Triphala Churna",
+      "Maha Bhringraj Herbal Hair Oil",
+      "Swarna Kesar Chyawanprash Rasayana"
+    ],
+    "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80",
+    "name": "Amla (Amalaki)",
+    "partUsed": "Fresh & Dried Fruit Pulp",
+    "sanskritName": "Āmalakī (आमलकी)",
+    "status": "active",
+    "traditionalUses": "One of nature's richest bio-sources of Vitamin C. Enhances Agni without aggravating Pitta, nourishes hair roots, and shields ocular tissues.",
+    "updatedAt": "2026-10-18T13:45:07.462Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851eb",
+    "slug": "tulsi-holy-basil",
+    "__v": 0,
+    "benefits": [
+      "Sacred herb of India. Supports respiratory clearance, clears stagnant Kapha phlegm, and bolsters innate seasonal immunity."
+    ],
+    "botanicalName": "Ocimum sanctum / Ocimum tenuiflorum",
+    "createdAt": "2026-10-18T13:45:07.463Z",
+    "description": "Sacred herb of India. Supports respiratory clearance, clears stagnant Kapha phlegm, and bolsters innate seasonal immunity.",
+    "doshaBalance": "Pacifies Kapha & Vata",
+    "doshaEffect": "Pacifies Kapha & Vata",
+    "featuredInProducts": [
+      "Organic Tulsi Green Tea",
+      "Ayush Kwath Immunity Kadha",
+      "Giloy Neem Tulsi Ras Juice"
+    ],
+    "image": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80",
+    "name": "Tulsi (Holy Basil)",
+    "partUsed": "Whole Leaves & Inflorescence",
+    "sanskritName": "Tulasī (तुलसी)",
+    "status": "active",
+    "traditionalUses": "Sacred herb of India. Supports respiratory clearance, clears stagnant Kapha phlegm, and bolsters innate seasonal immunity.",
+    "updatedAt": "2026-10-18T13:45:07.463Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851ec",
+    "slug": "brahmi",
+    "__v": 0,
+    "benefits": [
+      "Supreme Medhya Rasayana. Nourishes brain neurotransmission, supports cognitive retention, and calms stressful thoughts."
+    ],
+    "botanicalName": "Bacopa monnieri",
+    "createdAt": "2026-10-18T13:45:07.464Z",
+    "description": "Supreme Medhya Rasayana. Nourishes brain neurotransmission, supports cognitive retention, and calms stressful thoughts.",
+    "doshaBalance": "Pacifies Pitta & Vata",
+    "doshaEffect": "Pacifies Pitta & Vata",
+    "featuredInProducts": [
+      "Medhya Brahmi Churna",
+      "Shankhpushpi & Brahmi Calming Syrup",
+      "Maha Bhringraj Herbal Hair Oil"
+    ],
+    "image": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80",
+    "name": "Brahmi",
+    "partUsed": "Whole Herb & Leaves",
+    "sanskritName": "Brāhmī (ब्राह्मी)",
+    "status": "active",
+    "traditionalUses": "Supreme Medhya Rasayana. Nourishes brain neurotransmission, supports cognitive retention, and calms stressful thoughts.",
+    "updatedAt": "2026-10-18T13:45:07.464Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851ed",
+    "slug": "bhringraj",
+    "__v": 0,
+    "benefits": [
+      "Known as 'King of Hair' (Keshya). Cools the crown of the head, pacifies intense Pitta heat, and revitalizes dormant follicles."
+    ],
+    "botanicalName": "Eclipta alba / Eclipta prostrata",
+    "createdAt": "2026-10-18T13:45:07.467Z",
+    "description": "Known as 'King of Hair' (Keshya). Cools the crown of the head, pacifies intense Pitta heat, and revitalizes dormant follicles.",
+    "doshaBalance": "Pacifies Vata & Pitta",
+    "doshaEffect": "Pacifies Vata & Pitta",
+    "featuredInProducts": [
+      "Maha Bhringraj Herbal Hair Oil"
+    ],
+    "image": "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80",
+    "name": "Bhringraj",
+    "partUsed": "Whole Plant / Leaf Swaras",
+    "sanskritName": "Bhṛṅgarāja (भृङ्गराज)",
+    "status": "active",
+    "traditionalUses": "Known as 'King of Hair' (Keshya). Cools the crown of the head, pacifies intense Pitta heat, and revitalizes dormant follicles.",
+    "updatedAt": "2026-10-18T13:45:07.467Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851ee",
+    "slug": "shatavari",
+    "__v": 0,
+    "benefits": [
+      "The foremost female reproductive and hormonal rejuvenative tonic. Nourishes Shukra and Rasa dhatus, providing calm endurance."
+    ],
+    "botanicalName": "Asparagus racemosus",
+    "createdAt": "2026-10-18T13:45:07.469Z",
+    "description": "The foremost female reproductive and hormonal rejuvenative tonic. Nourishes Shukra and Rasa dhatus, providing calm endurance.",
+    "doshaBalance": "Soothes Pitta & Vata",
+    "doshaEffect": "Soothes Pitta & Vata",
+    "featuredInProducts": [
+      "Shatavari Rasayana Kalpa"
+    ],
+    "image": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80",
+    "name": "Shatavari",
+    "partUsed": "Tuberous Roots",
+    "sanskritName": "Śatāvarī (शतावरी)",
+    "status": "active",
+    "traditionalUses": "The foremost female reproductive and hormonal rejuvenative tonic. Nourishes Shukra and Rasa dhatus, providing calm endurance.",
+    "updatedAt": "2026-10-18T13:45:07.469Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851ef",
+    "slug": "giloy-guduchi",
+    "__v": 0,
+    "benefits": [
+      "Called 'Amrita' (the immortal nectar). Detoxifies the liver, clears circulating toxins (Ama), and bolsters white cell response."
+    ],
+    "botanicalName": "Tinospora cordifolia",
+    "createdAt": "2026-10-18T13:45:07.470Z",
+    "description": "Called 'Amrita' (the immortal nectar). Detoxifies the liver, clears circulating toxins (Ama), and bolsters white cell response.",
+    "doshaBalance": "Balances all 3 doshas",
+    "doshaEffect": "Balances all 3 doshas",
+    "featuredInProducts": [
+      "Giloy Neem Tulsi Ras Juice"
+    ],
+    "image": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "name": "Giloy (Guduchi)",
+    "partUsed": "Mature Stems",
+    "sanskritName": "Guḍūcī / Amṛtā (अमृता)",
+    "status": "active",
+    "traditionalUses": "Called 'Amrita' (the immortal nectar). Detoxifies the liver, clears circulating toxins (Ama), and bolsters white cell response.",
+    "updatedAt": "2026-10-18T13:45:07.470Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851f0",
+    "slug": "kashmiri-saffron-kesar",
+    "__v": 0,
+    "benefits": [
+      "Imparts an auspicious natural radiance (Varnya). Deeply nourishes the skin tissues, evens complexion tone, and boosts vitality."
+    ],
+    "botanicalName": "Crocus sativus",
+    "createdAt": "2026-10-18T13:45:07.471Z",
+    "description": "Imparts an auspicious natural radiance (Varnya). Deeply nourishes the skin tissues, evens complexion tone, and boosts vitality.",
+    "doshaBalance": "Tridoshic in moderate measure",
+    "doshaEffect": "Tridoshic in moderate measure",
+    "featuredInProducts": [
+      "Authentic Kumkumadi Miraculous Tailam",
+      "Pure Aloe Vera Gel with Kesar",
+      "Swarna Kesar Chyawanprash Rasayana"
+    ],
+    "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80",
+    "name": "Kashmiri Saffron (Kesar)",
+    "partUsed": "Stigma and Style Strands",
+    "sanskritName": "Kuṅkuma (कुङ्कुम)",
+    "status": "active",
+    "traditionalUses": "Imparts an auspicious natural radiance (Varnya). Deeply nourishes the skin tissues, evens complexion tone, and boosts vitality.",
+    "updatedAt": "2026-10-18T13:45:07.471Z"
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851f1",
+    "slug": "neem",
+    "__v": 0,
+    "benefits": [
+      "Supreme bitter-tonic blood purifier (Rakta Shodhaka). Promotes clear blemish-free skin and a healthy microbial balance."
+    ],
+    "botanicalName": "Azadirachta indica",
+    "createdAt": "2026-10-18T13:45:07.473Z",
+    "description": "Supreme bitter-tonic blood purifier (Rakta Shodhaka). Promotes clear blemish-free skin and a healthy microbial balance.",
+    "doshaBalance": "Pacifies Pitta & Kapha",
+    "doshaEffect": "Pacifies Pitta & Kapha",
+    "featuredInProducts": [
+      "Neem & Tea Tree Clarifying Face Wash",
+      "Giloy Neem Tulsi Ras Juice"
+    ],
+    "image": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80",
+    "name": "Neem",
+    "partUsed": "Leaves, Bark & Seed Oil",
+    "sanskritName": "Nimba (निम्ब)",
+    "status": "active",
+    "traditionalUses": "Supreme bitter-tonic blood purifier (Rakta Shodhaka). Promotes clear blemish-free skin and a healthy microbial balance.",
+    "updatedAt": "2026-10-18T13:45:07.473Z"
+  }
+]

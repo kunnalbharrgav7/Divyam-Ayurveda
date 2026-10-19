@@ -13,7 +13,7 @@ export const ReturnsPage = () => {
             <span className="text-xs font-semibold uppercase tracking-wider text-[#386B40] flex items-center gap-1.5">
               <RotateCcw size={14} /> Customer Assurance
             </span>
-            <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#171A17]">
+            <h1 className="font-heading tracking-tight text-3xl sm:text-4xl font-bold text-[#171A17]">
               Returns, Exchanges &amp; Refunds
             </h1>
             <p className="text-xs text-stone-500">Last updated: January 2026</p>
@@ -21,29 +21,29 @@ export const ReturnsPage = () => {
 
           <div className="space-y-6 text-xs sm:text-sm text-[#171A17] leading-relaxed">
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
-                1. 7-Day Window for Damaged or Incorrect Dispatches
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
+                1. 7-Day Return Window
               </h3>
               <p className="text-[#666B64]">
-                Because our formulations contain active living botanicals, churnas, and edible extracts, we do not accept returns for opened or unsealed bottles due to health hygiene regulations. However, if your order arrived damaged in transit, with broken seals, or missing items, you may initiate a return within <strong>7 days</strong> of delivery.
+                Because our formulations contain active botanicals and edible extracts, opened or used products cannot be returned for a change of mind. You can return a delivered order within <strong>7 days</strong> of delivery if it arrived damaged, with a broken seal, wrong or missing items, near expiry, not as described, or if you had a reaction to it. Unopened products ordered by mistake can also be returned. Returns are for the <strong>whole order</strong>, not individual items.
               </p>
             </section>
 
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
-                2. How to Initiate a Return Request
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
+                2. How to Request a Return
               </h3>
               <p className="text-[#666B64]">
-                Email our care team at <strong>care@divyamayurveda.com</strong> with your Order ID (DA-XXXXXX), photos of the damaged container or outer carton, and description of the defect. Our support team will confirm pickup within 24 hours.
+                Sign in, open <strong>My Account &rarr; My Orders</strong> and press <strong>Return / Refund</strong> on the delivered order. Choose a reason, add photos where asked, and tell us how you want your refund. You can follow every step under <strong>My Account &rarr; Returns &amp; Refunds</strong>. We review requests within 24 hours.
               </p>
             </section>
 
             <section className="space-y-2">
-              <h3 className="font-serif text-lg font-bold text-[#173D2A]">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#173D2A]">
                 3. Refund Processing
               </h3>
               <p className="text-[#666B64]">
-                Once returned items are inspected at our warehouse, approved refunds are transferred back to the original payment source (UPI / Card / NetBanking) within 5 to 7 business days. For COD orders, a direct NEFT transfer or store credit voucher is provided.
+                After the returned parcel is received and checked, orders paid online are refunded to the original payment method (UPI / Card / NetBanking), usually within 3 to 7 business days. For Cash on Delivery orders you choose between a bank transfer, UPI, or instant store credit that you can use on your next order.
               </p>
             </section>
           </div>

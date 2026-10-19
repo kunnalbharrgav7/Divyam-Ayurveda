@@ -6,13 +6,22 @@ import { EmptyState } from "../components/common/EmptyState";
 import { ProductCard } from "../components/products/ProductCard";
 import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
+import { useLiveStock, getAvailableUnits } from "../hooks/useLiveStock";
 
 export const WishlistPage = () => {
   const { wishlistItems, clearWishlist, wishlistCount } = useWishlist();
   const { addToCart } = useCart();
 
+  // Wishlist items are snapshots from when they were saved; overlay live stock so
+  // restocked / sold-out products display correctly.
+  const { stockMap } = useLiveStock(wishlistItems);
+  const liveWishlistItems = wishlistItems.map((product) => {
+    const units = getAvailableUnits(product, undefined, stockMap[product.id]);
+    return Number.isFinite(units) ? { ...product, stockQuantity: units } : product;
+  });
+
   const handleAddAllToCart = () => {
-    wishlistItems.forEach((product) => {
+    liveWishlistItems.forEach((product) => {
       addToCart(product, 1);
     });
   };
@@ -42,7 +51,7 @@ export const WishlistPage = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-8 border-b border-[#E5E7DF] gap-4">
           <div>
-            <h1 className="font-serif text-3xl font-bold text-[#171A17]">
+            <h1 className="font-heading tracking-tight text-3xl font-bold text-[#171A17]">
               Saved Products ({wishlistCount})
             </h1>
             <p className="text-xs sm:text-sm text-[#666B64] mt-1">
@@ -69,7 +78,7 @@ export const WishlistPage = () => {
 
         {/* Wishlist Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {wishlistItems.map((product) => (
+          {liveWishlistItems.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

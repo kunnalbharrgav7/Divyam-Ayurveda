@@ -15,7 +15,7 @@ export const OurStoryPage = () => {
             <span className="text-xs font-semibold uppercase tracking-wider text-[#386B40] flex items-center justify-center gap-1.5">
               <Sparkles size={14} /> Our Journey &amp; Philosophy
             </span>
-            <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[#171A17] leading-tight">
+            <h1 className="font-heading tracking-tight text-3xl sm:text-5xl font-bold text-[#171A17] leading-tight">
               Reviving Ancient Botanical Truths
             </h1>
             <p className="text-xs sm:text-sm text-[#666B64]">
@@ -35,13 +35,13 @@ export const OurStoryPage = () => {
             <p>
               In an era dominated by synthetic additives, bleached herbal powders, and quick-fix pharmaceuticals, true holistic well-being was getting drowned out. The founders of Divyam Ayurveda — Vaidyas, botanists, and modern life science researchers — came together with a clear mission: to resurrect pure, unadulterated Ayurvedic wisdom.
             </p>
-            <h3 className="font-serif text-lg sm:text-xl font-bold text-[#173D2A] pt-2">
+            <h3 className="font-heading tracking-tight text-lg sm:text-xl font-bold text-[#173D2A] pt-2">
               The Problem with Mass-Market Herbal Supplements
             </h3>
             <p>
               Most commercial herbal churnas are machine-pulverized using high-heat blades that scorch delicate volatile aromatic oils. Whole herbs are often replaced with spent marc (waste fiber after solvent extraction). At Divyam Ayurveda, we refuse to compromise. We harvest botanicals at their peak biological potency, shade-dry them naturally, and use traditional low-temperature micro-pulverizers.
             </p>
-            <h3 className="font-serif text-lg sm:text-xl font-bold text-[#173D2A] pt-2">
+            <h3 className="font-heading tracking-tight text-lg sm:text-xl font-bold text-[#173D2A] pt-2">
               Ethical Forest Community Partnerships
             </h3>
             <p>
@@ -51,7 +51,7 @@ export const OurStoryPage = () => {
 
           <div className="p-6 bg-[#FBFAF6] rounded-2xl border border-[#E5E7DF] flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <h4 className="font-serif font-bold text-[#171A17] text-base">
+              <h4 className="font-heading tracking-tight font-bold text-[#171A17] text-base">
                 Ready to Experience Pure Ayurveda?
               </h4>
               <p className="text-xs text-[#666B64] mt-0.5">

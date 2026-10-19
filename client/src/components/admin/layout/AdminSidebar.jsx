@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -25,11 +25,10 @@ import {
   UserCheck,
   History,
   Settings,
-  Store,
-  RefreshCw,
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Gift,
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { useAdmin } from "../../../context/AdminContext";
@@ -40,9 +39,9 @@ export const AdminSidebar = ({
   isMobileOpen,
   setIsMobileOpen,
 }) => {
-  const { adminUser, logoutAdmin } = useAuth();
+  const navScrollRef = useRef(null);
+  const { adminUser, logout, logoutAdmin } = useAuth();
   const {
-    resetDemoData,
     lowStockCount,
     pendingOrdersCount,
     pendingReviewsCount,
@@ -75,20 +74,13 @@ export const AdminSidebar = ({
     );
   };
 
-  const handleLogout = () => {
-    logoutAdmin();
-    navigate("/admin/login");
-  };
-
-  const handleReset = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to reset all mock data to the initial factory seeds? Any changes you made will be reinitialized.",
-      )
-    ) {
-      resetDemoData();
-      alert("Demo data successfully reset to factory seeds!");
+  const handleLogout = (e) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+      e.stopPropagation();
     }
+    logout();
+    navigate("/login", { replace: true });
   };
 
   const navGroups = [
@@ -149,6 +141,7 @@ export const AdminSidebar = ({
       group: "Customers & Feedback",
       items: [
         { label: "Customers", to: "/admin/customers", icon: Users },
+        { label: "Referrals & Rewards", to: "/admin/referrals", icon: Gift },
         {
           label: "Product Reviews",
           to: "/admin/reviews",
@@ -207,20 +200,29 @@ export const AdminSidebar = ({
       {/* Mobile Backdrop */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-stone-900/60 lg:hidden"
+          className="fixed inset-0 z-40 bg-stone-900/60 lg:hidden animate-in fade-in duration-300 backdrop-blur-xs"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col bg-[#0B2416] text-stone-200 border-r border-[#173D2A] transition-all duration-300 ease-in-out ${
+        data-lenis-prevent="true"
+        onWheel={(e) => {
+          e.stopPropagation();
+          const el = navScrollRef.current;
+          if (el && !el.contains(e.target)) {
+            el.scrollTop += e.deltaY;
+          }
+        }}
+        className={`fixed top-0 bottom-0 left-0 z-40 flex flex-col bg-[#0B2416] text-stone-200 border-r border-[#173D2A] transition-all duration-300 ease-in-out select-none ${
           isCollapsed ? "w-20" : "w-64"
         } ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        style={{ overscrollBehavior: "contain" }}
       >
         {/* Brand Header */}
         <div
-          className={`relative flex h-16 items-center border-b border-[#173D2A]/80 bg-[#07190F] transition-all duration-300 ${
+          className={`relative flex h-16 shrink-0 items-center border-b border-[#173D2A]/80 bg-[#07190F] transition-all duration-300 ${
             isCollapsed ? "justify-center px-2" : "justify-between px-4"
           }`}
         >
@@ -272,9 +274,15 @@ export const AdminSidebar = ({
 
         {/* Navigation List */}
         <div
-          className={`flex-1 overflow-y-auto py-4 space-y-6 scrollbar-thin scrollbar-thumb-[#173D2A] ${
+          ref={navScrollRef}
+          data-lenis-prevent="true"
+          className={`flex-1 min-h-0 overflow-y-auto overscroll-contain py-4 space-y-6 admin-sidebar-scroll ${
             isCollapsed ? "px-2" : "px-3"
           }`}
+          style={{
+            overscrollBehavior: "contain",
+            WebkitOverflowScrolling: "touch",
+          }}
         >
           {navGroups.map((grp, grpIdx) => (
             <div key={grpIdx}>
@@ -353,40 +361,10 @@ export const AdminSidebar = ({
 
         {/* Sidebar Footer Controls */}
         <div
-          className={`border-t border-[#173D2A] bg-[#07190F] transition-all duration-300 ${
+          className={`border-t border-[#173D2A] bg-[#07190F] shrink-0 transition-all duration-300 ${
             isCollapsed ? "p-2.5 space-y-2" : "p-3 space-y-2"
           }`}
         >
-          {/* View Public Storefront Link */}
-          <Link
-            to="/"
-            onClick={() => setIsMobileOpen(false)}
-            className={`flex items-center gap-2.5 text-xs font-medium text-[#A9D18E] hover:bg-[#173D2A]/60 transition-colors ${
-              isCollapsed
-                ? "w-10 h-10 mx-auto justify-center rounded-xl p-0"
-                : "px-3 py-2 rounded-xl"
-            }`}
-            title="View Storefront"
-          >
-            <Store className="w-4 h-4 flex-shrink-0" />
-            {!isCollapsed && <span>View Storefront</span>}
-          </Link>
-
-          {/* Reset Demo Data */}
-          <button
-            type="button"
-            onClick={handleReset}
-            className={`flex items-center gap-2.5 text-xs font-medium text-stone-400 hover:text-amber-300 hover:bg-[#173D2A]/40 transition-colors ${
-              isCollapsed
-                ? "w-10 h-10 mx-auto justify-center rounded-xl p-0"
-                : "w-full px-3 py-2 rounded-xl"
-            }`}
-            title="Reset Mock Data"
-          >
-            <RefreshCw className="w-4 h-4 flex-shrink-0" />
-            {!isCollapsed && <span>Reset Demo Data</span>}
-          </button>
-
           {/* Admin User Profile & Logout */}
           {isCollapsed ? (
             <div className="pt-2 border-t border-[#173D2A]/60 flex flex-col items-center gap-2">

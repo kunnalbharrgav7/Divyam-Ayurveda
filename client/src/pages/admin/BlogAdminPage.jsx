@@ -14,6 +14,8 @@ export const BlogAdminPage = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
   const [postToDelete, setPostToDelete] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   const defaultForm = {
     title: "",
@@ -33,11 +35,13 @@ export const BlogAdminPage = () => {
   const handleOpenAdd = () => {
     setSelectedPost(null);
     setFormData(defaultForm);
+    setError(null);
     setModalOpen(true);
   };
 
   const handleOpenEdit = (post) => {
     setSelectedPost(post);
+    setError(null);
     setFormData({
       title: post.title,
       slug: post.slug,
@@ -47,8 +51,8 @@ export const BlogAdminPage = () => {
       excerpt: post.excerpt || "",
       content: post.content || "",
       image: post.image || defaultForm.image,
-      status: post.status || "Published",
-      date: post.date || defaultForm.date,
+      status: post.status ? post.status.charAt(0).toUpperCase() + post.status.slice(1).toLowerCase() : "Published",
+      date: post.date || (post.publishedAt ? new Date(post.publishedAt).toISOString().split("T")[0] : defaultForm.date),
     });
     setModalOpen(true);
   };
@@ -66,22 +70,34 @@ export const BlogAdminPage = () => {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.title.trim()) return;
+    if (!formData.title.trim() || saving) return;
 
-    const payload = {
-      ...formData,
-      id: selectedPost ? selectedPost.id : "post-" + Date.now(),
-    };
+    try {
+      setSaving(true);
+      setError(null);
+      const payload = {
+        ...formData,
+        id: selectedPost ? (selectedPost.id || selectedPost._id) : undefined,
+      };
 
-    saveBlogPost(payload);
-    setModalOpen(false);
+      await saveBlogPost(payload);
+      setModalOpen(false);
+    } catch (err) {
+      setError(err.message || "Failed to save blog post");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (postToDelete) {
-      deleteBlogPost(postToDelete);
+      try {
+        await deleteBlogPost(postToDelete);
+      } catch (err) {
+        alert(err.message || "Failed to delete article");
+      }
       setPostToDelete(null);
       setDeleteConfirmOpen(false);
     }
@@ -114,7 +130,7 @@ export const BlogAdminPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {blogPosts.map((post) => (
           <div
-            key={post.id}
+            key={post.id || post._id || post.slug}
             className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
@@ -168,7 +184,7 @@ export const BlogAdminPage = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setPostToDelete(post.id);
+                    setPostToDelete(post.id || post._id);
                     setDeleteConfirmOpen(true);
                   }}
                   className="p-1.5 text-stone-400 hover:text-rose-600 rounded transition-colors"
@@ -200,14 +216,20 @@ export const BlogAdminPage = () => {
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 text-xs font-semibold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs"
+              disabled={saving}
+              className="px-4 py-2 text-xs font-semibold bg-[#173D2A] text-white hover:bg-[#0B2416] rounded-xl shadow-xs disabled:opacity-50"
             >
-              {selectedPost ? "Update Article" : "Publish Article"}
+              {saving ? "Saving..." : selectedPost ? "Update Article" : "Publish Article"}
             </button>
           </>
         }
       >
         <form onSubmit={handleSave} className="space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+              {error}
+            </div>
+          )}
           <div>
             <label className="block text-xs font-semibold text-stone-700 mb-1">
               Article Title *

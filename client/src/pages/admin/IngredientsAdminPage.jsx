@@ -1,16 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Sparkles, Search } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { AdminModal, ConfirmDialog } from "../../components/admin/common/AdminModal";
 import { AdminImageUpload } from "../../components/admin/common/AdminImageUpload";
-import { ingredients as seedIngredients } from "../../data/ingredients";
 
 export const IngredientsAdminPage = () => {
-  const [herbs, setHerbs] = useState(() => {
-    const saved = localStorage.getItem("divyam_ayurveda_herbs");
-    return saved ? JSON.parse(saved) : seedIngredients;
-  });
+  const {
+    ingredients: herbs = [],
+    addIngredient,
+    updateIngredient,
+    deleteIngredient,
+    fetchAdminIngredients,
+  } = useAdmin();
+
+  // Load once on open (the context function is re-created on every update, so depending on it loops)
+  useEffect(() => {
+    fetchAdminIngredients?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -30,11 +38,6 @@ export const IngredientsAdminPage = () => {
 
   const [formData, setFormData] = useState(defaultForm);
 
-  const saveHerbsToStorage = (updated) => {
-    setHerbs(updated);
-    localStorage.setItem("divyam_ayurveda_herbs", JSON.stringify(updated));
-  };
-
   const handleOpenAdd = () => {
     setSelectedHerb(null);
     setFormData(defaultForm);
@@ -47,37 +50,29 @@ export const IngredientsAdminPage = () => {
       name: herb.name || "",
       sanskritName: herb.sanskritName || "",
       botanicalName: herb.botanicalName || "",
-      dosha: herb.dosha || "Tridoshic",
+      dosha: herb.dosha || herb.doshaEffect || herb.doshaBalance || "Tridoshic",
       partUsed: herb.partUsed || "Leaves / Herb",
-      benefits: Array.isArray(herb.benefits) ? herb.benefits.join(", ") : (herb.benefits || ""),
+      benefits: Array.isArray(herb.benefits) ? herb.benefits.join(", ") : (herb.benefits || herb.traditionalUses || ""),
       image: herb.image || defaultForm.image,
     });
     setModalOpen(true);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
 
     if (selectedHerb) {
-      const updated = herbs.map((h) =>
-        h.id === selectedHerb.id ? { ...h, ...formData } : h
-      );
-      saveHerbsToStorage(updated);
+      await updateIngredient(selectedHerb.id || selectedHerb._id, formData);
     } else {
-      const newHerb = {
-        ...formData,
-        id: "herb-" + Date.now(),
-      };
-      saveHerbsToStorage([newHerb, ...herbs]);
+      await addIngredient(formData);
     }
     setModalOpen(false);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (herbToDelete) {
-      const updated = herbs.filter((h) => h.id !== herbToDelete);
-      saveHerbsToStorage(updated);
+      await deleteIngredient(herbToDelete);
       setHerbToDelete(null);
       setDeleteConfirmOpen(false);
     }

@@ -21,6 +21,12 @@ import {
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard, StatCard } from "../../components/admin/common/AdminCard";
 import { formatCurrency, formatDate } from "../../utils/formatters";
+import { useRevenueReport } from "../../hooks/useRevenueReport";
+import { RevenueFilters } from "../../components/admin/common/RevenueFilters";
+
+const compactINR = (v) => (v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v >= 1000 ? `₹${(v / 1000).toFixed(1)}K` : `₹${Math.round(v)}`);
+const CATEGORY_COLORS = ["bg-[#173D2A]", "bg-[#386B40]", "bg-[#A9D18E]", "bg-amber-500", "bg-stone-400", "bg-sky-500"];
+const growthProps = (g) => (g == null ? {} : { change: `${Math.abs(g)}%`, isPositive: g >= 0 });
 
 export const DashboardPage = () => {
   const adminContext = useAdmin();
@@ -34,6 +40,8 @@ export const DashboardPage = () => {
     pendingReviews: 0,
     openTickets: 0,
   };
+  const { report, error: reportError, days, setDays, basis, setBasis } = useRevenueReport({ months: 6 });
+  const summary = report?.summary;
   const orders = adminContext?.orders || [];
   const products = adminContext?.products || [];
   const reviews = adminContext?.reviews || [];
@@ -68,7 +76,7 @@ export const DashboardPage = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-300">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -99,24 +107,38 @@ export const DashboardPage = () => {
         </div>
       </div>
 
+      {/* Which orders count as revenue */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-xl border border-stone-200 bg-white">
+        <p className="text-xs text-stone-600">
+          <b className="text-stone-900">Revenue counts: {report?.basisLabel || "…"}.</b> {report?.basisDescription} Refunds are always deducted.
+          {summary && summary.pendingOrders > 0 && report?.basis !== "booked" && (
+            <> {formatCurrency(summary.pendingCollection)} from {summary.pendingOrders} order(s) is still awaiting payment and is not counted yet.</>
+          )}
+        </p>
+        <RevenueFilters report={report} days={days} setDays={setDays} basis={basis} setBasis={setBasis} />
+      </div>
+      {reportError && <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-2.5">{reportError}</p>}
+
       {/* Top 8 KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Gross Revenue"
-          value={formatCurrency(kpis.totalRevenue)}
-          change="18.4%"
-          isPositive={true}
-          subtitle="vs last month"
+          title="Net Revenue"
+          value={formatCurrency(summary?.netRevenue ?? 0)}
+          {...growthProps(summary?.netGrowthPercent)}
+          subtitle={
+            summary
+              ? `${formatCurrency(summary.grossRevenue)} received − ${formatCurrency(summary.refunds)} refunded${days === "all" ? "" : " · vs previous period"}`
+              : "loading…"
+          }
           icon={IndianRupee}
           color="emerald"
         />
 
         <StatCard
           title="Total Customer Orders"
-          value={kpis.totalOrders}
-          change="12.2%"
-          isPositive={true}
-          subtitle="completed & active"
+          value={summary?.orders ?? 0}
+          {...growthProps(summary?.ordersGrowthPercent)}
+          subtitle={summary ? `paid orders · ${summary.pendingOrders} awaiting payment (${formatCurrency(summary.pendingCollection)})` : "loading…"}
           icon={ShoppingBag}
           color="blue"
         />
@@ -124,9 +146,7 @@ export const DashboardPage = () => {
         <StatCard
           title="Registered Customers"
           value={kpis.totalCustomers}
-          change="8.6%"
-          isPositive={true}
-          subtitle="verified buyers"
+          subtitle="customer accounts"
           icon={Users}
           color="stone"
         />
@@ -181,7 +201,7 @@ export const DashboardPage = () => {
         <div className="lg:col-span-2">
           <AdminCard
             title="Monthly Sales & Growth Trajectory"
-            subtitle="Gross monthly revenue from online Ayurvedic remedies (Last 6 Months)"
+            subtitle={`Net monthly revenue · ${report?.basisLabel || "payment received"}, after refunds (last 6 months)`}
             action={
               <Link
                 to="/admin/reports"
@@ -195,113 +215,46 @@ export const DashboardPage = () => {
             {/* SVG Visual Area Chart */}
             <div className="pt-2">
               <div className="h-64 w-full flex flex-col justify-between">
-                <svg
-                  viewBox="0 0 600 200"
-                  className="w-full h-48 overflow-visible"
-                >
-                  <defs>
-                    <linearGradient
-                      id="revenueGrad"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="0%"
-                        stopColor="#173D2A"
-                        stopOpacity="0.35"
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="#173D2A"
-                        stopOpacity="0.0"
-                      />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Horizontal grid guide lines */}
-                  <line
-                    x1="0"
-                    y1="40"
-                    x2="600"
-                    y2="40"
-                    stroke="#E5E7DF"
-                    strokeDasharray="3 3"
-                  />
-                  <line
-                    x1="0"
-                    y1="90"
-                    x2="600"
-                    y2="90"
-                    stroke="#E5E7DF"
-                    strokeDasharray="3 3"
-                  />
-                  <line
-                    x1="0"
-                    y1="140"
-                    x2="600"
-                    y2="140"
-                    stroke="#E5E7DF"
-                    strokeDasharray="3 3"
-                  />
-                  <line x1="0" y1="190" x2="600" y2="190" stroke="#E5E7DF" />
-
-                  {/* Shaded Area fill */}
-                  <polygon
-                    points="0,180 80,150 180,135 280,110 380,85 480,55 580,30 580,190 0,190"
-                    fill="url(#revenueGrad)"
-                  />
-
-                  {/* Trajectory Stroke */}
-                  <polyline
-                    fill="none"
-                    stroke="#173D2A"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    points="0,180 80,150 180,135 280,110 380,85 480,55 580,30"
-                  />
-
-                  {/* Data Points */}
-                  {[
-                    { cx: 80, cy: 150, val: "₹1.4L" },
-                    { cx: 180, cy: 135, val: "₹1.8L" },
-                    { cx: 280, cy: 110, val: "₹2.3L" },
-                    { cx: 380, cy: 85, val: "₹2.9L" },
-                    { cx: 480, cy: 55, val: "₹3.6L" },
-                    { cx: 580, cy: 30, val: "₹4.2L" },
-                  ].map((pt, i) => (
-                    <g key={i} className="cursor-pointer group">
-                      <circle
-                        cx={pt.cx}
-                        cy={pt.cy}
-                        r="5"
-                        fill="#FFFFFF"
-                        stroke="#173D2A"
-                        strokeWidth="3"
-                        className="transition-transform duration-200 group-hover:scale-125"
-                      />
-                      <text
-                        x={pt.cx}
-                        y={pt.cy - 10}
-                        textAnchor="middle"
-                        className="text-[11px] font-bold fill-stone-700"
-                      >
-                        {pt.val}
-                      </text>
-                    </g>
-                  ))}
-                </svg>
+                {(() => {
+                  const trend = report?.trend || [];
+                  const max = Math.max(1, ...trend.map((t) => t.net));
+                  const pts = trend.map((t, i) => ({
+                    cx: trend.length > 1 ? 40 + (i * 520) / (trend.length - 1) : 300,
+                    cy: 180 - (Math.max(0, t.net) / max) * 140,
+                    val: compactINR(t.net),
+                  }));
+                  const line = pts.map((p) => `${p.cx},${p.cy}`).join(" ");
+                  return (
+                    <svg viewBox="0 0 600 200" className="w-full h-48 overflow-visible">
+                      <defs>
+                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#173D2A" stopOpacity="0.35" />
+                          <stop offset="100%" stopColor="#173D2A" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+                      {[40, 90, 140].map((y) => (
+                        <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="#E5E7DF" strokeDasharray="3 3" />
+                      ))}
+                      <line x1="0" y1="190" x2="600" y2="190" stroke="#E5E7DF" />
+                      {pts.length > 1 && <polygon points={`${pts[0].cx},190 ${line} ${pts[pts.length - 1].cx},190`} fill="url(#revenueGrad)" />}
+                      <polyline fill="none" stroke="#173D2A" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" points={line} />
+                      {pts.map((pt, i) => (
+                        <g key={i} className="cursor-pointer group">
+                          <circle cx={pt.cx} cy={pt.cy} r="5" fill="#FFFFFF" stroke="#173D2A" strokeWidth="3" />
+                          <text x={pt.cx} y={pt.cy - 10} textAnchor="middle" className="text-[11px] font-bold fill-stone-700">
+                            {pt.val}
+                          </text>
+                        </g>
+                      ))}
+                    </svg>
+                  );
+                })()}
 
                 {/* X Axis Month Labels */}
                 <div className="flex justify-between px-2 text-xs font-semibold text-stone-500 pt-3 border-t border-stone-100">
-                  <span>May</span>
-                  <span>Jun</span>
-                  <span>Jul</span>
-                  <span>Aug</span>
-                  <span>Sep</span>
-                  <span>Oct (Current)</span>
+                  {(report?.trend || []).map((t, i, arr) => (
+                    <span key={t.month}>{t.label}{i === arr.length - 1 ? " (Current)" : ""}</span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -315,51 +268,20 @@ export const DashboardPage = () => {
             subtitle="Revenue contribution across herbal lines"
           >
             <div className="space-y-4 pt-2">
-              {[
-                {
-                  name: "Digestive Health & Gut",
-                  pct: 36,
-                  rev: "₹1,51,200",
-                  color: "bg-[#173D2A]",
-                },
-                {
-                  name: "Immunity & Rasayana",
-                  pct: 28,
-                  rev: "₹1,17,600",
-                  color: "bg-[#386B40]",
-                },
-                {
-                  name: "Stress Relief & Sleep",
-                  pct: 18,
-                  rev: "₹75,600",
-                  color: "bg-[#A9D18E]",
-                },
-                {
-                  name: "Herbal Skincare & Oils",
-                  pct: 12,
-                  rev: "₹50,400",
-                  color: "bg-amber-500",
-                },
-                {
-                  name: "Joint Care & Mobility",
-                  pct: 6,
-                  rev: "₹25,200",
-                  color: "bg-stone-400",
-                },
-              ].map((cat, idx) => (
+              {(report?.categories || []).slice(0, 6).map((cat, idx) => (
                 <div key={idx} className="space-y-1.5">
                   <div className="flex justify-between text-xs">
                     <span className="font-semibold text-stone-800">
                       {cat.name}
                     </span>
                     <span className="text-stone-500">
-                      {cat.rev} ({cat.pct}%)
+                      {formatCurrency(cat.net)} ({cat.percent}%)
                     </span>
                   </div>
                   <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${cat.color}`}
-                      style={{ width: `${cat.pct}%` }}
+                      className={`h-full rounded-full ${CATEGORY_COLORS[idx % CATEGORY_COLORS.length]}`}
+                      style={{ width: `${cat.percent}%` }}
                     />
                   </div>
                 </div>
@@ -368,8 +290,8 @@ export const DashboardPage = () => {
 
             <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-600" /> Top
-                Performer: Gut Health
+                <span className="w-2 h-2 rounded-full bg-emerald-600" />{" "}
+                {report?.categories?.[0] ? `Top performer: ${report.categories[0].name}` : "No paid sales in this period"}
               </span>
               <Link
                 to="/admin/categories"
@@ -526,10 +448,14 @@ export const DashboardPage = () => {
                       <button
                         type="button"
                         onClick={() =>
-                          updateProductStock(
-                            p.id,
-                            p.stock + 20,
-                            "Reorder Received",
+                          Promise.resolve(
+                            updateProductStock(
+                              p.id,
+                              (p.stock ?? p.stockQuantity ?? 0) + 20,
+                              "Reorder Received",
+                            ),
+                          ).catch((err) =>
+                            window.alert(err.message || "Failed to update stock."),
                           )
                         }
                         className="px-2 py-1 text-[11px] font-bold rounded bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 transition-colors"

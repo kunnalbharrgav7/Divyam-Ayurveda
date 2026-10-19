@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Star,
@@ -16,7 +16,13 @@ import { ConfirmDialog } from "../../components/admin/common/AdminModal";
 import { formatDate } from "../../utils/formatters";
 
 export const ReviewsPage = () => {
-  const { reviews, moderateReview, deleteReview } = useAdmin();
+  const { reviews, moderateReview, deleteReview, fetchAdminReviews } = useAdmin();
+
+  // New customer reviews arrive at any time: load the latest list once when the page opens
+  useEffect(() => {
+    fetchAdminReviews?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");

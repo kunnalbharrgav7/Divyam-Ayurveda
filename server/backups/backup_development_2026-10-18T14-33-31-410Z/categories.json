@@ -1,0 +1,346 @@
+[
+  {
+    "_id": "6ad3468884d5491fed184f48",
+    "slug": "ayurvedic-herbs",
+    "__v": 0,
+    "bannerImage": "/images/ProductImages/Himalya.png",
+    "createdAt": "2026-10-17T09:57:28.598Z",
+    "description": "Sustainably harvested single and classical Indian medicinal herbs.",
+    "displayOrder": 0,
+    "image": "/images/ProductImages/Ashuwaganda.png",
+    "isFeatured": true,
+    "name": "Ayurvedic Herbs",
+    "shortName": "Ayurvedic Herbs",
+    "status": "active",
+    "subcategories": [
+      {
+        "id": "vitality-adaptogens",
+        "name": "Vitality & Adaptogens",
+        "slug": "vitality-adaptogens",
+        "description": "Rejuvenating adaptogens like Ashwagandha and Shatavari for stamina and vigor.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec1a"
+      },
+      {
+        "id": "immunity-rasayana",
+        "name": "Immunity & Rasayana",
+        "slug": "immunity-rasayana",
+        "description": "Potent protective herbs including Giloy, Tulsi, and Wild Amla.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec1b"
+      },
+      {
+        "id": "brain-memory",
+        "name": "Brain & Memory",
+        "slug": "brain-memory",
+        "description": "Medhya herbs like Brahmi and Shankhpushpi for mental clarity and calm.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec1c"
+      },
+      {
+        "id": "single-herbs",
+        "name": "Single Herb Roots",
+        "slug": "single-herbs",
+        "description": "Pure single-origin botanical roots, barks, and leaves.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec1d"
+      }
+    ],
+    "updatedAt": "2026-10-18T13:45:07.402Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f49",
+    "slug": "churna-powders",
+    "__v": 0,
+    "bannerImage": "/images/ProductImages/PureHimalayanShilajit3.jpeg",
+    "createdAt": "2026-10-17T09:57:28.600Z",
+    "description": "Traditional finely micro-pulverized herbal churnas formulated as per classical granthas.",
+    "displayOrder": 0,
+    "image": "/images/ProductImages/PureHimalayanShilajit2.jpeg",
+    "isFeatured": true,
+    "name": "Churna & Powders",
+    "shortName": "Churna & Powders",
+    "status": "active",
+    "subcategories": [
+      {
+        "id": "digestive-churnas",
+        "name": "Classical Digestive Churnas",
+        "slug": "digestive-churnas",
+        "description": "Time-honored recipes like Triphala, Hingwashtak, and Avipattikar Churna.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec23"
+      },
+      {
+        "id": "single-powders",
+        "name": "Single Herb Powders",
+        "slug": "single-powders",
+        "description": "100% pure single-herb churnas milled to optimal bioavailability.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec24"
+      },
+      {
+        "id": "nutrition-powders",
+        "name": "Nutritional & Detox Powders",
+        "slug": "nutrition-powders",
+        "description": "Lakadong Turmeric, Moringa Leaf, and organic functional superfoods.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec25"
+      }
+    ],
+    "updatedAt": "2026-10-18T13:45:07.408Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f4a",
+    "slug": "herbal-oils",
+    "__v": 0,
+    "bannerImage": "/images/ProductImages/VitaminC.png",
+    "createdAt": "2026-10-17T09:57:28.602Z",
+    "description": "Cold-pressed tailams and botanical oils infused with potent restorative herbs.",
+    "displayOrder": 0,
+    "image": "/images/ProductImages/VitaminC.png",
+    "isFeatured": true,
+    "name": "Herbal Oils",
+    "shortName": "Herbal Oils",
+    "status": "active",
+    "subcategories": [
+      {
+        "id": "hair-scalp-tailams",
+        "name": "Hair & Scalp Tailams",
+        "slug": "hair-scalp-tailams",
+        "description": "Classical Bhringraj and Amla hair elixirs for deep follicular nourishment.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec2a"
+      },
+      {
+        "id": "pain-relief-oils",
+        "name": "Joint & Pain Relief",
+        "slug": "pain-relief-oils",
+        "description": "Mahanarayan and Nirgundi oils for muscular comfort and flexibility.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec2b"
+      },
+      {
+        "id": "face-skin-serums",
+        "name": "Facial & Skin Serums",
+        "slug": "face-skin-serums",
+        "description": "Precious Kumkumadi and Nalpamaradi oils for radiant complexion.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec2c"
+      },
+      {
+        "id": "nasal-ear-care",
+        "name": "Nasal & Ear Care (Nasya)",
+        "slug": "nasal-ear-care",
+        "description": "Classical Anu Tailam and Shadbindu oils for sensory organ health.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec2d"
+      }
+    ],
+    "updatedAt": "2026-10-18T13:45:07.412Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f4b",
+    "slug": "herbal-juices",
+    "__v": 0,
+    "bannerImage": "/images/ProductImages/Himalya.png",
+    "createdAt": "2026-10-17T09:57:28.604Z",
+    "description": "Pure, cold-extracted herbal swaras juices without added refined sugar or artificial colours.",
+    "displayOrder": 0,
+    "image": "/images/ProductImages/PureHimalayanShilajit.jpeg",
+    "isFeatured": true,
+    "name": "Herbal Juices",
+    "shortName": "Herbal Juices",
+    "status": "active",
+    "subcategories": [
+      {
+        "id": "daily-immunity-swaras",
+        "name": "Daily Immunity Swaras",
+        "slug": "daily-immunity-swaras",
+        "description": "Pure Wild Amla and Giloy juices for year-round vitality.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec33"
+      },
+      {
+        "id": "detox-weight",
+        "name": "Detox & Weight Balance",
+        "slug": "detox-weight",
+        "description": "Cold-extracted Aloe Vera, Wheatgrass, and Triphala juices.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec34"
+      },
+      {
+        "id": "metabolism-sugar",
+        "name": "Sugar & Metabolism Care",
+        "slug": "metabolism-sugar",
+        "description": "Karela Jamun and Madhunashini herbal swaras.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec35"
+      }
+    ],
+    "updatedAt": "2026-10-18T13:45:07.416Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f4c",
+    "slug": "kadha-herbal-teas",
+    "__v": 0,
+    "bannerImage": "/images/ProductImages/PureHimalayanShilajit2.jpeg",
+    "createdAt": "2026-10-17T09:57:28.605Z",
+    "description": "Time-tested herbal decoction blends and caffeine-free wellness infusions.",
+    "displayOrder": 0,
+    "image": "/images/ProductImages/Shilajit.png",
+    "isFeatured": true,
+    "name": "Kadha & Herbal Teas",
+    "shortName": "Kadha & Herbal Teas",
+    "status": "active",
+    "subcategories": [
+      {
+        "id": "immunity-kadha",
+        "name": "Immunity & Lung Care Kadha",
+        "slug": "immunity-kadha",
+        "description": "Classical Ayush Kwath decoction blends with Tulsi, Dalchini, and Sunthi.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec3a"
+      },
+      {
+        "id": "digestive-teas",
+        "name": "Digestive (CCF) Teas",
+        "slug": "digestive-teas",
+        "description": "Cumin, Coriander, and Fennel balancing digestive infusions.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec3b"
+      },
+      {
+        "id": "stress-sleep-teas",
+        "name": "Stress Relief & Night Teas",
+        "slug": "stress-sleep-teas",
+        "description": "Chamomile, Brahmi, and Ashwagandha calming bedtime teas.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec3c"
+      }
+    ],
+    "updatedAt": "2026-10-18T13:45:07.423Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f4d",
+    "slug": "digestive-wellness",
+    "__v": 0,
+    "bannerImage": "/images/ProductImages/PureHimalayanShilajit.jpeg",
+    "createdAt": "2026-10-17T09:57:28.606Z",
+    "description": "Classical formulation blends that kindle Agni and support balanced gut equilibrium.",
+    "displayOrder": 0,
+    "image": "/images/ProductImages/PureHimalayanShilajit3.jpeg",
+    "isFeatured": true,
+    "name": "Digestive Wellness",
+    "shortName": "Digestive Wellness",
+    "status": "active",
+    "subcategories": [
+      {
+        "id": "acidity-gas",
+        "name": "Acidity & Gas Relief",
+        "slug": "acidity-gas",
+        "description": "Herbal pachaks, Avipattikar blends, and cooling Pitta balancers.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec41"
+      },
+      {
+        "id": "bowel-cleanse",
+        "name": "Bowel Cleansing & Constipation",
+        "slug": "bowel-cleanse",
+        "description": "Triphala formulations and natural psyllium herbal husks.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec42"
+      },
+      {
+        "id": "digestive-vati",
+        "name": "Digestive Vati & Candy",
+        "slug": "digestive-vati",
+        "description": "Appetizing Hing Vati and digestive chewables.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec43"
+      }
+    ],
+    "updatedAt": "2026-10-18T13:45:07.426Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f4e",
+    "slug": "personal-care",
+    "__v": 0,
+    "bannerImage": "/images/ProductImages/VitaminC.png",
+    "createdAt": "2026-10-17T09:57:28.607Z",
+    "description": "Holistic botanical skin and hair elixirs free from parabens, SLS, and artificial fragrances.",
+    "displayOrder": 0,
+    "image": "/images/ProductImages/VitaminC.png",
+    "isFeatured": true,
+    "name": "Personal Care",
+    "shortName": "Personal Care",
+    "status": "active",
+    "subcategories": [
+      {
+        "id": "face-skin-care",
+        "name": "Facial & Skin Care (Ubtan)",
+        "slug": "face-skin-care",
+        "description": "Traditional herbal face packs, rose water toners, and glow elixirs.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec48"
+      },
+      {
+        "id": "herbal-hair-care",
+        "name": "Herbal Hair Cleansers",
+        "slug": "herbal-hair-care",
+        "description": "Shikakai, Reetha, and Bhringraj clarifying shampoos and conditioners.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec49"
+      },
+      {
+        "id": "bath-body-care",
+        "name": "Therapeutic Soaps & Body Care",
+        "slug": "bath-body-care",
+        "description": "Cold-processed Neem Tulsi soaps and nourishing body butters.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec4a"
+      }
+    ],
+    "updatedAt": "2026-10-18T13:45:07.429Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f4f",
+    "slug": "wellness-essentials",
+    "__v": 0,
+    "bannerImage": "/images/ProductImages/Himalya.png",
+    "createdAt": "2026-10-17T09:57:28.609Z",
+    "description": "Foundational vitality supplements, Chyawanprash, and daily adaptogens for whole-body vitality.",
+    "displayOrder": 0,
+    "image": "/images/ProductImages/Himalya.png",
+    "isFeatured": true,
+    "name": "Wellness Essentials",
+    "shortName": "Wellness Essentials",
+    "status": "active",
+    "subcategories": [
+      {
+        "id": "himalayan-shilajit",
+        "name": "Pure Himalayan Shilajit",
+        "slug": "himalayan-shilajit",
+        "description": "Grade-A pure Himalayan Shilajit resin tested for maximum fulvic acid.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec4f"
+      },
+      {
+        "id": "chyawanprash-rasayana",
+        "name": "Chyawanprash & Lehyams",
+        "slug": "chyawanprash-rasayana",
+        "description": "Authentic multi-herb nutritive jams simmered with wild forest honey and cow ghee.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec50"
+      },
+      {
+        "id": "wild-honey",
+        "name": "Raw Forest Honey",
+        "slug": "wild-honey",
+        "description": "Unpasteurized, ethically harvested single-origin multiflora raw nectar.",
+        "image": "",
+        "_id": "6ad4cd6333104d223e93ec51"
+      }
+    ],
+    "updatedAt": "2026-10-18T13:45:07.432Z"
+  }
+]

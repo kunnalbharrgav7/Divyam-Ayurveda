@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 
@@ -8,11 +8,15 @@ export const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+
     if (!email || !email.includes("@")) {
       setError("Please enter a valid email address.");
       return;
@@ -22,19 +26,27 @@ export const LoginPage = () => {
       return;
     }
 
-    login(email, password);
-    navigate("/account");
-  };
+    setLoading(true);
+    try {
+      const result = await login(email, password);
 
-  const handleDemoCustomerLogin = () => {
-    login("aarav.sharma@example.com", "ayurveda123");
-    navigate("/account");
-  };
-
-  const { loginAsAdmin } = useAuth();
-  const handleDemoAdminLogin = () => {
-    loginAsAdmin();
-    navigate("/admin/dashboard");
+      if (result.success) {
+        // If the authenticated user is an administrator, redirect straight to the Admin Dashboard
+        if (result.isAdmin) {
+          navigate("/admin/dashboard", { replace: true });
+        } else {
+          // If customer, redirect to previous intended destination or account profile
+          const redirectPath = location.state?.from || "/account";
+          navigate(redirectPath, { replace: true });
+        }
+      } else {
+        setError(result.error || "Invalid email address or password.");
+      }
+    } catch (err) {
+      setError("An unexpected error occurred during sign in. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,7 +54,7 @@ export const LoginPage = () => {
       <div className="max-w-md mx-auto px-4 sm:px-6">
         <Breadcrumbs items={[{ label: "Login" }]} />
 
-        <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 shadow-xs mt-4">
+        <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 shadow-xs mt-4 animate-in fade-in zoom-in-98 duration-300">
           <div className="text-center mb-6">
             <Link to="/" className="inline-block mb-3 hover:opacity-90 transition-opacity" aria-label="Divyam Ayurveda">
               <img
@@ -51,13 +63,20 @@ export const LoginPage = () => {
                 className="h-14 sm:h-16 w-auto mx-auto object-contain"
               />
             </Link>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#171A17]">
+            <h1 className="font-heading tracking-tight text-2xl sm:text-3xl font-bold text-[#171A17]">
               Sign In
             </h1>
             <p className="text-xs sm:text-sm text-[#666B64] mt-1">
-              Sign in to manage your Ayurvedic orders or access store administration.
+              Sign in with your email and password to access your account.
             </p>
           </div>
+
+          {location.state?.message && (
+            <div className="mb-4 p-3 rounded-xl bg-amber-50 text-amber-900 text-xs border border-amber-200 flex items-center gap-2">
+              <Lock size={15} className="text-amber-700 shrink-0" />
+              <span>{location.state.message}</span>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-xs border border-rose-200">
@@ -76,7 +95,10 @@ export const LoginPage = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40]"
+                  autoComplete="email"
+                  required
+                  disabled={loading}
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40] disabled:opacity-60"
                 />
                 <Mail size={16} className="absolute left-3 top-3 text-stone-400" />
               </div>
@@ -98,7 +120,10 @@ export const LoginPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40]"
+                  autoComplete="current-password"
+                  required
+                  disabled={loading}
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40] disabled:opacity-60"
                 />
                 <Lock size={16} className="absolute left-3 top-3 text-stone-400" />
               </div>
@@ -106,39 +131,26 @@ export const LoginPage = () => {
 
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-[#173D2A] hover:bg-[#0B2416] text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-[#173D2A] hover:bg-[#0B2416] text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs disabled:opacity-70 cursor-pointer"
             >
-              <span>Sign In</span>
-              <ArrowRight size={15} />
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Signing In...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <ArrowRight size={15} />
+                </>
+              )}
             </button>
-
-            {/* Demo Login Options */}
-            <div className="pt-2 space-y-2 border-t border-[#E5E7DF]">
-              <span className="block text-[11px] font-bold text-center text-stone-400 uppercase tracking-wider">
-                Instant Demo Access
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={handleDemoCustomerLogin}
-                  className="py-2.5 px-3 bg-[#F4F4EE] hover:bg-stone-200 text-[#173D2A] font-semibold rounded-xl transition-colors text-xs text-center border border-stone-200/80"
-                >
-                  👤 Customer Demo (Aarav)
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDemoAdminLogin}
-                  className="py-2.5 px-3 bg-[#386B40] hover:bg-[#173D2A] text-white font-semibold rounded-xl transition-colors text-xs text-center shadow-xs"
-                >
-                  ⚡ Admin Demo (Super Admin)
-                </button>
-              </div>
-            </div>
           </form>
 
           <div className="mt-6 pt-4 border-t border-[#E5E7DF] text-center text-xs text-stone-500">
             Don&apos;t have an account?{" "}
-            <Link to="/register" className="font-bold text-[#173D2A] hover:underline">
+            <Link to="/register" state={location.state} className="font-bold text-[#173D2A] hover:underline">
               Create an account
             </Link>
           </div>

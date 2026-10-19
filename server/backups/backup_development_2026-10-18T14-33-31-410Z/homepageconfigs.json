@@ -1,0 +1,53 @@
+[
+  {
+    "_id": "6ad346cf84d5491fed184ff5",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:58:39.216Z",
+    "hero": {
+      "eyebrow": "Rooted in Ayurveda. Made for Modern Living.",
+      "heading": "Embrace Ayurveda.",
+      "headingItalic": "Live Naturally.",
+      "description": "Explore authentic Ayurvedic herbs, classical churnas, cold-pressed oils, and everyday wellness essentials inspired by India's timeless herbal heritage.",
+      "primaryBtnText": "Shop Now",
+      "primaryBtnLink": "/products",
+      "secondaryBtnText": "Explore Our Story",
+      "secondaryBtnLink": "/our-story",
+      "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=1200&q=80",
+      "badgeTitle": "Nature Nourishes A Better You",
+      "badgeSubtitle": "100% Herbal"
+    },
+    "promotionalBanners": {
+      "bannerA": {
+        "tag": "Pure Herbs • Natural Vitality ♥",
+        "title": "Nature's Wisdom for Everyday Wellness",
+        "description": "Clean botanical churnas, golden Lakadong haldi, and wild single-origin honey.",
+        "btnText": "Shop Ayurvedic Herbs",
+        "btnLink": "/products?category=ayurvedic-herbs",
+        "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80"
+      },
+      "bannerB": {
+        "tag": "Eco-Conscious Harvesting",
+        "title": "Rediscover the Art of Ayurveda",
+        "description": "Together for a cleaner, greener and healthier tomorrow. Zero synthetics, zero plastic waste.",
+        "btnText": "Shop Classical Remedies",
+        "btnLink": "/products?category=wellness-essentials",
+        "image": "https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=800&q=80"
+      }
+    },
+    "sectionsVisibility": {
+      "hero": true,
+      "trustBadges": true,
+      "shopByCategory": true,
+      "bestsellers": true,
+      "trending": true,
+      "newArrivals": true,
+      "featuredCollections": true,
+      "promotionalBanners": true,
+      "benefitsStrip": true,
+      "testimonials": true,
+      "blogHighlights": true,
+      "newsletter": true
+    },
+    "updatedAt": "2026-10-18T13:45:07.806Z"
+  }
+]

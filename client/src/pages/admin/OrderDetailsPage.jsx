@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,20 +13,63 @@ import {
   User,
   Plus,
   Send,
+  Copy,
+  Check,
+  ExternalLink,
+  FileText,
+  RefreshCw,
+  Zap,
 } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { formatCurrency, formatDate } from "../../utils/formatters";
+import { getStatusLevel } from "../../utils/orderStatus";
 
 export const OrderDetailsPage = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const { orders, updateOrderStatus } = useAdmin();
+  const {
+    orders,
+    updateOrderStatus,
+    updatePaymentStatus,
+    refreshOrders,
+    dispatchShipment,
+    advanceShipment,
+    updateTrackingInfo,
+    getOrderShipment,
+  } = useAdmin();
 
-  const order = orders.find((o) => o.id === orderId);
+  useEffect(() => {
+    if (refreshOrders) {
+      refreshOrders();
+    }
+  }, []);
 
-  const [trackingNumber, setTrackingNumber] = useState(order?.trackingNumber || "BLUEDART-88210948");
-  const [carrier, setCarrier] = useState(order?.carrier || "BlueDart Express");
+  const order = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
+
+  const [trackingNumber, setTrackingNumber] = useState(order?.trackingNumber || "");
+  const [carrier, setCarrier] = useState(order?.carrier || "");
+  const [shipment, setShipment] = useState(null);
+  const [isShippingLoading, setIsShippingLoading] = useState(false);
+  const [actionNotice, setActionNotice] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (order) {
+      if (order.trackingNumber) setTrackingNumber(order.trackingNumber);
+      if (order.carrier) setCarrier(order.carrier);
+    }
+  }, [order?.trackingNumber, order?.carrier]);
+
+  useEffect(() => {
+    const fetchShipment = async () => {
+      if (orderId && getOrderShipment) {
+        const data = await getOrderShipment(orderId);
+        if (data) setShipment(data);
+      }
+    };
+    fetchShipment();
+  }, [orderId]);
   const [internalNotes, setInternalNotes] = useState(
     order?.internalNotes || [
       {
@@ -87,15 +130,92 @@ export const OrderDetailsPage = () => {
   state = typeof state === "string" ? state : String(state || "");
   pincode = typeof pincode === "string" || typeof pincode === "number" ? String(pincode) : "";
 
-  const handleStatusChange = (newStatus) => {
-    updateOrderStatus(order.id, newStatus);
-    const addedNote = {
-      id: Date.now(),
-      text: `Order status updated to "${newStatus}".`,
-      author: "Admin Staff",
-      time: new Date().toLocaleString(),
-    };
-    setInternalNotes((prev) => [addedNote, ...prev]);
+  const handleStatusChange = async (newStatus) => {
+    try {
+      await updateOrderStatus(order.id, newStatus);
+      setActionNotice(`Order status updated to "${newStatus}" in database.`);
+      setTimeout(() => setActionNotice(""), 3500);
+      const addedNote = {
+        id: Date.now(),
+        text: `Order status updated to "${newStatus}".`,
+        author: "Admin Staff",
+        time: new Date().toLocaleString(),
+      };
+      setInternalNotes((prev) => [addedNote, ...prev]);
+    } catch (err) {
+      alert(`Status update failed: ${err.message}`);
+    }
+  };
+
+  const handlePaymentStatusChange = async (newPayStatus) => {
+    try {
+      await updatePaymentStatus(order.id, newPayStatus);
+      setActionNotice(`Payment status updated to "${newPayStatus}".`);
+      setTimeout(() => setActionNotice(""), 3500);
+      const addedNote = {
+        id: Date.now(),
+        text: `Payment status updated to "${newPayStatus}".`,
+        author: "Admin Staff",
+        time: new Date().toLocaleString(),
+      };
+      setInternalNotes((prev) => [addedNote, ...prev]);
+    } catch (err) {
+      alert(`Payment update failed: ${err.message}`);
+    }
+  };
+
+  const handleDispatchShiprocket = async () => {
+    setIsShippingLoading(true);
+    try {
+      const res = await dispatchShipment(order.id);
+      if (res.shipment) setShipment(res.shipment);
+      if (res.order?.trackingNumber) setTrackingNumber(res.order.trackingNumber);
+      if (res.order?.carrier) setCarrier(res.order.carrier);
+      setActionNotice("Order dispatched via Shiprocket! Airway Bill (AWB) generated.");
+      setTimeout(() => setActionNotice(""), 4000);
+    } catch (err) {
+      alert(`Shiprocket dispatch failed: ${err.message}`);
+    } finally {
+      setIsShippingLoading(false);
+    }
+  };
+
+  const handleAdvanceCourier = async (stage) => {
+    setIsShippingLoading(true);
+    try {
+      const res = await advanceShipment(order.id, stage);
+      if (res.shipment) setShipment(res.shipment);
+      setActionNotice(`Shipment progressed to: ${stage.replace(/_/g, " ")}`);
+      setTimeout(() => setActionNotice(""), 4000);
+    } catch (err) {
+      alert(`Courier progression failed: ${err.message}`);
+    } finally {
+      setIsShippingLoading(false);
+    }
+  };
+
+  const handleSaveTracking = async (e) => {
+    e.preventDefault();
+    setIsShippingLoading(true);
+    try {
+      await updateTrackingInfo(order.id, {
+        carrier,
+        trackingNumber,
+      });
+      setActionNotice("Courier partner and AWB tracking code saved to database.");
+      setTimeout(() => setActionNotice(""), 3500);
+    } catch (err) {
+      alert(`Failed to save tracking: ${err.message}`);
+    } finally {
+      setIsShippingLoading(false);
+    }
+  };
+
+  const handleCopyAWB = () => {
+    if (!trackingNumber) return;
+    navigator.clipboard.writeText(trackingNumber);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleAddNote = (e) => {
@@ -116,9 +236,10 @@ export const OrderDetailsPage = () => {
     window.print();
   };
 
-  // Stepper helper
-  const steps = ["Pending", "Processing", "Dispatched", "Delivered"];
-  const currentStepIndex = steps.indexOf(currentStatus);
+  // Stepper helper: 5 standard milestones
+  const steps = ["Placed", "Packed", "Dispatched", "Out for Delivery", "Delivered"];
+  const getStepIndex = getStatusLevel;
+  const currentStepIndex = getStepIndex(currentStatus);
 
   return (
     <div className="space-y-6 pb-12">
@@ -138,13 +259,15 @@ export const OrderDetailsPage = () => {
               </h1>
               <span
                 className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                  currentStatus === "Delivered"
+                  String(currentStatus).toLowerCase() === "delivered"
                     ? "bg-emerald-100 text-emerald-800"
-                    : currentStatus === "Dispatched"
+                    : String(currentStatus).toLowerCase() === "dispatched" || String(currentStatus).toLowerCase() === "shipped"
                     ? "bg-blue-100 text-blue-800"
-                    : currentStatus === "Processing"
+                    : String(currentStatus).toLowerCase() === "processing" || String(currentStatus).toLowerCase() === "packed"
                     ? "bg-amber-100 text-amber-800"
-                    : currentStatus === "Cancelled"
+                    : String(currentStatus).toLowerCase() === "confirmed"
+                    ? "bg-teal-100 text-teal-800"
+                    : String(currentStatus).toLowerCase() === "cancelled"
                     ? "bg-rose-100 text-rose-800"
                     : "bg-stone-100 text-stone-800"
                 }`}
@@ -152,12 +275,27 @@ export const OrderDetailsPage = () => {
                 {currentStatus}
               </span>
             </div>
-            <p className="text-xs text-stone-500 mt-0.5">
-              Placed on {formatDate(order.date || order.orderDate)} • Payment:{" "}
-              <span className="font-semibold text-stone-700">
-                {order.paymentStatus || "Paid"}
-              </span>
-            </p>
+            <div className="text-xs text-stone-500 mt-1 flex flex-wrap items-center gap-2">
+              <span>Placed on {formatDate(order.date || order.orderDate)} • Payment:</span>
+              <select
+                value={order.paymentStatus || "Pending"}
+                onChange={(e) => handlePaymentStatusChange(e.target.value)}
+                className={`px-2 py-0.5 text-xs font-semibold rounded-md border cursor-pointer ${
+                  order.paymentStatus === "Paid"
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                    : order.paymentStatus === "Refunded"
+                    ? "bg-purple-50 text-purple-800 border-purple-200"
+                    : order.paymentStatus === "Failed"
+                    ? "bg-rose-50 text-rose-800 border-rose-200"
+                    : "bg-amber-50 text-amber-800 border-amber-200"
+                }`}
+              >
+                <option value="Paid">Paid</option>
+                <option value="Pending">Pending</option>
+                <option value="Refunded">Refunded</option>
+                <option value="Failed">Failed</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -173,10 +311,27 @@ export const OrderDetailsPage = () => {
         </div>
       </div>
 
+      {/* Action Notification Banner */}
+      {actionNotice && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{actionNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionNotice("")}
+            className="text-emerald-700 hover:text-emerald-900"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Fulfillment Stepper */}
       <AdminCard title="Fulfillment Progression" subtitle="Track and advance warehouse delivery stages">
         <div className="py-2">
-          <div className="grid grid-cols-4 gap-2 relative">
+          <div className="grid grid-cols-5 gap-2 relative">
             {steps.map((st, idx) => {
               const isPassed = currentStepIndex >= idx;
               const isCurrent = currentStepIndex === idx;
@@ -195,7 +350,7 @@ export const OrderDetailsPage = () => {
                   <span
                     className={`text-xs font-semibold ${
                       isCurrent
-                        ? "text-[#173D2A]"
+                        ? "text-[#173D2A] font-bold"
                         : isPassed
                         ? "text-stone-800"
                         : "text-stone-400"
@@ -210,41 +365,37 @@ export const OrderDetailsPage = () => {
 
           {/* Quick Advancement Buttons */}
           <div className="mt-6 pt-4 border-t border-stone-100 flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-stone-500">
+            <span className="text-xs text-stone-500 font-medium">
               Update order fulfillment stage:
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              {currentStatus !== "Processing" && currentStatus !== "Delivered" && (
-                <button
-                  type="button"
-                  onClick={() => handleStatusChange("Processing")}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 transition-colors"
-                >
-                  Mark Processing
-                </button>
-              )}
+              {[
+                { label: "Mark Packed / Processing", status: "Processing", step: 1, idle: "bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-200", active: "bg-amber-500 border-amber-600 text-white ring-amber-300" },
+                { label: "Mark Dispatched", status: "Dispatched", step: 2, idle: "bg-blue-50 text-blue-800 hover:bg-blue-100 border-blue-200", active: "bg-blue-600 border-blue-700 text-white ring-blue-300" },
+                { label: "Mark Out for Delivery", status: "Out for Delivery", step: 3, idle: "bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border-indigo-200", active: "bg-indigo-600 border-indigo-700 text-white ring-indigo-300" },
+                { label: "Mark Delivered", status: "Delivered", step: 4, idle: "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border-emerald-200", active: "bg-emerald-600 border-emerald-700 text-white ring-emerald-300" },
+              ].map((btn) => {
+                // The current stage is shown as a solid, ringed button with a check mark
+                const isActive = currentStepIndex === btn.step && String(currentStatus).toLowerCase() !== "cancelled";
+                return (
+                  <button
+                    key={btn.status}
+                    type="button"
+                    onClick={() => handleStatusChange(btn.status)}
+                    aria-pressed={isActive}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                      isActive
+                        ? `${btn.active} font-bold ring-4 shadow-md`
+                        : `${btn.idle} font-semibold`
+                    }`}
+                  >
+                    {isActive && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    {btn.label}
+                  </button>
+                );
+              })}
 
-              {currentStatus !== "Dispatched" && currentStatus !== "Delivered" && (
-                <button
-                  type="button"
-                  onClick={() => handleStatusChange("Dispatched")}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200 transition-colors"
-                >
-                  Mark Dispatched
-                </button>
-              )}
-
-              {currentStatus !== "Delivered" && (
-                <button
-                  type="button"
-                  onClick={() => handleStatusChange("Delivered")}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 transition-colors"
-                >
-                  Mark Delivered
-                </button>
-              )}
-
-              {currentStatus !== "Cancelled" && (
+              {String(currentStatus).toLowerCase() !== "cancelled" && (
                 <button
                   type="button"
                   onClick={() => handleStatusChange("Cancelled")}
@@ -418,6 +569,41 @@ export const OrderDetailsPage = () => {
             </div>
           </AdminCard>
 
+          {/* Payment & Settlement */}
+          <AdminCard title="Payment & Financials" subtitle="Gateway details & transaction status">
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Payment Method:</span>
+                <span className="font-semibold text-stone-800">{order.paymentMethod || "Cash on Delivery"}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Payment Status:</span>
+                <select
+                  value={order.paymentStatus || "Pending"}
+                  onChange={(e) => handlePaymentStatusChange(e.target.value)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg border cursor-pointer ${
+                    order.paymentStatus === "Paid"
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : order.paymentStatus === "Refunded"
+                      ? "bg-purple-50 text-purple-800 border-purple-200"
+                      : order.paymentStatus === "Failed"
+                      ? "bg-rose-50 text-rose-800 border-rose-200"
+                      : "bg-amber-50 text-amber-800 border-amber-200"
+                  }`}
+                >
+                  <option value="Paid">Paid</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Refunded">Refunded</option>
+                  <option value="Failed">Failed</option>
+                </select>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-stone-100">
+                <span className="text-stone-500">Total Charged:</span>
+                <span className="font-bold text-stone-900">{formatCurrency(grandTotal)}</span>
+              </div>
+            </div>
+          </AdminCard>
+
           {/* Shipping Address */}
           <AdminCard title="Delivery Address" subtitle="Destination for shipment dispatch">
             <div className="flex items-start gap-2.5 text-xs text-stone-700 leading-relaxed">
@@ -431,40 +617,161 @@ export const OrderDetailsPage = () => {
             </div>
           </AdminCard>
 
-          {/* Shipping Carrier Info */}
-          <AdminCard title="Logistics & Tracking" subtitle="Airway bill & courier partner">
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-stone-500 mb-1">Courier Partner</label>
-                <input
-                  type="text"
-                  value={carrier}
-                  onChange={(e) => setCarrier(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white"
-                />
+          {/* Shiprocket Courier & Logistics Integration */}
+          <AdminCard
+            title="Shiprocket Logistics"
+            subtitle="Real-time courier fulfillment & AWB tracking"
+          >
+            <div className="space-y-4 text-xs">
+              {/* Status Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                <div className="flex items-center gap-1.5 font-semibold text-stone-700">
+                  <Truck className="w-4 h-4 text-[#173D2A]" />
+                  <span>Fulfillment Provider:</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#173D2A]/10 text-[#173D2A] border border-[#173D2A]/20 flex items-center gap-1">
+                  <Zap className="w-3 h-3" />
+                  <span>Shiprocket (Auto / Dev)</span>
+                </span>
               </div>
 
-              <div>
-                <label className="block text-stone-500 mb-1">Tracking Number (AWB)</label>
-                <input
-                  type="text"
-                  value={trackingNumber}
-                  onChange={(e) => setTrackingNumber(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white font-mono text-xs"
-                />
-              </div>
+              {/* Courier Partner & AWB Inputs */}
+              <form onSubmit={handleSaveTracking} className="space-y-3">
+                <div>
+                  <label className="block text-stone-500 font-medium mb-1">
+                    Courier Partner
+                  </label>
+                  <input
+                    type="text"
+                    value={carrier}
+                    onChange={(e) => setCarrier(e.target.value)}
+                    placeholder="e.g. Bluedart Air / Delhivery Surface"
+                    className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                  />
+                </div>
 
-              <div className="pt-2">
-                <a
-                  href={`https://www.bluedart.com/tracking?awb=${trackingNumber}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-semibold text-emerald-800 hover:underline inline-flex items-center gap-1"
+                <div>
+                  <label className="block text-stone-500 font-medium mb-1">
+                    Tracking Number (AWB)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={trackingNumber}
+                      onChange={(e) => setTrackingNumber(e.target.value)}
+                      placeholder="e.g. AWB94810294821"
+                      className="flex-1 px-3 py-1.5 rounded-lg border border-stone-300 bg-white font-mono text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-700"
+                    />
+                    {trackingNumber && (
+                      <button
+                        type="button"
+                        onClick={handleCopyAWB}
+                        className="px-2.5 py-1.5 rounded-lg border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-700 font-medium flex items-center gap-1"
+                        title="Copy AWB to clipboard"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copied ? "Copied" : "Copy"}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isShippingLoading}
+                  className="w-full py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold rounded-lg text-xs transition-colors"
                 >
-                  <Truck className="w-3.5 h-3.5" />
-                  <span>Track with Courier Partner →</span>
-                </a>
+                  Save Tracking Info
+                </button>
+              </form>
+
+              {/* Action Buttons: Dispatch & Advance */}
+              <div className="pt-2 border-t border-stone-100 space-y-2">
+                <span className="block font-semibold text-stone-600 text-[11px] uppercase tracking-wider">
+                  Shiprocket Courier Actions:
+                </span>
+
+                {/* Dispatch Button if not yet shipped */}
+                {!trackingNumber || String(currentStatus).toLowerCase() === "confirmed" || String(currentStatus).toLowerCase() === "processing" ? (
+                  <button
+                    type="button"
+                    onClick={handleDispatchShiprocket}
+                    disabled={isShippingLoading}
+                    className="w-full py-2 bg-[#173D2A] hover:bg-[#0B2416] text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Truck className="w-4 h-4" />
+                    <span>{trackingNumber ? "Re-dispatch with Shiprocket" : "Dispatch with Shiprocket (Generate AWB)"}</span>
+                  </button>
+                ) : null}
+
+                {/* Simulation Stage Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAdvanceCourier("out_for_delivery")}
+                    disabled={isShippingLoading}
+                    className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold rounded-lg text-center transition-colors cursor-pointer"
+                  >
+                    🚚 Out for Delivery
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdvanceCourier("delivered")}
+                    disabled={isShippingLoading}
+                    className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-semibold rounded-lg text-center transition-colors cursor-pointer"
+                  >
+                    ✅ Mark Delivered
+                  </button>
+                </div>
               </div>
+
+              {/* Links: Label & Tracking URL */}
+              {(trackingNumber || order.trackingUrl) && (
+                <div className="pt-2 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2">
+                  <a
+                    href={order.trackingUrl || `https://shiprocket.co/tracking/${trackingNumber}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-semibold text-[#173D2A] hover:underline inline-flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Public Courier Link</span>
+                  </a>
+
+                  {order.shippingLabelUrl && (
+                    <a
+                      href={order.shippingLabelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-stone-600 hover:text-stone-900 inline-flex items-center gap-1"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Shipping Label PDF</span>
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Live Tracking Events if present */}
+              {shipment && shipment.trackingEvents && shipment.trackingEvents.length > 0 && (
+                <div className="pt-2 border-t border-stone-100">
+                  <span className="block font-semibold text-stone-600 text-[11px] mb-2">
+                    Recent Courier Scans:
+                  </span>
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {shipment.trackingEvents.slice(-4).reverse().map((ev, i) => (
+                      <div key={i} className="p-2 rounded-lg bg-stone-50 border border-stone-200/60 text-[11px]">
+                        <div className="font-semibold text-stone-900 flex justify-between">
+                          <span>{ev.status}</span>
+                          <span className="text-stone-400 font-normal">{formatDate(ev.time)}</span>
+                        </div>
+                        {ev.activity && <div className="text-stone-600 mt-0.5">{ev.activity}</div>}
+                        {ev.location && <div className="text-stone-400 text-[10px]">{ev.location}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </AdminCard>
         </div>

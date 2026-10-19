@@ -11,7 +11,7 @@ export const AdminCard = ({
 }) => {
   return (
     <div
-      className={`bg-white rounded-xl border border-stone-200/90 shadow-xs transition-shadow hover:shadow-sm overflow-hidden ${className}`}
+      className={`bg-white rounded-xl border border-stone-200/90 shadow-xs transition-all duration-300 hover:shadow-md overflow-hidden ${className}`}
     >
       {(title || subtitle || action) && (
         <div
@@ -78,7 +78,7 @@ export const StatCard = ({
   const scheme = colorMap[color] || colorMap.emerald;
 
   return (
-    <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs transition-all hover:shadow-md hover:border-stone-300">
+    <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs transition-all duration-300 hover:shadow-md hover:border-stone-300 hover:-translate-y-0.5">
       <div className="flex items-start justify-between">
         <div>
           <span className="text-xs font-medium uppercase tracking-wider text-stone-500">

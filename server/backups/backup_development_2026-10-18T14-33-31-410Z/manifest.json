@@ -1,0 +1,163 @@
+{
+  "timestamp": "2026-10-18T14:33:31.451Z",
+  "databaseName": "divyam_ayurveda",
+  "environment": "development",
+  "host": "127.0.0.1",
+  "collections": {
+    "contactenquiries": {
+      "count": 0,
+      "file": "contactenquiries.json",
+      "bytes": 2
+    },
+    "users": {
+      "count": 21,
+      "file": "users.json",
+      "bytes": 19454
+    },
+    "faqs": {
+      "count": 8,
+      "file": "faqs.json",
+      "bytes": 4266
+    },
+    "quotes": {
+      "count": 0,
+      "file": "quotes.json",
+      "bytes": 2
+    },
+    "refunds": {
+      "count": 0,
+      "file": "refunds.json",
+      "bytes": 2
+    },
+    "referrals": {
+      "count": 0,
+      "file": "referrals.json",
+      "bytes": 2
+    },
+    "subscribers": {
+      "count": 0,
+      "file": "subscribers.json",
+      "bytes": 2
+    },
+    "ingredients": {
+      "count": 11,
+      "file": "ingredients.json",
+      "bytes": 12056
+    },
+    "idempotencykeys": {
+      "count": 7,
+      "file": "idempotencykeys.json",
+      "bytes": 22638
+    },
+    "reviews": {
+      "count": 0,
+      "file": "reviews.json",
+      "bytes": 2
+    },
+    "supporttickets": {
+      "count": 0,
+      "file": "supporttickets.json",
+      "bytes": 2
+    },
+    "webhookevents": {
+      "count": 26,
+      "file": "webhookevents.json",
+      "bytes": 18020
+    },
+    "referralprograms": {
+      "count": 1,
+      "file": "referralprograms.json",
+      "bytes": 474
+    },
+    "blogposts": {
+      "count": 3,
+      "file": "blogposts.json",
+      "bytes": 6088
+    },
+    "inventorymovements": {
+      "count": 363,
+      "file": "inventorymovements.json",
+      "bytes": 150946
+    },
+    "coupons": {
+      "count": 5,
+      "file": "coupons.json",
+      "bytes": 2942
+    },
+    "shipments": {
+      "count": 13,
+      "file": "shipments.json",
+      "bytes": 9843
+    },
+    "roles": {
+      "count": 7,
+      "file": "roles.json",
+      "bytes": 3214
+    },
+    "brands": {
+      "count": 4,
+      "file": "brands.json",
+      "bytes": 1945
+    },
+    "homepageconfigs": {
+      "count": 1,
+      "file": "homepageconfigs.json",
+      "bytes": 2174
+    },
+    "auditlogs": {
+      "count": 13,
+      "file": "auditlogs.json",
+      "bytes": 7180
+    },
+    "products": {
+      "count": 24,
+      "file": "products.json",
+      "bytes": 49571
+    },
+    "collections": {
+      "count": 4,
+      "file": "collections.json",
+      "bytes": 2002
+    },
+    "categories": {
+      "count": 8,
+      "file": "categories.json",
+      "bytes": 11923
+    },
+    "carts": {
+      "count": 0,
+      "file": "carts.json",
+      "bytes": 2
+    },
+    "orders": {
+      "count": 34,
+      "file": "orders.json",
+      "bytes": 79866
+    },
+    "testimonials": {
+      "count": 12,
+      "file": "testimonials.json",
+      "bytes": 5340
+    },
+    "productvariants": {
+      "count": 51,
+      "file": "productvariants.json",
+      "bytes": 27901
+    },
+    "storesettings": {
+      "count": 1,
+      "file": "storesettings.json",
+      "bytes": 2990
+    },
+    "payments": {
+      "count": 13,
+      "file": "payments.json",
+      "bytes": 10317
+    },
+    "returnrequests": {
+      "count": 0,
+      "file": "returnrequests.json",
+      "bytes": 2
+    }
+  }
+}

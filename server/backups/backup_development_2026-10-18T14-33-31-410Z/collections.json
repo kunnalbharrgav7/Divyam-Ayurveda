@@ -1,0 +1,54 @@
+[
+  {
+    "_id": "6ad3468884d5491fed184f54",
+    "slug": "everyday-essentials",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.616Z",
+    "description": "Incorporate time-tested herbal daily staples into modern routines with organic turmeric, forest honey, and adaptogens.",
+    "filterTag": "Immunity",
+    "image": "/images/ProductImages/PureHimalayanShilajit3.jpeg",
+    "isFeatured": true,
+    "name": "Everyday Ayurvedic Essentials",
+    "status": "active",
+    "updatedAt": "2026-10-18T13:45:07.445Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f55",
+    "slug": "traditional-preparations",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.617Z",
+    "description": "Prepared faithfully in strict accordance with the classical Charaka and Sharangadhara Samhitas.",
+    "filterTag": "Classical Herb",
+    "image": "/images/ProductImages/Ashuwaganda.png",
+    "isFeatured": true,
+    "name": "Traditional Herbal Preparations",
+    "status": "active",
+    "updatedAt": "2026-10-18T13:45:07.449Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f56",
+    "slug": "herbal-oils-personal-care",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.619Z",
+    "description": "Cold-infused tailams, pure Aloe Vera, and pure Kashmiri saffron elixirs free from mineral oils and parabens.",
+    "filterTag": "Personal Care",
+    "image": "/images/ProductImages/VitaminC.png",
+    "isFeatured": true,
+    "name": "Herbal Oils & Personal Care",
+    "status": "active",
+    "updatedAt": "2026-10-18T13:45:07.451Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f57",
+    "slug": "digestive-wellness-care",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.619Z",
+    "description": "Classical Triphala, Hingwashtak, and Avipattikar churnas to relieve bloating and support healthy digestion.",
+    "filterTag": "Digestive",
+    "image": "/images/ProductImages/Himalya.png",
+    "isFeatured": true,
+    "name": "Digestive Agni Balancing Care",
+    "status": "active",
+    "updatedAt": "2026-10-18T13:45:07.452Z"
+  }
+]

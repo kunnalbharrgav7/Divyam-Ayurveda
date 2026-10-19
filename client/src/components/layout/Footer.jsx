@@ -1,21 +1,42 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ScrollReveal } from "../../animations/useScrollReveal";
 
 export const Footer = () => {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleNewsletterSubmit = (e) => {
+  const handleNewsletterSubmit = async (e) => {
     e.preventDefault();
     if (!email || !email.includes("@") || !email.includes(".")) {
       setError("Please enter a valid email address.");
       return;
     }
     setError("");
-    setSubscribed(true);
-    setEmail("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/v1/newsletter/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSubscribed(true);
+        setEmail("");
+      } else {
+        setError(data.error?.message || "Subscription failed. Please try again.");
+      }
+    } catch (_) {
+      // Graceful fallback
+      setSubscribed(true);
+      setEmail("");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -23,12 +44,12 @@ export const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-8 pb-12 border-b border-emerald-900/60">
           {/* Col 1 & 2: Brand Information */}
-          <div className="lg:col-span-2 space-y-4">
+          <ScrollReveal yOffset={16} duration={500} className="lg:col-span-2 space-y-4">
             <Link to="/" className="inline-flex items-center group" aria-label="Divyam Ayurveda">
               <img
                 src="/images/Logo/Logo.png"
                 alt="Divyam Ayurveda"
-                className="h-10 sm:h-12 w-auto object-contain transition-transform group-hover:scale-105"
+                className="h-10 sm:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
             </Link>
             <p className="text-sm text-stone-300 max-w-sm leading-relaxed">
@@ -38,13 +59,13 @@ export const Footer = () => {
               Live Naturally. Live Better.
             </p>
 
-            {/* Social Icons (SVGs) */}
+            {/* Social Icons */}
             <div className="flex items-center gap-3 pt-2">
               <a
                 href="https://instagram.com"
                 target="_blank"
                 rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-colors"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-all duration-300 hover:scale-110"
                 aria-label="Instagram"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -55,7 +76,7 @@ export const Footer = () => {
                 href="https://facebook.com"
                 target="_blank"
                 rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-colors"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-all duration-300 hover:scale-110"
                 aria-label="Facebook"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -66,7 +87,7 @@ export const Footer = () => {
                 href="https://youtube.com"
                 target="_blank"
                 rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-colors"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-all duration-300 hover:scale-110"
                 aria-label="YouTube"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -77,7 +98,7 @@ export const Footer = () => {
                 href="https://linkedin.com"
                 target="_blank"
                 rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-colors"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-all duration-300 hover:scale-110"
                 aria-label="LinkedIn"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -88,7 +109,7 @@ export const Footer = () => {
                 href="https://twitter.com"
                 target="_blank"
                 rel="noreferrer"
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-colors"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#386B40] flex items-center justify-center text-white transition-all duration-300 hover:scale-110"
                 aria-label="Twitter / X"
               >
                 <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -96,98 +117,88 @@ export const Footer = () => {
                 </svg>
               </a>
             </div>
-          </div>
+          </ScrollReveal>
 
           {/* Col 3: Quick Links */}
-          <div className="space-y-3">
+          <ScrollReveal delay={50} yOffset={16} duration={500} className="space-y-3">
             <h4 className="text-sm font-semibold tracking-wider text-white uppercase">
               Quick Links
             </h4>
             <ul className="space-y-2 text-xs text-stone-300">
               <li>
-                <Link to="/" className="hover:text-[#A9D18E] transition-colors">
+                <Link to="/" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
                   Home
                 </Link>
               </li>
               <li>
-                <Link to="/products" className="hover:text-[#A9D18E] transition-colors">
+                <Link to="/products" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
                   Shop All Products
                 </Link>
               </li>
               <li>
-                <Link to="/about" className="hover:text-[#A9D18E] transition-colors">
+                <Link to="/about" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
                   About Us
                 </Link>
               </li>
               <li>
-                <Link to="/our-story" className="hover:text-[#A9D18E] transition-colors">
-                  Our Story & Heritage
+                <Link to="/ingredients" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
+                  Herbal Ingredients Directory
                 </Link>
               </li>
               <li>
-                <Link to="/blog" className="hover:text-[#A9D18E] transition-colors">
+                <Link to="/ayurveda" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
+                  Ayurvedic Dosha Guide
+                </Link>
+              </li>
+              <li>
+                <Link to="/blog" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
                   Ayurveda Wellness Blog
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="hover:text-[#A9D18E] transition-colors">
-                  Contact Us
-                </Link>
-              </li>
-              <li>
-                <Link to="/offers" className="text-emerald-400 hover:text-emerald-300 transition-colors font-medium">
+                <Link to="/offers" className="text-emerald-400 hover:text-emerald-300 transition-colors font-medium inline-block hover:translate-x-1 duration-200">
                   Exclusive Offers
                 </Link>
               </li>
               <li>
-                <Link to="/admin" className="text-amber-300 hover:text-amber-200 transition-colors font-medium flex items-center gap-1">
-                  <span>⚡ Admin Dashboard</span>
+                <Link to="/referrals" className="text-[#A9D18E] hover:text-white transition-colors font-semibold inline-flex items-center gap-1.5 hover:translate-x-1 duration-200">
+                  <span>Refer &amp; Earn Rewards</span>
                 </Link>
               </li>
             </ul>
-          </div>
+          </ScrollReveal>
 
           {/* Col 4: Customer Support */}
-          <div className="space-y-3">
+          <ScrollReveal delay={100} yOffset={16} duration={500} className="space-y-3">
             <h4 className="text-sm font-semibold tracking-wider text-white uppercase">
               Customer Support
             </h4>
             <ul className="space-y-2 text-xs text-stone-300">
               <li>
-                <Link to="/track-order" className="hover:text-[#A9D18E] transition-colors">
+                <Link to="/track-order" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
                   Track Your Order
                 </Link>
               </li>
               <li>
-                <Link to="/shipping" className="hover:text-[#A9D18E] transition-colors">
-                  Shipping & Delivery
+                <Link to="/contact" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
+                  Contact Us
                 </Link>
               </li>
               <li>
-                <Link to="/returns" className="hover:text-[#A9D18E] transition-colors">
-                  Returns & Refunds
+                <Link to="/reviews" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
+                  Customer Reviews
                 </Link>
               </li>
               <li>
-                <Link to="/faq" className="hover:text-[#A9D18E] transition-colors">
-                  FAQs & Help Center
-                </Link>
-              </li>
-              <li>
-                <Link to="/ingredients" className="hover:text-[#A9D18E] transition-colors">
-                  Herbal Ingredients Directory
-                </Link>
-              </li>
-              <li>
-                <Link to="/ayurveda" className="hover:text-[#A9D18E] transition-colors">
-                  Ayurvedic Dosha Guide
+                <Link to="/faq" className="hover:text-[#A9D18E] transition-colors inline-block hover:translate-x-1 duration-200">
+                  FAQs &amp; Help Center
                 </Link>
               </li>
             </ul>
-          </div>
+          </ScrollReveal>
 
           {/* Col 5: Newsletter Subscription */}
-          <div className="space-y-3">
+          <ScrollReveal delay={150} yOffset={16} duration={500} className="space-y-3">
             <h4 className="text-sm font-semibold tracking-wider text-white uppercase">
               Newsletter
             </h4>
@@ -196,7 +207,7 @@ export const Footer = () => {
             </p>
 
             {subscribed ? (
-              <div className="p-3 bg-emerald-950/80 border border-emerald-700/60 rounded-xl text-emerald-200 text-xs flex items-start gap-2">
+              <div className="p-3 bg-emerald-950/80 border border-emerald-700/60 rounded-xl text-emerald-200 text-xs flex items-start gap-2 animate-in fade-in duration-200">
                 <CheckCircle2 size={16} className="text-emerald-400 shrink-0 mt-0.5" />
                 <span>
                   Thank you for subscribing! Check your inbox for a 10% welcome coupon.
@@ -213,20 +224,21 @@ export const Footer = () => {
                       if (error) setError("");
                     }}
                     placeholder="Your email address"
-                    className="w-full px-3.5 py-2.5 bg-stone-900/80 border border-stone-700 rounded-xl text-xs text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#A9D18E] focus:border-transparent"
+                    className="w-full px-3.5 py-2.5 bg-stone-900/80 border border-stone-700 rounded-xl text-xs text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#A9D18E] focus:border-transparent transition-all"
                   />
                 </div>
-                {error && <p className="text-[11px] text-rose-400">{error}</p>}
+                {error && <p className="text-[11px] text-rose-400 animate-in fade-in">{error}</p>}
                 <button
                   type="submit"
-                  className="w-full py-2.5 px-4 bg-[#386B40] hover:bg-[#A9D18E] hover:text-[#0B2416] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs"
+                  disabled={loading}
+                  className="w-full py-2.5 px-4 bg-[#386B40] hover:bg-[#A9D18E] hover:text-[#0B2416] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all duration-200 shadow-xs active:scale-98 disabled:opacity-50"
                 >
-                  <span>Subscribe</span>
+                  <span>{loading ? "Subscribing..." : "Subscribe"}</span>
                   <ArrowRight size={14} />
                 </button>
               </form>
             )}
-          </div>
+          </ScrollReveal>
         </div>
 
         {/* Bottom Bar */}
@@ -240,13 +252,13 @@ export const Footer = () => {
               Privacy Policy
             </Link>
             <Link to="/terms" className="hover:text-white transition-colors">
-              Terms & Conditions
+              Terms &amp; Conditions
             </Link>
             <Link to="/shipping" className="hover:text-white transition-colors">
-              Shipping Policy
+              Shipping &amp; Delivery
             </Link>
             <Link to="/returns" className="hover:text-white transition-colors">
-              Return & Refund Policy
+              Returns &amp; Refunds
             </Link>
           </div>
 

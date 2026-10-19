@@ -1,0 +1,48 @@
+{
+  "name": "divyam-ayurveda-server",
+  "version": "1.0.0",
+  "description": "Production REST API for Divyam Ayurveda India E-Commerce",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node scripts/seed.js",
+    "create-admin": "node scripts/create-admin.js",
+    "clean-db": "node scripts/clean-database.js --confirm",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run tests/integration",
+    "test:unit": "vitest run tests/unit",
+    "test:webhooks": "vitest run tests/integration/webhooks.test.js",
+    "lint": "npx oxlint --quiet"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "compression": "^1.8.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.0.1",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.5.0",
+    "ioredis-mock": "^8.9.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.10.1",
+    "multer": "^1.4.5-lts.1",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "rate-limit-redis": "^4.2.0",
+    "sharp": "^0.35.5",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0",
+    "vitest": "^3.0.6"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

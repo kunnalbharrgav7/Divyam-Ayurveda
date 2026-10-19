@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
   ChevronDown,
+  ChevronRight,
   Sparkles,
   X,
   Heart,
@@ -12,23 +13,46 @@ import {
   Shield,
   LogOut,
 } from "lucide-react";
-import { categories } from "../../data/categories";
+import { categoryService } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
-export const CategoryNav = ({ isMobileMenuOpen, onCloseMobileMenu }) => {
+export const CategoryNav = ({
+  isMobileMenuOpen,
+  onCloseMobileMenu,
+  hideMobileDrawer = false,
+}) => {
+  const [categoriesList, setCategoriesList] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [hoveredCatId, setHoveredCatId] = useState("");
+  const [expandedMobileCat, setExpandedMobileCat] = useState(null);
   const navigate = useNavigate();
   const { user, isAuthenticated, isAdmin, logout, logoutAdmin } = useAuth();
 
-  const categoryLinks = [
-    { label: "Ayurvedic Herbs", href: "/category/ayurvedic-herbs" },
-    { label: "Churna & Powders", href: "/category/churna-powders" },
-    { label: "Herbal Oils", href: "/category/herbal-oils" },
-    { label: "Herbal Juices", href: "/category/herbal-juices" },
-    { label: "Kadha & Herbal Teas", href: "/category/kadha-herbal-teas" },
-    { label: "Digestive Wellness", href: "/category/digestive-wellness" },
-    { label: "Personal Care", href: "/category/personal-care" },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCats = async () => {
+      try {
+        const data = await categoryService.getCategories();
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setCategoriesList(data);
+          setHoveredCatId(data[0].id || data[0].slug);
+        }
+      } catch (err) {
+        console.error("Failed to load navigation categories:", err);
+      }
+    };
+    fetchCats();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Top-level links come from the categories saved in Admin → Categories (first 7 by display order);
+  // the Categories dropdown lists them all.
+  const categoryLinks = categoriesList.slice(0, 7).map((cat) => ({
+    label: cat.shortName || cat.name,
+    href: `/category/${cat.slug}`,
+  }));
 
   return (
     <>
@@ -57,42 +81,121 @@ export const CategoryNav = ({ isMobileMenuOpen, onCloseMobileMenu }) => {
                   />
                 </button>
 
-                {/* Dropdown Menu */}
-                {dropdownOpen && (
-                  <div className="absolute top-full left-0 w-64 bg-white border border-[#E5E7DF] rounded-xl shadow-lg py-2 mt-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                    <div className="px-3 py-1.5 text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
-                      Shop By Category
+                {/* Two-Tier Mega Dropdown Menu with Subcategories */}
+                {dropdownOpen && (() => {
+                  const activeCategory = categoriesList.find((c) => c.id === hoveredCatId) || categoriesList[0];
+                  return (
+                    <div className="absolute top-full left-0 w-[640px] bg-white border border-[#E5E7DF] rounded-2xl shadow-2xl mt-1.5 z-50 overflow-hidden flex animate-in fade-in slide-in-from-top-1.5 duration-200">
+                      {/* Left: Categories Column */}
+                      <div className="w-56 border-r border-[#E5E7DF] p-2 bg-stone-50/70 shrink-0">
+                        <div className="px-3 py-1.5 text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+                          Categories
+                        </div>
+                        <div className="space-y-0.5">
+                          {categoriesList.map((cat) => {
+                            const isHovered = cat.id === (activeCategory?.id);
+                            return (
+                              <div
+                                key={cat.id}
+                                onMouseEnter={() => setHoveredCatId(cat.id)}
+                                onClick={() => {
+                                  navigate(`/category/${cat.slug}`);
+                                  setDropdownOpen(false);
+                                }}
+                                className={`flex items-center justify-between px-3 py-2 text-xs rounded-xl cursor-pointer transition-colors ${
+                                  isHovered
+                                    ? "bg-[#173D2A] text-white font-semibold shadow-xs"
+                                    : "text-stone-700 hover:bg-stone-200/60"
+                                }`}
+                              >
+                                <span className="truncate">{cat.name}</span>
+                                <ChevronRight
+                                  size={13}
+                                  className={isHovered ? "text-[#A9D18E]" : "text-stone-400"}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="border-t border-[#E5E7DF] mt-2 pt-2">
+                          <Link
+                            to="/products"
+                            onClick={() => setDropdownOpen(false)}
+                            className="block px-3 py-1.5 text-xs font-semibold text-[#173D2A] hover:underline"
+                          >
+                            All Products &rarr;
+                          </Link>
+                        </div>
+                      </div>
+
+                      {/* Right: Active Category's Subcategories Panel */}
+                      <div className="flex-1 p-5 flex flex-col justify-between bg-white min-h-[360px]">
+                        <div>
+                          <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+                            <div>
+                              <h4 className="text-sm font-heading tracking-tight font-bold text-[#171A17]">
+                                {activeCategory?.name}
+                              </h4>
+                              <p className="text-[11px] text-[#666B64] line-clamp-1 mt-0.5">
+                                {activeCategory?.description}
+                              </p>
+                            </div>
+                            <Link
+                              to={`/category/${activeCategory?.slug}`}
+                              onClick={() => setDropdownOpen(false)}
+                              className="text-xs font-semibold text-[#386B40] hover:text-[#173D2A] hover:underline shrink-0 ml-3"
+                            >
+                              View All &rarr;
+                            </Link>
+                          </div>
+
+                          {/* Subcategories Grid */}
+                          <div className="grid grid-cols-2 gap-2.5 pt-3">
+                            {(activeCategory?.subcategories || []).map((sub) => (
+                              <Link
+                                key={sub.id}
+                                to={`/category/${activeCategory.slug}?subcategory=${sub.slug}`}
+                                onClick={() => setDropdownOpen(false)}
+                                className="p-3 rounded-xl border border-stone-100 hover:border-[#A9D18E]/70 hover:bg-[#F4F4EE]/60 group transition-all"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-semibold text-stone-800 group-hover:text-[#173D2A]">
+                                    {sub.name}
+                                  </span>
+                                  <ChevronRight
+                                    size={12}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-[#386B40]"
+                                  />
+                                </div>
+                                <p className="text-[11px] text-stone-500 line-clamp-2 mt-1 leading-snug">
+                                  {sub.description}
+                                </p>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500">
+                          <span>Authentic AYUSH-Certified Herbal Formulations</span>
+                          <Link
+                            to={`/category/${activeCategory?.slug}`}
+                            onClick={() => setDropdownOpen(false)}
+                            className="font-semibold text-[#173D2A] hover:underline"
+                          >
+                            Explore {activeCategory?.name}
+                          </Link>
+                        </div>
+                      </div>
                     </div>
-                    {categories.map((cat) => (
-                      <Link
-                        key={cat.id}
-                        to={`/category/${cat.slug}`}
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex items-center justify-between px-3.5 py-2 text-xs text-stone-700 hover:text-[#173D2A] hover:bg-[#F4F4EE] transition-colors"
-                      >
-                        <span>{cat.name}</span>
-                        <span className="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded">
-                          {cat.itemCount}
-                        </span>
-                      </Link>
-                    ))}
-                    <div className="border-t border-[#E5E7DF] my-1" />
-                    <Link
-                      to="/products"
-                      onClick={() => setDropdownOpen(false)}
-                      className="block px-3.5 py-2 text-xs font-semibold text-[#173D2A] hover:bg-[#F4F4EE]"
-                    >
-                      View All Products &rarr;
-                    </Link>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Main Category Horizontal Links */}
               <div className="flex items-center space-x-1 xl:space-x-2">
-                {categoryLinks.map((link, idx) => (
+                {categoryLinks.map((link) => (
                   <NavLink
-                    key={idx}
+                    key={link.href}
                     to={link.href}
                     className={({ isActive }) =>
                       `px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
@@ -145,20 +248,20 @@ export const CategoryNav = ({ isMobileMenuOpen, onCloseMobileMenu }) => {
       </nav>
 
       {/* Mobile Drawer Menu (Sidebar for screens < 1024px) */}
-      {isMobileMenuOpen && (
+      {isMobileMenuOpen && !hideMobileDrawer && (
         <div className="fixed inset-0 z-50 lg:hidden">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
             onClick={onCloseMobileMenu}
           />
 
           {/* Drawer Content */}
-          <div className="fixed inset-y-0 left-0 w-4/5 max-w-sm bg-white shadow-xl z-50 flex flex-col overflow-y-auto">
+          <div className="fixed inset-y-0 left-0 w-4/5 max-w-sm bg-white shadow-2xl z-50 flex flex-col overflow-y-auto animate-in slide-in-from-left duration-300 ease-out">
             {/* Drawer Header */}
             <div className="p-4 bg-[#173D2A] text-white flex items-center justify-between">
               <div>
-                <span className="font-serif text-xl font-bold">
+                <span className="font-heading tracking-tight text-xl font-bold">
                   Divyam Ayurveda
                 </span>
                 <p className="text-[11px] text-[#A9D18E]">
@@ -193,19 +296,59 @@ export const CategoryNav = ({ isMobileMenuOpen, onCloseMobileMenu }) => {
                 Categories
               </div>
               <div className="space-y-1 mb-6">
-                {categories.map((cat) => (
-                  <Link
-                    key={cat.id}
-                    to={`/category/${cat.slug}`}
-                    onClick={onCloseMobileMenu}
-                    className="flex items-center justify-between px-3 py-2 text-sm text-stone-700 hover:text-[#173D2A] hover:bg-stone-50 rounded-lg"
-                  >
-                    <span>{cat.name}</span>
-                    <span className="text-xs text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
-                      {cat.itemCount}
-                    </span>
-                  </Link>
-                ))}
+                {categoriesList.map((cat) => {
+                  const isExpanded = expandedMobileCat === cat.id;
+                  const hasSubcategories = Array.isArray(cat.subcategories) && cat.subcategories.length > 0;
+                  return (
+                    <div key={cat.id} className="rounded-xl overflow-hidden transition-colors">
+                      <div className="flex items-center justify-between px-3 py-2 text-sm text-stone-700 hover:text-[#173D2A] hover:bg-stone-50 rounded-xl">
+                        <Link
+                          to={`/category/${cat.slug}`}
+                          onClick={onCloseMobileMenu}
+                          className="flex-1 font-medium truncate"
+                        >
+                          {cat.name}
+                        </Link>
+                        {hasSubcategories && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setExpandedMobileCat(isExpanded ? null : cat.id);
+                            }}
+                            className="p-1 rounded-md hover:bg-stone-200/70 text-stone-500 hover:text-stone-900 ml-2 cursor-pointer"
+                            aria-label={`Toggle ${cat.name} subcategories`}
+                          >
+                            <ChevronDown
+                              size={16}
+                              className={`transition-transform duration-200 ${
+                                isExpanded ? "rotate-180 text-[#386B40]" : ""
+                              }`}
+                            />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Subcategories Accordion */}
+                      {isExpanded && hasSubcategories && (
+                        <div className="pl-4 pr-2 py-1.5 space-y-1 bg-[#F4F4EE]/60 rounded-xl mt-0.5 border-l-2 border-[#386B40] animate-in fade-in duration-150">
+                          {cat.subcategories.map((sub) => (
+                            <Link
+                              key={sub.id}
+                              to={`/category/${cat.slug}?subcategory=${sub.slug}`}
+                              onClick={onCloseMobileMenu}
+                              className="flex items-center justify-between py-1.5 px-2 text-xs text-stone-600 hover:text-[#173D2A] hover:bg-white rounded-lg transition-colors"
+                            >
+                              <span>{sub.name}</span>
+                              <ChevronRight size={12} className="text-stone-400" />
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="border-t border-[#E5E7DF] pt-4 mb-6">
@@ -276,12 +419,12 @@ export const CategoryNav = ({ isMobileMenuOpen, onCloseMobileMenu }) => {
                   <button
                     type="button"
                     onClick={() => {
-                      logoutAdmin();
+                      logout();
                       onCloseMobileMenu();
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 rounded-xl transition-colors text-left font-medium"
                   >
-                    <LogOut size={16} /> Logout Admin
+                    <LogOut size={16} /> Sign Out (Admin)
                   </button>
                 </>
               ) : isAuthenticated ? (

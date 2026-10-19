@@ -1,10 +1,13 @@
 import React, { useEffect } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminProvider } from "./context/AdminContext";
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { OrderProvider } from "./context/OrderContext";
+import { ReturnProvider } from "./context/ReturnContext";
+import { ReferralProvider } from "./context/ReferralContext";
+import { HeroNavProvider } from "./context/HeroNavContext";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
 // Layouts
@@ -25,7 +28,9 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { AccountPage } from "./pages/AccountPage";
+import { ReferralPage } from "./pages/ReferralPage";
 import { AboutPage } from "./pages/AboutPage";
+import { CustomerReviewsPage } from "./pages/CustomerReviewsPage";
 import { OurStoryPage } from "./pages/OurStoryPage";
 import { AyurvedaEduPage } from "./pages/AyurvedaEduPage";
 import { IngredientsPage } from "./pages/IngredientsPage";
@@ -41,7 +46,6 @@ import { TermsPage } from "./pages/TermsPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
 // Admin Dashboard Pages
-import { AdminLoginPage } from "./pages/admin/AdminLoginPage";
 import { DashboardPage } from "./pages/admin/DashboardPage";
 import { ProductsPage } from "./pages/admin/ProductsPage";
 import { ProductFormPage } from "./pages/admin/ProductFormPage";
@@ -56,6 +60,7 @@ import { ReturnsRefundsPage } from "./pages/admin/ReturnsRefundsPage";
 import { CouponsPage } from "./pages/admin/CouponsPage";
 import { CustomersPage } from "./pages/admin/CustomersPage";
 import { CustomerDetailsPage } from "./pages/admin/CustomerDetailsPage";
+import { AdminReferralsPage } from "./pages/admin/AdminReferralsPage";
 import { ReviewsPage } from "./pages/admin/ReviewsPage";
 import { HomepageBuilderPage } from "./pages/admin/HomepageBuilderPage";
 import { ContentPagesPage } from "./pages/admin/ContentPagesPage";
@@ -68,15 +73,8 @@ import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
 import { RolesPage } from "./pages/admin/RolesPage";
 import { AuditLogsPage } from "./pages/admin/AuditLogsPage";
 import { SettingsPage } from "./pages/admin/SettingsPage";
-
-// Scroll restoration component
-const ScrollToTop = () => {
-  const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
-  return null;
-};
+import { SmoothScroll } from "./animations/SmoothScroll";
+import { LiveOrderToast } from "./components/common/LiveOrderToast";
 
 export const App = () => {
   return (
@@ -84,15 +82,18 @@ export const App = () => {
       <BrowserRouter>
       <AdminProvider>
         <AuthProvider>
-          <WishlistProvider>
-            <CartProvider>
-              <OrderProvider>
-                <ScrollToTop />
-                <Routes>
+          <ReferralProvider>
+            <WishlistProvider>
+              <CartProvider>
+                <OrderProvider>
+                  <ReturnProvider>
+                  <HeroNavProvider>
+                    <SmoothScroll>
+                    <Routes>
                   {/* ======================================================== */}
-                  {/* ADMIN AUTHENTICATION & LOGIN */}
+                  {/* ADMIN AUTHENTICATION (Redirects to unified /login) */}
                   {/* ======================================================== */}
-                  <Route path="/admin/login" element={<AdminLoginPage />} />
+                  <Route path="/admin/login" element={<Navigate to="/login" replace />} />
 
                   {/* ======================================================== */}
                   {/* PROTECTED ADMIN CONTROL CENTER */}
@@ -120,6 +121,7 @@ export const App = () => {
                     {/* Customers & Feedback */}
                     <Route path="customers" element={<CustomersPage />} />
                     <Route path="customers/:customerId" element={<CustomerDetailsPage />} />
+                    <Route path="referrals" element={<AdminReferralsPage />} />
                     <Route path="reviews" element={<ReviewsPage />} />
 
                     {/* Storefront Customization */}
@@ -154,6 +156,7 @@ export const App = () => {
                     {/* Catalog & Products */}
                     <Route path="products" element={<CatalogPage />} />
                     <Route path="products/:slug" element={<ProductDetailPage />} />
+                    <Route path="product/:slug" element={<ProductDetailPage />} />
                     <Route path="category/:slug" element={<CategoryPage />} />
 
                     {/* Shopping & Checkout */}
@@ -172,9 +175,12 @@ export const App = () => {
                     <Route path="account/addresses" element={<AccountPage />} />
                     <Route path="account/orders" element={<AccountPage />} />
                     <Route path="account/orders/:orderId" element={<AccountPage />} />
+                    <Route path="account/referrals" element={<AccountPage />} />
+                    <Route path="referrals" element={<ReferralPage />} />
 
                     {/* Informational & Support */}
                     <Route path="about" element={<AboutPage />} />
+                    <Route path="reviews" element={<CustomerReviewsPage />} />
                     <Route path="our-story" element={<OurStoryPage />} />
                     <Route path="ayurveda" element={<AyurvedaEduPage />} />
                     <Route path="ingredients" element={<IngredientsPage />} />
@@ -192,13 +198,18 @@ export const App = () => {
                     <Route path="*" element={<NotFoundPage />} />
                   </Route>
                 </Routes>
-              </OrderProvider>
+                <LiveOrderToast />
+                    </SmoothScroll>
+                  </HeroNavProvider>
+                  </ReturnProvider>
+                </OrderProvider>
             </CartProvider>
           </WishlistProvider>
-        </AuthProvider>
-      </AdminProvider>
-    </BrowserRouter>
-  </ErrorBoundary>
+        </ReferralProvider>
+      </AuthProvider>
+    </AdminProvider>
+  </BrowserRouter>
+</ErrorBoundary>
 );
 };
 

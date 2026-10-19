@@ -1,0 +1,140 @@
+[
+  {
+    "_id": "6ad3468884d5491fed184f3f",
+    "name": "Super Admin",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:27.933Z",
+    "description": "",
+    "isSystem": true,
+    "permissions": [
+      "products.view",
+      "products.create",
+      "products.edit",
+      "products.delete",
+      "inventory.manage",
+      "categories.manage",
+      "orders.view",
+      "orders.update",
+      "refunds.manage",
+      "discounts.manage",
+      "customers.view",
+      "customers.manage",
+      "reviews.moderate",
+      "support.manage",
+      "content.manage",
+      "reports.view",
+      "users.manage",
+      "roles.manage",
+      "settings.manage",
+      "audit.view"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.129Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f40",
+    "name": "Admin",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.388Z",
+    "description": "",
+    "isSystem": true,
+    "permissions": [
+      "products.view",
+      "products.create",
+      "products.edit",
+      "products.delete",
+      "inventory.manage",
+      "categories.manage",
+      "orders.view",
+      "orders.update",
+      "refunds.manage",
+      "discounts.manage",
+      "customers.view",
+      "customers.manage",
+      "reviews.moderate",
+      "support.manage",
+      "content.manage",
+      "reports.view",
+      "settings.manage",
+      "audit.view"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.181Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f41",
+    "name": "Product Manager",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.390Z",
+    "description": "",
+    "isSystem": true,
+    "permissions": [
+      "products.view",
+      "products.create",
+      "products.edit",
+      "products.delete",
+      "inventory.manage",
+      "categories.manage",
+      "reports.view"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.190Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f42",
+    "name": "Order Manager",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.392Z",
+    "description": "",
+    "isSystem": true,
+    "permissions": [
+      "orders.view",
+      "orders.update",
+      "refunds.manage",
+      "customers.view",
+      "reports.view"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.200Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f43",
+    "name": "Content Manager",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.393Z",
+    "description": "",
+    "isSystem": true,
+    "permissions": [
+      "content.manage",
+      "discounts.manage",
+      "products.view"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.203Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f44",
+    "name": "Support Specialist",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.395Z",
+    "description": "",
+    "isSystem": true,
+    "permissions": [
+      "support.manage",
+      "reviews.moderate",
+      "customers.view",
+      "orders.view"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.205Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f45",
+    "name": "Analyst",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.396Z",
+    "description": "",
+    "isSystem": true,
+    "permissions": [
+      "reports.view",
+      "products.view",
+      "orders.view",
+      "customers.view"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.207Z"
+  }
+]

@@ -14,7 +14,7 @@ export const AyurvedaEduPage = () => {
           <span className="text-xs font-semibold uppercase tracking-wider text-[#386B40] flex items-center justify-center gap-1.5">
             <Sparkles size={14} /> Ancient Science of Life
           </span>
-          <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[#171A17]">
+          <h1 className="font-heading tracking-tight text-3xl sm:text-5xl font-bold text-[#171A17]">
             The Fundamentals of Ayurveda
           </h1>
           <p className="text-xs sm:text-sm text-[#666B64] leading-relaxed">
@@ -33,7 +33,7 @@ export const AyurvedaEduPage = () => {
               <span className="text-[11px] font-bold uppercase tracking-wider text-sky-800">
                 Air + Ether
               </span>
-              <h3 className="font-serif text-xl font-bold text-[#171A17] mt-0.5">
+              <h3 className="font-heading tracking-tight text-xl font-bold text-[#171A17] mt-0.5">
                 Vata Dosha
               </h3>
             </div>
@@ -54,7 +54,7 @@ export const AyurvedaEduPage = () => {
               <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800">
                 Fire + Water
               </span>
-              <h3 className="font-serif text-xl font-bold text-[#171A17] mt-0.5">
+              <h3 className="font-heading tracking-tight text-xl font-bold text-[#171A17] mt-0.5">
                 Pitta Dosha
               </h3>
             </div>
@@ -75,7 +75,7 @@ export const AyurvedaEduPage = () => {
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
                 Water + Earth
               </span>
-              <h3 className="font-serif text-xl font-bold text-[#171A17] mt-0.5">
+              <h3 className="font-heading tracking-tight text-xl font-bold text-[#171A17] mt-0.5">
                 Kapha Dosha
               </h3>
             </div>
@@ -90,7 +90,7 @@ export const AyurvedaEduPage = () => {
 
         {/* Dinacharya (Daily Routine) Section */}
         <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-10 shadow-xs mb-12 space-y-6">
-          <h2 className="font-serif text-2xl font-bold text-[#171A17]">
+          <h2 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">
             Dinacharya: Aligning Your Daily Rhythm
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs sm:text-sm text-stone-700">
@@ -123,7 +123,7 @@ export const AyurvedaEduPage = () => {
 
         {/* CTA */}
         <div className="p-8 bg-[#173D2A] text-white rounded-3xl text-center space-y-4">
-          <h3 className="font-serif text-2xl sm:text-3xl font-bold">
+          <h3 className="font-heading tracking-tight text-2xl sm:text-3xl font-bold">
             Begin Your Personalized Ayurvedic Journey
           </h3>
           <p className="text-xs sm:text-sm text-stone-200 max-w-lg mx-auto">

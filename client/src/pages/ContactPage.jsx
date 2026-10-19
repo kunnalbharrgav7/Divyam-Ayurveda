@@ -34,7 +34,7 @@ export const ContactPage = () => {
           <span className="text-xs font-semibold uppercase tracking-wider text-[#386B40]">
             We&apos;re Here to Help
           </span>
-          <h1 className="font-serif text-3xl sm:text-5xl font-bold text-[#171A17]">
+          <h1 className="font-heading tracking-tight text-3xl sm:text-5xl font-bold text-[#171A17]">
             Get in Touch with Divyam Ayurveda
           </h1>
           <p className="text-xs sm:text-sm text-[#666B64] leading-relaxed">
@@ -47,7 +47,7 @@ export const ContactPage = () => {
           {/* Details (5 cols) */}
           <div className="lg:col-span-5 bg-[#173D2A] text-white rounded-3xl p-6 sm:p-10 space-y-6 shadow-xs">
             <div>
-              <h2 className="font-serif text-2xl font-bold">
+              <h2 className="font-heading tracking-tight text-2xl font-bold">
                 Dispensary Information
               </h2>
               <p className="text-xs text-stone-200 mt-1">
@@ -113,7 +113,7 @@ export const ContactPage = () => {
                 <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
                   <CheckCircle2 size={36} />
                 </div>
-                <h3 className="font-serif text-2xl font-bold text-[#171A17]">
+                <h3 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">
                   Thank You for Writing to Us!
                 </h3>
                 <p className="text-xs sm:text-sm text-[#666B64] max-w-md mx-auto leading-relaxed">
@@ -137,7 +137,7 @@ export const ContactPage = () => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-                <h3 className="font-serif text-xl font-bold text-[#171A17] mb-2">
+                <h3 className="font-heading tracking-tight text-xl font-bold text-[#171A17] mb-2">
                   Send Us an Inquiry
                 </h3>
 

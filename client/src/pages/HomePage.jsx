@@ -5,7 +5,9 @@ import { BestsellersSection } from "../components/home/BestsellersSection";
 import { TrendingSection } from "../components/home/TrendingSection";
 import { NewArrivalsSection } from "../components/home/NewArrivalsSection";
 import { FeaturedCollectionsSection } from "../components/home/FeaturedCollectionsSection";
+import { FeaturedProductsSection } from "../components/home/FeaturedProductsSection";
 import { PromotionalBanners } from "../components/home/PromotionalBanners";
+import { AyurvedicRitualSection } from "../components/home/AyurvedicRitualSection";
 import { BenefitsStrip } from "../components/common/TrustBadges";
 import { TestimonialsSection } from "../components/home/TestimonialsSection";
 import { BlogHighlightsSection } from "../components/home/BlogHighlightsSection";
@@ -28,13 +30,19 @@ export const HomePage = () => {
       {/* 9. New Arrivals ("Fresh Additions") */}
       <NewArrivalsSection />
 
-      {/* 10. Featured Ayurvedic Collections */}
+      {/* 10. Featured products ("Featured on Homepage" flag) */}
+      <FeaturedProductsSection />
+
+      {/* 10b. Featured Ayurvedic Collections */}
       <FeaturedCollectionsSection />
 
       {/* 11. Promotional Banners (Banner A & Banner B) */}
       <PromotionalBanners />
 
-      {/* 12. Why Choose Divyam Ayurveda (Benefits strip) */}
+      {/* 12. Ayurvedic Consumption & Rejuvenation Ritual */}
+      <AyurvedicRitualSection />
+
+      {/* 13. Why Choose Divyam Ayurveda (Benefits strip) */}
       <section className="py-8 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <BenefitsStrip />

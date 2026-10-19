@@ -1,0 +1,1543 @@
+[
+  {
+    "_id": "6ad4cd6384d5491fed1851f2",
+    "slug": "organic-turmeric-powder-lakadong",
+    "__v": 0,
+    "basePricePaise": 24900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "churna-powders",
+    "categoryRef": null,
+    "compareAtPricePaise": 34900,
+    "createdAt": "2026-10-18T13:45:07.520Z",
+    "description": "Our Organic Turmeric Powder is sourced from the pristine hills of Meghalaya. Naturally boasting an exceptional 7-8% curcumin level, it is sun-dried and traditionally pulverized without chemical treatment. Ideal for golden milk, classical herbal preparations, and daily culinary nourishment.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit2.jpeg",
+      "/images/ProductImages/Ashuwaganda.png"
+    ],
+    "ingredients": [
+      "100% Pure Organic Lakadong Turmeric (Curcuma longa) Rhizome Powder"
+    ],
+    "isBestSeller": true,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Organic Turmeric Powder",
+    "packSize": "250g",
+    "productForm": "Powder / Churna",
+    "productInformation": {
+      "storage": "Store in a cool, dry place away from direct sunlight and moisture.",
+      "certifications": [
+        "FSSAI Certified",
+        "Jaivik Bharat Organic",
+        "GMP Certified"
+      ],
+      "origin": "Jaintia Hills, Meghalaya, India",
+      "shelfLife": "24 Months from packaging"
+    },
+    "rating": 4.9,
+    "reviewCount": 1245,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "High-curcumin Lakadong turmeric ground with natural essential oils preserved.",
+    "sku": "DIV-PROD-001",
+    "status": "active",
+    "subcategory": "Nutritional & Detox Powders",
+    "subcategoryId": "nutrition-powders",
+    "tags": [
+      "Immunity",
+      "Anti-inflammatory",
+      "Certified Organic",
+      "Bestseller"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.520Z",
+    "warnings": "This is a natural food supplement. Consult an Ayurvedic doctor if pregnant or nursing."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851f9",
+    "slug": "pure-wild-forest-honey",
+    "__v": 0,
+    "basePricePaise": 38900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "wellness-essentials",
+    "categoryRef": null,
+    "compareAtPricePaise": 49900,
+    "createdAt": "2026-10-18T13:45:07.537Z",
+    "description": "Harvested ethically by indigenous forest communities from wild comb nests in the Satpura reserves. Unpasteurized and unfiltered to preserve delicate bee pollen, live enzymes, and medicinal aromatic compounds celebrated in classical Charaka Samhita as the premier Yogavahi anupana.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit.jpeg",
+      "/images/ProductImages/PureHimalayanShilajit3.jpeg"
+    ],
+    "ingredients": [
+      "100% Raw Wild Forest Honey (Apis dorsata comb nectar)"
+    ],
+    "isBestSeller": true,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": false,
+    "name": "Pure Wild Forest Honey",
+    "packSize": "500g",
+    "productForm": "Liquid / Raw Nectar",
+    "productInformation": {
+      "storage": "Store at ambient room temperature. Do not refrigerate or heat above 40°C.",
+      "certifications": [
+        "Agmark Special Grade",
+        "Non-GMO Tested",
+        "GMP Certified"
+      ],
+      "origin": "Satpura Tiger Reserve Biosphere, MP, India",
+      "shelfLife": "18 Months from packaging"
+    },
+    "rating": 4.8,
+    "reviewCount": 882,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Raw, unheated, single-origin multi-flora forest nectar collected sustainably.",
+    "sku": "DIV-PROD-002",
+    "status": "active",
+    "subcategory": "Raw Forest Honey",
+    "subcategoryId": "wild-honey",
+    "tags": [
+      "Immunity",
+      "Raw Honey",
+      "Digestive",
+      "Bestseller"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.537Z",
+    "warnings": "Not recommended for infants below 12 months."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed1851fe",
+    "slug": "organic-ashwagandha-capsules",
+    "__v": 0,
+    "basePricePaise": 49900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "ayurvedic-herbs",
+    "categoryRef": null,
+    "compareAtPricePaise": 65000,
+    "createdAt": "2026-10-18T13:45:07.547Z",
+    "description": "Crafted strictly from whole wild-crafted Ashwagandha (Withania somnifera) roots without leaves or aerial parts. Standardized to 5% withanolides through full-spectrum water-milk extraction. Supports calm sleep, sustained vigor, and mental balance under stressful modern routines.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/Ashuwaganda.png",
+      "/images/ProductImages/Shilajit.png"
+    ],
+    "ingredients": [
+      "Organic Ashwagandha (Withania somnifera) Root Extract 500mg (5% Withanolides)",
+      "Plant Cellulose Capsule"
+    ],
+    "isBestSeller": true,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Organic Ashwagandha Extract",
+    "packSize": "60 Capsules",
+    "productForm": "Vegetarian Capsules",
+    "productInformation": {
+      "storage": "Keep in a cool, dark container tightly sealed.",
+      "certifications": [
+        "GMP Certified",
+        "ISO 9001:2015",
+        "Ayush Premium Mark"
+      ],
+      "origin": "Madhya Pradesh, India",
+      "shelfLife": "36 Months"
+    },
+    "rating": 4.9,
+    "reviewCount": 764,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Standardized KSM-66 root extract for stress resilience, energy, and hormonal vitality.",
+    "sku": "DIV-PROD-003",
+    "status": "active",
+    "subcategory": "Vitality & Adaptogens",
+    "subcategoryId": "vitality-adaptogens",
+    "tags": [
+      "Stress Relief",
+      "Adaptogen",
+      "Sleep",
+      "Bestseller"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.547Z",
+    "warnings": "Take 1 capsule twice daily with warm milk or water, or as directed by an Ayurvedic physician."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185203",
+    "slug": "pure-aloe-vera-skin-gel",
+    "__v": 0,
+    "basePricePaise": 29900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "personal-care",
+    "categoryRef": null,
+    "compareAtPricePaise": 39900,
+    "createdAt": "2026-10-18T13:45:07.555Z",
+    "description": "Extracted directly from organic Aloe barbadensis leaves within 4 hours of morning harvest. Free from green rind aloin, petroleum byproducts, artificial fragrances, or toxic thickeners. Deeply soothes sunburn, hydrates dry skin, and calms scalp irritation naturally.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/VitaminC.png",
+      "/images/ProductImages/PureHimalayanShilajit.jpeg"
+    ],
+    "ingredients": [
+      "Pure Aloe Vera (Aloe barbadensis) Leaf Juice 98.5%",
+      "Kashmiri Kesar (Crocus sativus) Stigma Extract",
+      "Natural Plant Cellulose Gum"
+    ],
+    "isBestSeller": true,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": false,
+    "name": "Pure Aloe Vera Gel with Kesar",
+    "packSize": "200ml",
+    "productForm": "Topical Gel",
+    "productInformation": {
+      "storage": "Store in a cool place away from radiant heat.",
+      "certifications": [
+        "Dermatologically Tested",
+        "Cruelty-Free",
+        "Ayush Licensed"
+      ],
+      "origin": "Rajasthan, India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.8,
+    "reviewCount": 1102,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "99% pure cold-pressed inner-leaf gel infused with Kashmiri saffron strands.",
+    "sku": "DIV-PROD-004",
+    "status": "active",
+    "subcategory": "Facial & Skin Care (Ubtan)",
+    "subcategoryId": "face-skin-care",
+    "tags": [
+      "Skin Care",
+      "Hair Care",
+      "Hydration",
+      "Bestseller"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.555Z",
+    "warnings": "For external use only. Patch test behind the ear prior to initial use."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185208",
+    "slug": "tulsi-ginger-green-tea",
+    "__v": 0,
+    "basePricePaise": 26900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "kadha-herbal-teas",
+    "categoryRef": null,
+    "compareAtPricePaise": 35000,
+    "createdAt": "2026-10-18T13:45:07.562Z",
+    "description": "A restorative tri-tulsi botanical infusion pairing high-altitude single-estate green tea with holy basil harvested at peak sunrise potency. Delivers subtle floral notes, natural antioxidants, and gentle metabolic warmth without caffeine jitters.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/Shilajit.png",
+      "/images/ProductImages/PureHimalayanShilajit2.jpeg"
+    ],
+    "ingredients": [
+      "Rama Tulsi (Ocimum sanctum)",
+      "Krishna Tulsi (Ocimum tenuiflorum)",
+      "Vana Tulsi (Ocimum gratissimum)",
+      "Whole Leaf Kangra Green Tea (Camellia sinensis)"
+    ],
+    "isBestSeller": true,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": false,
+    "name": "Organic Tulsi Green Tea",
+    "packSize": "100g",
+    "productForm": "Loose Herbal Leaves",
+    "productInformation": {
+      "storage": "Keep in the airtight tin provided.",
+      "certifications": [
+        "USDA Organic",
+        "Rainforest Alliance",
+        "FSSAI"
+      ],
+      "origin": "Kangra Valley & Bundelkhand, India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.7,
+    "reviewCount": 690,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Blend of Rama, Krishna, and Vana Tulsi whole leaves with Himalayan Green Tea.",
+    "sku": "DIV-PROD-005",
+    "status": "active",
+    "subcategory": "Immunity & Lung Care Kadha",
+    "subcategoryId": "immunity-kadha",
+    "tags": [
+      "Detox",
+      "Antioxidants",
+      "Caffeine-free Option",
+      "Bestseller"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.562Z",
+    "warnings": "Infuse 1 tsp in 90°C water for 3-4 minutes. Do not boil directly."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed18520d",
+    "slug": "triphala-churna-classical",
+    "__v": 0,
+    "basePricePaise": 19900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "churna-powders",
+    "categoryRef": null,
+    "compareAtPricePaise": 28000,
+    "createdAt": "2026-10-18T13:45:07.569Z",
+    "description": "An authentic polyherbal formulation prepared precisely according to Sharangadhara Samhita. We exclude the inner wood seed kernels and micro-grind only the rich fleshy fruit pericarps to deliver pure tridoshic balance, healthy colon cleansing, and natural ocular vitality.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit3.jpeg",
+      "/images/ProductImages/Ashuwaganda.png"
+    ],
+    "ingredients": [
+      "Amalaki (Emblica officinalis) fruit rind 33.3%",
+      "Haritaki (Terminalia chebula) fruit rind 33.3%",
+      "Bibhitaki (Terminalia bellirica) fruit rind 33.3%"
+    ],
+    "isBestSeller": true,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Classical Triphala Churna",
+    "packSize": "200g",
+    "productForm": "Powder / Churna",
+    "productInformation": {
+      "storage": "Store dry away from humidity.",
+      "certifications": [
+        "GMP Certified",
+        "Ayush Licensed"
+      ],
+      "origin": "Vindhya Forests, MP, India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.8,
+    "reviewCount": 940,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Equal proportion Haritaki, Bibhitaki, and Amalaki for gentle bowel harmony.",
+    "sku": "DIV-PROD-006",
+    "status": "active",
+    "subcategory": "Classical Digestive Churnas",
+    "subcategoryId": "digestive-churnas",
+    "tags": [
+      "Digestive",
+      "Detox",
+      "Tridoshic",
+      "Bestseller"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.569Z",
+    "warnings": "Consume 1 teaspoon at bedtime with lukewarm water."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185212",
+    "slug": "pure-amla-swaras-juice",
+    "__v": 0,
+    "basePricePaise": 29900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "herbal-juices",
+    "categoryRef": null,
+    "compareAtPricePaise": 39900,
+    "createdAt": "2026-10-18T13:45:07.579Z",
+    "description": "Traditional swaras prepared from fresh, wild small-variety Indian gooseberries renowned for highest natural Vitamin C concentration. Unlike diluted reconstituted market concentrates, Divyam Amla Juice contains zero artificial water addition, sugar, or synthetic ascorbic acid.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/Himalya.png",
+      "/images/ProductImages/VitaminC.png"
+    ],
+    "ingredients": [
+      "100% Pure Amla (Phyllanthus emblica) Fruit Juice",
+      "Permitted Class II Preservative (0.1% Sodium Benzoate as per Ayush norm)"
+    ],
+    "isBestSeller": true,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Pure Wild Amla Swaras Juice",
+    "packSize": "500ml",
+    "productForm": "Liquid / Juice",
+    "productInformation": {
+      "storage": "Refrigerate after breaking seal and consume within 30 days.",
+      "certifications": [
+        "FSSAI",
+        "GMP Compliant"
+      ],
+      "origin": "Pratapgarh, UP, India",
+      "shelfLife": "12 Months"
+    },
+    "rating": 4.8,
+    "reviewCount": 540,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Cold-pressed fresh Pratapgarh Indian Gooseberry juice with no added water.",
+    "sku": "DIV-PROD-007",
+    "status": "active",
+    "subcategory": "Daily Immunity Swaras",
+    "subcategoryId": "daily-immunity-swaras",
+    "tags": [
+      "Vitamin C",
+      "Immunity",
+      "Hair & Skin",
+      "Trending"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.579Z",
+    "warnings": "Dilute 20ml in a glass of room temperature water every morning on empty stomach."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185217",
+    "slug": "bhringraj-herbal-hair-tailam",
+    "__v": 0,
+    "basePricePaise": 44900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "herbal-oils",
+    "categoryRef": null,
+    "compareAtPricePaise": 59900,
+    "createdAt": "2026-10-18T13:45:07.587Z",
+    "description": "Crafted through the intricate 72-hour Ayurvedic Taila Paka method. Wild Bhringraj juice, Amla, Brahmi, and Manjistha are slowly decocted into wood-pressed sesame oil. Deeply penetrates the scalp to strengthen hair roots, soothe excess Pitta heat, and delay premature graying.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/VitaminC.png",
+      "/images/ProductImages/Ashuwaganda.png"
+    ],
+    "ingredients": [
+      "Tila Taila (Wood-pressed Sesame Oil)",
+      "Bhringraj (Eclipta alba) Swaras",
+      "Amla",
+      "Brahmi",
+      "Manjistha",
+      "Nagarmotha",
+      "Lodhra"
+    ],
+    "isBestSeller": true,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Maha Bhringraj Herbal Hair Oil",
+    "packSize": "200ml",
+    "productForm": "Cold Infused Oil",
+    "productInformation": {
+      "storage": "Keep in a dark bottle at normal room temperature.",
+      "certifications": [
+        "100% Mineral Oil Free",
+        "No Synthetic Fragrance",
+        "Ayush Licensed"
+      ],
+      "origin": "Kerala, India",
+      "shelfLife": "36 Months"
+    },
+    "rating": 4.9,
+    "reviewCount": 812,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Classical Taila Paka Siddhi boiled slowly with 16 botanicals in pure black sesame oil.",
+    "sku": "DIV-PROD-008",
+    "status": "active",
+    "subcategory": "Hair & Scalp Tailams",
+    "subcategoryId": "hair-scalp-tailams",
+    "tags": [
+      "Hair Health",
+      "Cooling",
+      "Scalp Care",
+      "Trending"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.587Z",
+    "warnings": "Gently massage warm oil into scalp 2-3 hours before bath or leave overnight."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed18521c",
+    "slug": "kumkumadi-tailam-saffron-facial-oil",
+    "__v": 0,
+    "basePricePaise": 79900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "personal-care",
+    "categoryRef": null,
+    "compareAtPricePaise": 119900,
+    "createdAt": "2026-10-18T13:45:07.598Z",
+    "description": "Referenced in the Ashtanga Hridaya, Kumkumadi Tailam is Ayurveda's legendary golden elixir for radiant complexion. Featuring pure Kashmiri Saffron, Red Sandalwood, Ushira, and Goat's Milk cooked to perfection in cold-pressed sesame oil. Reduces hyperpigmentation and restores a lit-from-within glow.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/VitaminC.png",
+      "/images/ProductImages/PureHimalayanShilajit.jpeg"
+    ],
+    "ingredients": [
+      "Kashmiri Saffron (Crocus sativus)",
+      "Rakta Chandana (Pterocarpus santalinus)",
+      "Manjistha (Rubia cordifolia)",
+      "Yashtimadhu",
+      "Sesame Oil",
+      "Goat's Milk"
+    ],
+    "isBestSeller": false,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Authentic Kumkumadi Miraculous Tailam",
+    "packSize": "30ml",
+    "productForm": "Face Elixir Oil",
+    "productInformation": {
+      "storage": "Keep away from direct heat and light.",
+      "certifications": [
+        "100% Classical Recipe",
+        "Free from Mineral Oil",
+        "GMP Certified"
+      ],
+      "origin": "Thiruvananthapuram, Kerala, India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.9,
+    "reviewCount": 468,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Classical 26-herb facial elixir crafted with Grade-1 Kashmiri saffron.",
+    "sku": "DIV-PROD-009",
+    "status": "active",
+    "subcategory": "Facial & Skin Serums",
+    "subcategoryId": "face-skin-serums",
+    "tags": [
+      "Glowing Skin",
+      "Anti-aging",
+      "Kashmiri Saffron",
+      "Trending"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.598Z",
+    "warnings": "Apply 2-3 drops on cleansed, damp face at night. Gently pat until absorbed."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185221",
+    "slug": "brahmi-memory-focus-churna",
+    "__v": 0,
+    "basePricePaise": 28000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "ayurvedic-herbs",
+    "categoryRef": null,
+    "compareAtPricePaise": 38000,
+    "createdAt": "2026-10-18T13:45:07.605Z",
+    "description": "Revered in Ayurvedic texts as supreme Medhya Rasayana (brain revitalizer). Our Brahmi is wild-harvested from pristine freshwater wetlands and shaded-dried under controlled temperature to guard fragile bacoside bioactive components against heat degradation.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/Ashuwaganda.png",
+      "/images/ProductImages/PureHimalayanShilajit2.jpeg"
+    ],
+    "ingredients": [
+      "100% Pure Brahmi (Bacopa monnieri) Whole Leaf Powder"
+    ],
+    "isBestSeller": false,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Medhya Brahmi Churna",
+    "packSize": "150g",
+    "productForm": "Powder / Churna",
+    "productInformation": {
+      "storage": "Airtight closure in moisture-free pantry.",
+      "certifications": [
+        "Heavy Metal Tested",
+        "Pesticide Residue Free",
+        "GMP"
+      ],
+      "origin": "Kerala wetlands, India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.7,
+    "reviewCount": 320,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Single-herb Bacopa monnieri leaf powder for focus, memory, and calm cognition.",
+    "sku": "DIV-PROD-010",
+    "status": "active",
+    "subcategory": "Brain & Memory",
+    "subcategoryId": "brain-memory",
+    "tags": [
+      "Cognition",
+      "Memory",
+      "Calm Mind",
+      "Trending"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.605Z",
+    "warnings": "Mix 1/2 teaspoon with organic ghee and honey or warm milk once daily."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185226",
+    "slug": "ayush-kwath-kadha-infusion",
+    "__v": 0,
+    "basePricePaise": 22000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "kadha-herbal-teas",
+    "categoryRef": null,
+    "compareAtPricePaise": 30000,
+    "createdAt": "2026-10-18T13:45:07.614Z",
+    "description": "A fast-acting classical decoction coarse grind tailored to warm the respiratory channels and activate natural defenses. Blended with optimum therapeutic ratios: 4 parts Tulsi, 2 parts Dalchini (Ceylon cinnamon), 2 parts Sunthi (dry ginger), and 1 part Black Pepper.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/Shilajit.png",
+      "/images/ProductImages/PureHimalayanShilajit3.jpeg"
+    ],
+    "ingredients": [
+      "Tulsi (Ocimum sanctum) 44.4%",
+      "Dalchini (Cinnamomum zeylanicum) 22.2%",
+      "Sunthi (Zingiber officinale) 22.2%",
+      "Krishna Marich (Piper nigrum) 11.1%"
+    ],
+    "isBestSeller": false,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Ayush Kwath Immunity Kadha",
+    "packSize": "150g",
+    "productForm": "Coarse Decoction Blend",
+    "productInformation": {
+      "storage": "Seal airtight after every scoop.",
+      "certifications": [
+        "Ayush Ministry Advisory Compliant",
+        "GMP Certified"
+      ],
+      "origin": "India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.8,
+    "reviewCount": 412,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Ministry of Ayush recommended synergistic formula of Tulsi, Dalchini, Sunthi & Krishna Marich.",
+    "sku": "DIV-PROD-011",
+    "status": "active",
+    "subcategory": "Immunity & Lung Care Kadha",
+    "subcategoryId": "immunity-kadha",
+    "tags": [
+      "Immunity",
+      "Respiratory",
+      "Cold & Flu",
+      "Trending"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.614Z",
+    "warnings": "Boil 3g in 150ml water until reduced to half. Add jaggery or lemon juice if desired."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed18522b",
+    "slug": "giloy-neem-tulsi-juice",
+    "__v": 0,
+    "basePricePaise": 32000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "herbal-juices",
+    "categoryRef": null,
+    "compareAtPricePaise": 42000,
+    "createdAt": "2026-10-18T13:45:07.637Z",
+    "description": "Giloy (Tinospora cordifolia) grown exclusively on Neem trees (Neem-chadhya Giloy) absorbs the secondary phytocompounds of both revered plants. Coupled with antioxidant-dense Tulsi, this pure juice gently purifies the bloodstream and bolsters defensive vitality.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit.jpeg",
+      "/images/ProductImages/VitaminC.png"
+    ],
+    "ingredients": [
+      "Neem-chadhya Giloy (Tinospora cordifolia) Stem Juice 70%",
+      "Tulsi (Ocimum sanctum) Leaf Juice 20%",
+      "Neem (Azadirachta indica) Leaf Extract 10%"
+    ],
+    "isBestSeller": false,
+    "isFeatured": false,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Giloy Neem Tulsi Ras Juice",
+    "packSize": "500ml",
+    "productForm": "Liquid / Juice",
+    "productInformation": {
+      "storage": "Keep in a cool spot. Refrigerate upon opening.",
+      "certifications": [
+        "GMP Certified",
+        "Sugar Free",
+        "No Synthetic Colors"
+      ],
+      "origin": "Madhya Pradesh, India",
+      "shelfLife": "18 Months"
+    },
+    "rating": 4.6,
+    "reviewCount": 295,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Triple immunity powerhouse combining Amrita stem swaras with wild Neem and Holy Basil.",
+    "sku": "DIV-PROD-012",
+    "status": "active",
+    "subcategory": "Daily Immunity Swaras",
+    "subcategoryId": "daily-immunity-swaras",
+    "tags": [
+      "Blood Purifier",
+      "Immunity",
+      "Fever Defense",
+      "Trending"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.637Z",
+    "warnings": "Take 30ml diluted in 100ml warm water daily morning."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185230",
+    "slug": "shatavari-kalpa-granules",
+    "__v": 0,
+    "basePricePaise": 36000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "wellness-essentials",
+    "categoryRef": null,
+    "compareAtPricePaise": 48000,
+    "createdAt": "2026-10-18T13:45:07.650Z",
+    "description": "A cherished adaptogen for female wellness across all life stages. Fresh Shatavari tuber decoction is carefully concentrated with organic cane syrup and fragrant cardamom pods. Encourages hormonal harmony, lactation support, and radiant vitality.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit2.jpeg",
+      "/images/ProductImages/Ashuwaganda.png"
+    ],
+    "ingredients": [
+      "Shatavari (Asparagus racemosus) Tuber Extract 30%",
+      "Elaichi (Elettaria cardamomum)",
+      "Natural Unrefined Cane Sugar Base"
+    ],
+    "isBestSeller": false,
+    "isFeatured": true,
+    "isNew": true,
+    "isTrending": false,
+    "name": "Shatavari Rasayana Kalpa",
+    "packSize": "250g",
+    "productForm": "Delicious Herbal Granules",
+    "productInformation": {
+      "storage": "Keep tightly capped in a dry environment.",
+      "certifications": [
+        "GMP Certified",
+        "Heavy Metal Tested"
+      ],
+      "origin": "Maharashtra, India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.9,
+    "reviewCount": 184,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Women's restorative tonic granules enriched with wild asparagus and cardamom.",
+    "sku": "DIV-PROD-013",
+    "status": "active",
+    "subcategory": "Vitality & Adaptogens",
+    "subcategoryId": "vitality-adaptogens",
+    "tags": [
+      "Women Wellness",
+      "Hormonal Balance",
+      "Energy",
+      "New Arrival"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.650Z",
+    "warnings": "Stir 1-2 teaspoons into warm cow's milk or almond milk twice daily."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185235",
+    "slug": "churna-hingwashtak-digestive",
+    "__v": 0,
+    "basePricePaise": 18000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "digestive-wellness",
+    "categoryRef": null,
+    "compareAtPricePaise": 24000,
+    "createdAt": "2026-10-18T13:45:07.662Z",
+    "description": "An indispensable Ayurvedic household staple formulated as per Bhaishajya Ratnavali. Blends purified Hing (asafoetida), Trikatu (dry ginger, black pepper, pippali), Ajwain, Saindhava Lavana, and Jeera. Quickly relieves gastric distress and rekindles optimal digestive fire.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit3.jpeg",
+      "/images/ProductImages/Shilajit.png"
+    ],
+    "ingredients": [
+      "Shuddha Hing (Ferula foetida)",
+      "Sunthi",
+      "Maricha",
+      "Pippali",
+      "Ajwain",
+      "Saindhava Lavana (Himalayan Rock Salt)",
+      "Shweta Jeeraka",
+      "Krishna Jeeraka"
+    ],
+    "isBestSeller": false,
+    "isFeatured": false,
+    "isNew": true,
+    "isTrending": false,
+    "name": "Classical Hingwashtak Churna",
+    "packSize": "100g",
+    "productForm": "Powder / Churna",
+    "productInformation": {
+      "storage": "Keep container securely sealed to retain aromatic volatile oils.",
+      "certifications": [
+        "FSSAI",
+        "GMP Compliant"
+      ],
+      "origin": "Gujarat, India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.8,
+    "reviewCount": 156,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Pure Shuddha Hing with 7 digestive spices to banish bloating and sluggish digestion.",
+    "sku": "DIV-PROD-014",
+    "status": "active",
+    "subcategory": "Acidity & Gas Relief",
+    "subcategoryId": "acidity-gas",
+    "tags": [
+      "Digestive Fire",
+      "Gas Relief",
+      "Classical Granthokta",
+      "New Arrival"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.662Z",
+    "warnings": "Take 1-2g with the first mouthful of warm cooked rice and ghee."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed18523a",
+    "slug": "dhanwantaram-tailam-body-oil",
+    "__v": 0,
+    "basePricePaise": 49900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "herbal-oils",
+    "categoryRef": null,
+    "compareAtPricePaise": 65000,
+    "createdAt": "2026-10-18T13:45:07.668Z",
+    "description": "Boasting over 40 classical herbs including Bala root, Dashamoola, and Cow's milk cooked in aged sesame oil. Dhanwantaram Thailam is Kerala Ayurveda's crown jewel for self-massage (Abhyanga). Rejuvenates weary muscles, relieves joint stiffness, and calms an overstimulated nervous system.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/VitaminC.png",
+      "/images/ProductImages/PureHimalayanShilajit.jpeg"
+    ],
+    "ingredients": [
+      "Bala (Sida cordifolia)",
+      "Dashamoola 10 Roots",
+      "Yava",
+      "Kulaṭṭha",
+      "Tila Taila",
+      "Godugdha"
+    ],
+    "isBestSeller": false,
+    "isFeatured": true,
+    "isNew": true,
+    "isTrending": false,
+    "name": "Dhanwantaram Thailam Abhyanga Oil",
+    "packSize": "200ml",
+    "productForm": "Massage Oil / Thailam",
+    "productInformation": {
+      "storage": "Warm slightly in hot water bath before application.",
+      "certifications": [
+        "Authentic Kerala Formulation",
+        "100% Herbal"
+      ],
+      "origin": "Thrissur, Kerala, India",
+      "shelfLife": "36 Months"
+    },
+    "rating": 4.9,
+    "reviewCount": 210,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Premier classical post-workout & daily Abhyanga restorative oil for Vata pacification.",
+    "sku": "DIV-PROD-015",
+    "status": "active",
+    "subcategory": "Joint & Pain Relief",
+    "subcategoryId": "pain-relief-oils",
+    "tags": [
+      "Abhyanga",
+      "Joint Care",
+      "Vata Balance",
+      "New Arrival"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.668Z",
+    "warnings": "External use only. Avoid immediate exposure to cold drafts after massage."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed18523f",
+    "slug": "organic-moringa-leaf-powder",
+    "__v": 0,
+    "basePricePaise": 23000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "churna-powders",
+    "categoryRef": null,
+    "compareAtPricePaise": 32000,
+    "createdAt": "2026-10-18T13:45:07.674Z",
+    "description": "Referred to as 'Shigru' in Sanskrit, Moringa is ancient India's supreme vitality plant. Our pristine green powder is ground from farm-fresh leaves shade-dried within hours to retain natural chlorophyll, iron, calcium, and plant bioflavonoids.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/Himalya.png",
+      "/images/ProductImages/PureHimalayanShilajit2.jpeg"
+    ],
+    "ingredients": [
+      "100% Pure Organic Moringa (Moringa oleifera) Leaf Powder"
+    ],
+    "isBestSeller": false,
+    "isFeatured": false,
+    "isNew": true,
+    "isTrending": false,
+    "name": "Superfood Organic Moringa Leaf Powder",
+    "packSize": "200g",
+    "productForm": "Powder / Churna",
+    "productInformation": {
+      "storage": "Keep in a cool, dark cabinet.",
+      "certifications": [
+        "Organic India NPOP",
+        "USDA Certified",
+        "Non-GMO"
+      ],
+      "origin": "Tamil Nadu, India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.7,
+    "reviewCount": 142,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Shade-dried drumstick tree leaves loaded with 90+ micronutrients and plant protein.",
+    "sku": "DIV-PROD-016",
+    "status": "active",
+    "subcategory": "Nutritional & Detox Powders",
+    "subcategoryId": "nutrition-powders",
+    "tags": [
+      "Superfood",
+      "Energy",
+      "Plant Protein",
+      "New Arrival"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.674Z",
+    "warnings": "Mix 1 teaspoon with green smoothies, soups, or warm lemon water."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185244",
+    "slug": "chyawanprash-special-gold-kesar",
+    "__v": 0,
+    "basePricePaise": 65000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "wellness-essentials",
+    "categoryRef": null,
+    "compareAtPricePaise": 85000,
+    "createdAt": "2026-10-18T13:45:07.682Z",
+    "description": "Slow-cooked in small artisan batches in pure desi cow ghee and wild forest honey. Packed with potent adaptogens, Pippali, Dashamoola, and real silver/gold bhasma micro-particles to bolster seasonal resilience, lung health, and vitality for all family members.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit.jpeg",
+      "/images/ProductImages/PureHimalayanShilajit3.jpeg"
+    ],
+    "ingredients": [
+      "Fresh Wild Amla Pulp 60%",
+      "Desi Cow Ghee 10%",
+      "Wild Forest Honey 15%",
+      "Kashmiri Kesar",
+      "Classical Dashamoola Extract"
+    ],
+    "isBestSeller": false,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Swarna Kesar Chyawanprash Rasayana",
+    "packSize": "500g",
+    "productForm": "Herbal Jam / Avaleha",
+    "productInformation": {
+      "storage": "Room temperature. Do not put a wet spoon inside.",
+      "certifications": [
+        "Ayush Premium Mark",
+        "GMP Certified"
+      ],
+      "origin": "Haridwar, Uttarakhand, India",
+      "shelfLife": "36 Months"
+    },
+    "rating": 4.9,
+    "reviewCount": 630,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Authentic winter preparation with wild Amla pulp, Kashmiri Kesar, and 48 classical botanicals.",
+    "sku": "DIV-PROD-017",
+    "status": "active",
+    "subcategory": "Chyawanprash & Lehyams",
+    "subcategoryId": "chyawanprash-rasayana",
+    "tags": [
+      "Immunity",
+      "Respiratory",
+      "Winter Vitality",
+      "Featured"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.682Z",
+    "warnings": "Consume 1 tablespoon daily morning followed by a glass of lukewarm milk."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185249",
+    "slug": "neem-purifying-daily-face-wash",
+    "__v": 0,
+    "basePricePaise": 24900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "personal-care",
+    "categoryRef": null,
+    "compareAtPricePaise": 32900,
+    "createdAt": "2026-10-18T13:45:07.690Z",
+    "description": "An Ayurvedic face wash that cleanses deeply without depleting the skin’s natural lipid barrier. Cold-pressed Neem and Tea Tree regulate sebum and combat blemishes, while pure Haldi (Turmeric) soothes redness and calms irritation.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/VitaminC.png",
+      "/images/ProductImages/Ashuwaganda.png"
+    ],
+    "ingredients": [
+      "Purified Water",
+      "Neem (Azadirachta indica) Leaf Extract",
+      "Tea Tree (Melaleuca alternifolia) Leaf Oil",
+      "Haldi (Curcuma longa)",
+      "Coconut derived cleansing base"
+    ],
+    "isBestSeller": false,
+    "isFeatured": false,
+    "isNew": false,
+    "isTrending": false,
+    "name": "Neem & Tea Tree Clarifying Face Wash",
+    "packSize": "150ml",
+    "productForm": "Gel Cleanser",
+    "productInformation": {
+      "storage": "Normal room conditions.",
+      "certifications": [
+        "Dermatologically Tested",
+        "Cruelty Free"
+      ],
+      "origin": "India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.7,
+    "reviewCount": 395,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Gentle soap-free cleanser infused with cold-pressed Neem leaf oil and Haldi extract.",
+    "sku": "DIV-PROD-018",
+    "status": "active",
+    "subcategory": "Facial & Skin Care (Ubtan)",
+    "subcategoryId": "face-skin-care",
+    "tags": [
+      "Acne Care",
+      "Clear Skin",
+      "Sulphate Free",
+      "Personal Care"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.690Z",
+    "warnings": "Gently massage onto wet face in circular motion and rinse thoroughly."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed18524e",
+    "slug": "arjuna-bark-powder-heart-care",
+    "__v": 0,
+    "basePricePaise": 21000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "ayurvedic-herbs",
+    "categoryRef": null,
+    "compareAtPricePaise": 28000,
+    "createdAt": "2026-10-18T13:45:07.703Z",
+    "description": "Revered in Ayurvedic cardiology (Hridaya Rasayana) for millennia. The bark of wild Arjuna trees is sustainably peeled, air-dried, and finely pulverized. Enriched with natural CoQ10 precursors, arjunolic acid, and flavonoids that tone cardiac muscle tissues.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/Ashuwaganda.png",
+      "/images/ProductImages/Shilajit.png"
+    ],
+    "ingredients": [
+      "100% Pure Arjuna (Terminalia arjuna) Stem Bark Powder"
+    ],
+    "isBestSeller": false,
+    "isFeatured": false,
+    "isNew": false,
+    "isTrending": false,
+    "name": "Arjuna Bark (Chhal) Heart Tonic Powder",
+    "packSize": "200g",
+    "productForm": "Powder / Churna",
+    "productInformation": {
+      "storage": "Keep away from moisture in airtight jar.",
+      "certifications": [
+        "GMP Certified",
+        "Ayush Licensed"
+      ],
+      "origin": "Madhya Pradesh, India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.8,
+    "reviewCount": 278,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Sun-dried Terminalia arjuna tree bark for cardiovascular strength and blood circulation.",
+    "sku": "DIV-PROD-019",
+    "status": "active",
+    "subcategory": "Single Herb Roots",
+    "subcategoryId": "single-herbs",
+    "tags": [
+      "Heart Health",
+      "Circulation",
+      "Classical Herb"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.703Z",
+    "warnings": "Boil 1 tsp in 1 cup milk and 1 cup water until water evaporates (Ksheerapaka method)."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185253",
+    "slug": "karela-jamun-healthy-sugar-juice",
+    "__v": 0,
+    "basePricePaise": 31000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "herbal-juices",
+    "categoryRef": null,
+    "compareAtPricePaise": 41000,
+    "createdAt": "2026-10-18T13:45:07.713Z",
+    "description": "Synergistic herbal blend of wild bitter melon (Karela) and whole Jamun fruit with crushed inner seeds. Naturally contains charantin, vicine, and polypeptide-p. Aids glucose metabolism, stimulates pancreatic enzymes, and purifies hepatic pathways.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit2.jpeg",
+      "/images/ProductImages/VitaminC.png"
+    ],
+    "ingredients": [
+      "Wild Karela (Momordica charantia) Fruit Juice 50%",
+      "Jamun (Syzygium cumini) Fruit & Seed Extract 49.8%"
+    ],
+    "isBestSeller": false,
+    "isFeatured": false,
+    "isNew": false,
+    "isTrending": false,
+    "name": "Karela Jamun Sugar Balance Juice",
+    "packSize": "500ml",
+    "productForm": "Liquid / Juice",
+    "productInformation": {
+      "storage": "Keep in a cool dry place. Refrigerate once opened.",
+      "certifications": [
+        "FSSAI Certified",
+        "Sugar Free"
+      ],
+      "origin": "Maharashtra, India",
+      "shelfLife": "18 Months"
+    },
+    "rating": 4.6,
+    "reviewCount": 310,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Bitter gourd and black plum seed extract supporting balanced glycemic metabolism.",
+    "sku": "DIV-PROD-020",
+    "status": "active",
+    "subcategory": "Sugar & Metabolism Care",
+    "subcategoryId": "metabolism-sugar",
+    "tags": [
+      "Glycemic Support",
+      "Metabolism",
+      "No Added Sugar"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.713Z",
+    "warnings": "Drink 30ml with equal water 30 minutes before breakfast."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185258",
+    "slug": "brahmi-shankhpushpi-syrup",
+    "__v": 0,
+    "basePricePaise": 24000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "digestive-wellness",
+    "categoryRef": null,
+    "compareAtPricePaise": 32000,
+    "createdAt": "2026-10-18T13:45:07.721Z",
+    "description": "Formulated with Convolvulus pluricaulis (Shankhpushpi), Gotu Kola, and Brahmi infused in a natural unrefined jaggery syrup base. Nourishes Majja Dhatu (nervous system), eases work-induced mental stress, and promotes tranquil bedtime relaxation.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/Shilajit.png",
+      "/images/ProductImages/PureHimalayanShilajit.jpeg"
+    ],
+    "ingredients": [
+      "Shankhpushpi (Convolvulus pluricaulis)",
+      "Brahmi (Bacopa monnieri)",
+      "Jatamansi",
+      "Ashwagandha",
+      "Jaggery Base"
+    ],
+    "isBestSeller": false,
+    "isFeatured": false,
+    "isNew": false,
+    "isTrending": false,
+    "name": "Shankhpushpi & Brahmi Calming Syrup",
+    "packSize": "200ml",
+    "productForm": "Herbal Syrup",
+    "productInformation": {
+      "storage": "Store away from intense sunlight.",
+      "certifications": [
+        "Ayush Licensed",
+        "GMP"
+      ],
+      "origin": "India",
+      "shelfLife": "36 Months"
+    },
+    "rating": 4.7,
+    "reviewCount": 195,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Non-drowsy herbal tonic for mental fatigue, nervous tension, and restful sleep.",
+    "sku": "DIV-PROD-021",
+    "status": "active",
+    "subcategory": "Brain & Memory",
+    "subcategoryId": "brain-memory",
+    "tags": [
+      "Sleep",
+      "Stress Relief",
+      "Nervous Tonic"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.721Z",
+    "warnings": "1-2 teaspoons twice daily with water after meals."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed18525d",
+    "slug": "pain-relief-mahanarayan-tailam",
+    "__v": 0,
+    "basePricePaise": 39000,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "herbal-oils",
+    "categoryRef": null,
+    "compareAtPricePaise": 52000,
+    "createdAt": "2026-10-18T13:45:07.730Z",
+    "description": "Prepared according to the timeless formula in the Bhaishajya Ratnavali. Featuring Dashamoola, Shatavari, Ashwagandha, and camphor cooked in pure sesame oil. Penetrates deeply into connective tissues to lubricate stiff joints and ease chronic muscular aches.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/VitaminC.png",
+      "/images/ProductImages/PureHimalayanShilajit3.jpeg"
+    ],
+    "ingredients": [
+      "Sesame Oil (Tila Taila)",
+      "Bilva",
+      "Agnimantha",
+      "Shyonaka",
+      "Patala",
+      "Kantakari",
+      "Gokshura",
+      "Rasna",
+      "Ashwagandha"
+    ],
+    "isBestSeller": false,
+    "isFeatured": false,
+    "isNew": false,
+    "isTrending": false,
+    "name": "Classical Mahanarayan Tailam",
+    "packSize": "200ml",
+    "productForm": "Medicated Oil",
+    "productInformation": {
+      "storage": "Store at room temperature. Warm bottle in hot water before massage.",
+      "certifications": [
+        "GMP Certified",
+        "100% Classical"
+      ],
+      "origin": "Varanasi, UP, India",
+      "shelfLife": "36 Months"
+    },
+    "rating": 4.8,
+    "reviewCount": 382,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Traditional 54-herb tailam boiled for joint flexibility, arthritis comfort, and back relief.",
+    "sku": "DIV-PROD-022",
+    "status": "active",
+    "subcategory": "Joint & Pain Relief",
+    "subcategoryId": "pain-relief-oils",
+    "tags": [
+      "Joint Relief",
+      "Back Pain",
+      "Ayurvedic Tailam"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.730Z",
+    "warnings": "Warm the oil gently and apply on affected joints with light pressure."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185262",
+    "slug": "shilajit-pure-himalayan-resin",
+    "__v": 0,
+    "basePricePaise": 99900,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "wellness-essentials",
+    "categoryRef": null,
+    "compareAtPricePaise": 149900,
+    "createdAt": "2026-10-18T13:45:07.739Z",
+    "description": "Sourced directly from steep rocky cliffs in the higher Himalayas above 18,000 feet. Purified using classical Shodhana with Triphala water and sun-dried to yield an ultra-pure resin with >75% fulvic acid. Delivers cellular energy, stamina, and deep physical rejuvenative power.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit.jpeg",
+      "/images/ProductImages/PureHimalayanShilajit2.jpeg",
+      "/images/ProductImages/PureHimalayanShilajit3.jpeg",
+      "/images/ProductImages/Himalya.png"
+    ],
+    "ingredients": [
+      "100% Purified Himalayan Shilajit Resin (75%+ Fulvic Acid)"
+    ],
+    "isBestSeller": false,
+    "isFeatured": true,
+    "isNew": false,
+    "isTrending": true,
+    "name": "Pure Himalayan Shilajit Resin (Gold Grade)",
+    "packSize": "20g",
+    "productForm": "Pure Mineral Resin",
+    "productInformation": {
+      "storage": "Keep in a cool dry place. Use spoon provided.",
+      "certifications": [
+        "Lab Tested for Heavy Metals",
+        "GMP Certified",
+        "Ayush Premium"
+      ],
+      "origin": "Spiti & Ladakh High Himalayas, India",
+      "shelfLife": "36 Months"
+    },
+    "rating": 4.9,
+    "reviewCount": 512,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "18,000+ ft altitude purified black asphaltum rich in 80+ trace minerals and fulvic acid.",
+    "sku": "DIV-PROD-023",
+    "status": "active",
+    "subcategory": "Pure Himalayan Shilajit",
+    "subcategoryId": "himalayan-shilajit",
+    "tags": [
+      "Stamina",
+      "Fulvic Acid",
+      "Himalayan",
+      "Featured"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.739Z",
+    "warnings": "Dissolve a pea-sized amount (300-500mg) in warm water, milk, or green tea."
+  },
+  {
+    "_id": "6ad4cd6384d5491fed185267",
+    "slug": "avipattikar-churna-hyperacidity",
+    "__v": 0,
+    "basePricePaise": 19500,
+    "benefits": [],
+    "brand": "Divyam Ayurveda",
+    "brandId": null,
+    "categoryId": "digestive-wellness",
+    "categoryRef": null,
+    "compareAtPricePaise": 26000,
+    "createdAt": "2026-10-18T13:45:07.747Z",
+    "description": "An authentic classical preparation engineered to alleviate severe Pitta imbalance in the digestive tract. Combines cooling Nishoth, clove, Trivrit, and cardamom to pacify high hydrochloric acid production and encourage healthy morning bowel evacuations.",
+    "dosage": "",
+    "dosha": [
+      "Vata",
+      "Pitta"
+    ],
+    "images": [
+      "/images/ProductImages/PureHimalayanShilajit3.jpeg",
+      "/images/ProductImages/Ashuwaganda.png"
+    ],
+    "ingredients": [
+      "Trikatu",
+      "Triphala",
+      "Musta",
+      "Vida Lavana",
+      "Vidanga",
+      "Ela",
+      "Patra",
+      "Lavanga",
+      "Trivrit",
+      "Sharkara (Rock Sugar)"
+    ],
+    "isBestSeller": false,
+    "isFeatured": false,
+    "isNew": false,
+    "isTrending": false,
+    "name": "Classical Avipattikar Churna",
+    "packSize": "100g",
+    "productForm": "Powder / Churna",
+    "productInformation": {
+      "storage": "Store dry.",
+      "certifications": [
+        "GMP Certified",
+        "Ayush Approved"
+      ],
+      "origin": "India",
+      "shelfLife": "24 Months"
+    },
+    "rating": 4.8,
+    "reviewCount": 220,
+    "seo": {
+      "metaDescription": "",
+      "metaTitle": ""
+    },
+    "shortDescription": "Soothes excessive stomach Pitta, sour belching, heartburn, and constipation.",
+    "sku": "DIV-PROD-024",
+    "status": "active",
+    "subcategory": "Acidity & Gas Relief",
+    "subcategoryId": "acidity-gas",
+    "tags": [
+      "Acidity Relief",
+      "Pitta Pacifier",
+      "Digestive"
+    ],
+    "updatedAt": "2026-10-18T13:45:07.747Z",
+    "warnings": "Take 3-5g before meals with cold water or coconut water."
+  }
+]

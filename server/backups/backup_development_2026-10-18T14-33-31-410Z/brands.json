@@ -1,0 +1,50 @@
+[
+  {
+    "_id": "6ad3468884d5491fed184f50",
+    "slug": "divyam-ayurveda",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.610Z",
+    "description": "Our signature in-house classical line adhering strictly to Charaka & Sharangadhara Samhitas.",
+    "logo": "https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=200&q=80",
+    "name": "Divyam Ayurveda",
+    "origin": "India",
+    "status": "active",
+    "updatedAt": "2026-10-18T13:45:07.434Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f51",
+    "slug": "divyam-rasashala",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.612Z",
+    "description": "Specialized alchemy and purified mineral rasayanas prepared through classical shodhana.",
+    "logo": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=200&q=80",
+    "name": "Divyam Rasashala",
+    "origin": "India",
+    "status": "active",
+    "updatedAt": "2026-10-18T13:45:07.439Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f52",
+    "slug": "himalayan-forest-organics",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.614Z",
+    "description": "Wild-crafted raw forest honey, high-altitude Shilajit, and pristine glacial herbs.",
+    "logo": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=200&q=80",
+    "name": "Himalayan Forest Organics",
+    "origin": "India",
+    "status": "active",
+    "updatedAt": "2026-10-18T13:45:07.440Z"
+  },
+  {
+    "_id": "6ad3468884d5491fed184f53",
+    "slug": "kerala-veda-tailams",
+    "__v": 0,
+    "createdAt": "2026-10-17T09:57:28.615Z",
+    "description": "Classical Taila Paka Siddhi medicated herbal massage and scalp oils formulated in Thrissur.",
+    "logo": "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=200&q=80",
+    "name": "Kerala Veda Tailams",
+    "origin": "India",
+    "status": "active",
+    "updatedAt": "2026-10-18T13:45:07.443Z"
+  }
+]

@@ -4,14 +4,14 @@ import { Filter, X, SlidersHorizontal, ArrowUpDown, Search, RefreshCw } from "lu
 import { ProductCard } from "../components/products/ProductCard";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { EmptyState } from "../components/common/EmptyState";
-import { productService } from "../services/api";
-import { categories } from "../data/categories";
+import { productService, categoryService } from "../services/api";
 
 export const CatalogPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // URL parameters state
   const categoryParam = searchParams.get("category") || "all";
+  const subcategoryParam = searchParams.get("subcategory") || "all";
   const searchParam = searchParams.get("search") || "";
   const sortParam = searchParams.get("sort") || "featured";
   const minPriceParam = searchParams.get("minPrice") || "";
@@ -22,11 +22,30 @@ export const CatalogPage = () => {
 
   // Local filter states
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [categoriesList, setCategoriesList] = useState([]);
   const [products, setProducts] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCats = async () => {
+      try {
+        const data = await categoryService.getCategories();
+        if (isMounted && Array.isArray(data)) {
+          setCategoriesList(data);
+        }
+      } catch (err) {
+        console.error("Failed to load catalog categories:", err);
+      }
+    };
+    fetchCats();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Fetch products whenever filters or search query changes
   useEffect(() => {
@@ -35,6 +54,7 @@ export const CatalogPage = () => {
       try {
         const result = await productService.getProducts({
           category: categoryParam,
+          subcategory: subcategoryParam === "all" ? undefined : subcategoryParam,
           search: searchParam,
           sort: sortParam,
           minPrice: minPriceParam,
@@ -59,6 +79,7 @@ export const CatalogPage = () => {
     loadProducts();
   }, [
     categoryParam,
+    subcategoryParam,
     searchParam,
     sortParam,
     minPriceParam,
@@ -73,6 +94,7 @@ export const CatalogPage = () => {
     try {
       const result = await productService.getProducts({
         category: categoryParam,
+        subcategory: subcategoryParam === "all" ? undefined : subcategoryParam,
         search: searchParam,
         sort: sortParam,
         minPrice: minPriceParam,
@@ -101,12 +123,24 @@ export const CatalogPage = () => {
     setSearchParams(newParams);
   };
 
+  const handleCategoryChange = (slug) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (slug === "all") {
+      newParams.delete("category");
+    } else {
+      newParams.set("category", slug);
+    }
+    newParams.delete("subcategory");
+    setSearchParams(newParams);
+  };
+
   const clearAllFilters = () => {
     setSearchParams({});
   };
 
   const hasActiveFilters = Boolean(
     categoryParam !== "all" ||
+      subcategoryParam !== "all" ||
       searchParam ||
       minPriceParam ||
       maxPriceParam ||
@@ -116,8 +150,15 @@ export const CatalogPage = () => {
   );
 
   const activeCategoryObj = useMemo(() => {
-    return categories.find((c) => c.slug === categoryParam);
-  }, [categoryParam]);
+    return categoriesList.find((c) => c.slug === categoryParam);
+  }, [categoryParam, categoriesList]);
+
+  const activeSubcategoryObj = useMemo(() => {
+    if (!activeCategoryObj || subcategoryParam === "all") return null;
+    return activeCategoryObj.subcategories?.find(
+      (s) => s.slug === subcategoryParam || s.id === subcategoryParam
+    );
+  }, [activeCategoryObj, subcategoryParam]);
 
   return (
     <div className="bg-[#FBFAF6] min-h-screen py-6 sm:py-8">
@@ -126,22 +167,36 @@ export const CatalogPage = () => {
         <Breadcrumbs
           items={[
             { label: "Products Catalog", href: "/products" },
-            ...(activeCategoryObj ? [{ label: activeCategoryObj.name }] : []),
+            ...(activeCategoryObj
+              ? [
+                  {
+                    label: activeCategoryObj.name,
+                    href:
+                      subcategoryParam !== "all"
+                        ? `/products?category=${activeCategoryObj.slug}`
+                        : undefined,
+                  },
+                ]
+              : []),
+            ...(activeSubcategoryObj ? [{ label: activeSubcategoryObj.name }] : []),
           ]}
         />
 
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between py-4 mb-6 border-b border-[#E5E7DF] gap-4">
           <div>
-            <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#171A17]">
-              {activeCategoryObj
+            <h1 className="font-heading tracking-tight text-3xl sm:text-4xl font-bold text-[#171A17]">
+              {activeSubcategoryObj
+                ? `${activeCategoryObj.name} — ${activeSubcategoryObj.name}`
+                : activeCategoryObj
                 ? activeCategoryObj.name
                 : searchParam
                 ? `Search: "${searchParam}"`
                 : "All Ayurvedic Formulations"}
             </h1>
             <p className="text-xs sm:text-sm text-[#666B64] mt-1.5">
-              {activeCategoryObj?.description ||
+              {activeSubcategoryObj?.description ||
+                activeCategoryObj?.description ||
                 "Explore classical herbal churnas, cold-pressed tailams, organic extracts, and daily rasayanas."}
             </p>
           </div>
@@ -167,7 +222,7 @@ export const CatalogPage = () => {
           {/* Desktop Filter Sidebar */}
           <aside className="hidden lg:block bg-white rounded-2xl border border-[#E5E7DF] p-6 shadow-xs sticky top-28 space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-[#E5E7DF]">
-              <h3 className="font-serif text-lg font-bold text-[#171A17] flex items-center gap-2">
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17] flex items-center gap-2">
                 <Filter size={16} className="text-[#386B40]" />
                 <span>Filter By</span>
               </h3>
@@ -188,7 +243,7 @@ export const CatalogPage = () => {
               </h4>
               <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
                 <button
-                  onClick={() => updateParam("category", "all")}
+                  onClick={() => handleCategoryChange("all")}
                   className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-between ${
                     categoryParam === "all"
                       ? "bg-[#173D2A] text-white"
@@ -197,10 +252,10 @@ export const CatalogPage = () => {
                 >
                   <span>All Categories</span>
                 </button>
-                {categories.map((cat) => (
+                {categoriesList.map((cat) => (
                   <button
                     key={cat.id}
-                    onClick={() => updateParam("category", cat.slug)}
+                    onClick={() => handleCategoryChange(cat.slug)}
                     className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-between ${
                       categoryParam === cat.slug
                         ? "bg-[#173D2A] text-white"
@@ -221,6 +276,50 @@ export const CatalogPage = () => {
                 ))}
               </div>
             </div>
+
+            {/* Subcategory Filter (Desktop) */}
+            {activeCategoryObj?.subcategories?.length > 0 && (
+              <div className="border-t border-[#E5E7DF] pt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-xs font-bold text-[#171A17] uppercase tracking-wider">
+                    Subcategories
+                  </h4>
+                  {subcategoryParam !== "all" && (
+                    <button
+                      onClick={() => updateParam("subcategory", "all")}
+                      className="text-[11px] text-emerald-700 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  <button
+                    onClick={() => updateParam("subcategory", "all")}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-between ${
+                      subcategoryParam === "all"
+                        ? "bg-[#386B40] text-white"
+                        : "text-stone-700 hover:bg-stone-100"
+                    }`}
+                  >
+                    <span>All {activeCategoryObj.name}</span>
+                  </button>
+                  {activeCategoryObj.subcategories.map((sub) => (
+                    <button
+                      key={sub.id}
+                      onClick={() => updateParam("subcategory", sub.slug)}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-between ${
+                        subcategoryParam === sub.slug
+                          ? "bg-[#386B40] text-white"
+                          : "text-stone-700 hover:bg-stone-100"
+                      }`}
+                    >
+                      <span className="truncate">{sub.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Price Filter */}
             <div className="border-t border-[#E5E7DF] pt-5">
@@ -301,7 +400,18 @@ export const CatalogPage = () => {
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-stone-100 text-stone-700 text-xs">
                     Category: {activeCategoryObj?.name || categoryParam}
                     <button
-                      onClick={() => updateParam("category", "all")}
+                      onClick={() => handleCategoryChange("all")}
+                      className="hover:text-rose-600 ml-1"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+                {subcategoryParam !== "all" && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">
+                    Subcategory: {activeSubcategoryObj?.name || subcategoryParam}
+                    <button
+                      onClick={() => updateParam("subcategory", "all")}
                       className="hover:text-rose-600 ml-1"
                     >
                       <X size={12} />
@@ -373,6 +483,38 @@ export const CatalogPage = () => {
               </div>
             </div>
 
+            {/* Quick Subcategory Pills Row */}
+            {activeCategoryObj?.subcategories?.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                <button
+                  onClick={() => updateParam("subcategory", "all")}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-xs ${
+                    subcategoryParam === "all"
+                      ? "bg-[#173D2A] text-white shadow-emerald-950/10"
+                      : "bg-white text-stone-700 hover:bg-stone-50 border border-[#E5E7DF]"
+                  }`}
+                >
+                  All {activeCategoryObj.name}
+                </button>
+                {activeCategoryObj.subcategories.map((sub) => {
+                  const isActive = subcategoryParam === sub.slug;
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => updateParam("subcategory", sub.slug)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shadow-xs ${
+                        isActive
+                          ? "bg-[#386B40] text-white shadow-emerald-950/10"
+                          : "bg-white text-stone-700 hover:bg-stone-50 border border-[#E5E7DF]"
+                      }`}
+                    >
+                      {sub.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Products Grid */}
             {loading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -418,12 +560,12 @@ export const CatalogPage = () => {
       {mobileFiltersOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
-            className="fixed inset-0 bg-black/50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
             onClick={() => setMobileFiltersOpen(false)}
           />
-          <div className="relative ml-auto w-4/5 max-w-sm bg-white h-full shadow-xl p-6 flex flex-col overflow-y-auto">
+          <div className="relative ml-auto w-4/5 max-w-sm bg-white h-full shadow-2xl p-6 flex flex-col overflow-y-auto animate-in slide-in-from-right duration-300 ease-out">
             <div className="flex items-center justify-between pb-4 border-b border-[#E5E7DF]">
-              <h3 className="font-serif text-lg font-bold text-[#171A17]">Filter Products</h3>
+              <h3 className="font-heading tracking-tight text-lg font-bold text-[#171A17]">Filter Products</h3>
               <button
                 onClick={() => setMobileFiltersOpen(false)}
                 className="p-1 rounded-lg text-stone-500 hover:bg-stone-100"
@@ -441,27 +583,84 @@ export const CatalogPage = () => {
                 <div className="space-y-1">
                   <button
                     onClick={() => {
-                      updateParam("category", "all");
+                      handleCategoryChange("all");
                       setMobileFiltersOpen(false);
                     }}
-                    className="block w-full text-left text-xs py-1.5 px-2 rounded hover:bg-stone-100 text-stone-700"
+                    className={`block w-full text-left text-xs py-1.5 px-2 rounded ${
+                      categoryParam === "all"
+                        ? "bg-[#173D2A] text-white font-medium"
+                        : "hover:bg-stone-100 text-stone-700"
+                    }`}
                   >
                     All Categories
                   </button>
-                  {categories.map((cat) => (
+                  {categoriesList.map((cat) => (
                     <button
                       key={cat.id}
                       onClick={() => {
-                        updateParam("category", cat.slug);
-                        setMobileFiltersOpen(false);
+                        handleCategoryChange(cat.slug);
                       }}
-                      className="block w-full text-left text-xs py-1.5 px-2 rounded hover:bg-stone-100 text-stone-700"
+                      className={`block w-full text-left text-xs py-1.5 px-2 rounded ${
+                        categoryParam === cat.slug
+                          ? "bg-[#173D2A] text-white font-medium"
+                          : "hover:bg-stone-100 text-stone-700"
+                      }`}
                     >
                       {cat.name}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* Subcategories (Mobile) */}
+              {activeCategoryObj?.subcategories?.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-[#171A17] uppercase tracking-wider">
+                      Subcategories
+                    </h4>
+                    {subcategoryParam !== "all" && (
+                      <button
+                        onClick={() => updateParam("subcategory", "all")}
+                        className="text-[11px] text-emerald-700 hover:underline"
+                      >
+                        All
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => {
+                        updateParam("subcategory", "all");
+                        setMobileFiltersOpen(false);
+                      }}
+                      className={`block w-full text-left text-xs py-1.5 px-2 rounded ${
+                        subcategoryParam === "all"
+                          ? "bg-[#386B40] text-white font-medium"
+                          : "text-stone-700 hover:bg-stone-100"
+                      }`}
+                    >
+                      All {activeCategoryObj.name}
+                    </button>
+                    {activeCategoryObj.subcategories.map((sub) => (
+                      <button
+                        key={sub.id}
+                        onClick={() => {
+                          updateParam("subcategory", sub.slug);
+                          setMobileFiltersOpen(false);
+                        }}
+                        className={`block w-full text-left text-xs py-1.5 px-2 rounded ${
+                          subcategoryParam === sub.slug
+                            ? "bg-[#386B40] text-white font-medium"
+                            : "text-stone-700 hover:bg-stone-100"
+                        }`}
+                      >
+                        {sub.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Price */}
               <div>

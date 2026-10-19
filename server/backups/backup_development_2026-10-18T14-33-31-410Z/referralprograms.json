@@ -1,0 +1,17 @@
+[
+  {
+    "_id": "6ad346cf84d5491fed184ff6",
+    "__v": 0,
+    "cookieExpiryDays": 30,
+    "createdAt": "2026-10-17T09:58:39.217Z",
+    "enabled": true,
+    "minOrderValuePaise": 99900,
+    "programName": "Divyam Wellness Seeker Circle",
+    "qualifyingState": "delivered",
+    "refereeDiscountPercent": 10,
+    "refereeDiscountType": "percentage",
+    "referrerRewardPaise": 20000,
+    "referrerRewardType": "fixed_credit",
+    "updatedAt": "2026-10-18T13:45:07.808Z"
+  }
+]

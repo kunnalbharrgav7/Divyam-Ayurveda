@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -18,26 +18,34 @@ import { formatCurrency, formatDate } from "../../utils/formatters";
 
 export const CustomerDetailsPage = () => {
   const { customerId } = useParams();
-  const { customers, orders, saveCustomer } = useAdmin();
+  const { customers, orders, saveCustomer, fetchAdminCustomer, addCustomerNote } = useAdmin();
 
   const customer = customers.find((c) => c.id === customerId);
 
-  // Filter orders made by this customer
+  // Orders placed by this customer (matched by account email, never by display name)
   const customerOrders = orders.filter(
     (o) =>
+      o.userId === customerId ||
       o.customerId === customerId ||
-      o.email?.toLowerCase() === customer?.email?.toLowerCase() ||
-      o.customerName?.toLowerCase() === customer?.name?.toLowerCase()
+      (customer?.email && o.email?.toLowerCase() === customer.email.toLowerCase())
   );
 
-  const [notes, setNotes] = useState([
-    {
-      id: 1,
-      text: "Customer registered through organic Google search for Triphala.",
-      date: "2026-05-10",
-    },
-  ]);
+  const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
+  const [actionError, setActionError] = useState("");
+
+  // Load the latest profile and the staff notes stored in the database
+  useEffect(() => {
+    let isMounted = true;
+    fetchAdminCustomer(customerId)
+      .then((fresh) => {
+        if (isMounted) setNotes(fresh.notes || []);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [customerId]);
 
   if (!customer) {
     return (
@@ -57,27 +65,31 @@ export const CustomerDetailsPage = () => {
     );
   }
 
-  const handleToggleBlock = () => {
-    saveCustomer({
-      ...customer,
-      status: customer.status === "Blocked" ? "Active" : "Blocked",
-    });
+  const handleToggleBlock = async () => {
+    setActionError("");
+    try {
+      await saveCustomer({ id: customer.id, status: customer.status === "Blocked" ? "Active" : "Blocked" });
+    } catch (err) {
+      setActionError(err.message || "Could not update this customer.");
+    }
   };
 
-  const handleAddNote = (e) => {
+  const handleAddNote = async (e) => {
     e.preventDefault();
     if (!newNote.trim()) return;
-    setNotes((prev) => [
-      { id: Date.now(), text: newNote.trim(), date: new Date().toLocaleDateString() },
-      ...prev,
-    ]);
-    setNewNote("");
+    setActionError("");
+    try {
+      setNotes(await addCustomerNote(customer.id, newNote.trim()));
+      setNewNote("");
+    } catch (err) {
+      setActionError(err.message || "Could not save the note.");
+    }
   };
 
-  const avgOrderValue =
-    customerOrders.length > 0
-      ? (customer.totalSpent || 0) / customerOrders.length
-      : 0;
+  // Totals come from the customer's real (non-cancelled) orders in the database
+  const orderCount = customer.totalOrders ?? customerOrders.length;
+  const avgOrderValue = orderCount > 0 ? (customer.totalSpent || 0) / orderCount : 0;
+  const location = [customer.city, customer.state].filter(Boolean).join(", ");
 
   return (
     <div className="space-y-6 pb-12">
@@ -110,7 +122,7 @@ export const CustomerDetailsPage = () => {
                 </span>
               </div>
               <p className="text-xs text-stone-500 mt-0.5">
-                Member since {formatDate(customer.joinedAt || "2026-02-14")}
+                {customer.joinedAt ? `Member since ${formatDate(customer.joinedAt)}` : "Registered customer"}
               </p>
             </div>
           </div>
@@ -139,6 +151,10 @@ export const CustomerDetailsPage = () => {
         </button>
       </div>
 
+      {actionError && (
+        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">{actionError}</div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
@@ -151,7 +167,7 @@ export const CustomerDetailsPage = () => {
 
         <StatCard
           title="Total Orders Placed"
-          value={customerOrders.length || customer.totalOrders || 0}
+          value={orderCount}
           subtitle="lifetime remedies orders"
           icon={ShoppingBag}
           color="blue"
@@ -248,14 +264,17 @@ export const CustomerDetailsPage = () => {
             </form>
 
             <div className="space-y-2.5">
+              {notes.length === 0 && (
+                <p className="text-xs text-stone-400 text-center py-3">No notes yet for this customer.</p>
+              )}
               {notes.map((n) => (
                 <div
                   key={n.id}
                   className="p-3 rounded-xl border border-stone-200/80 bg-stone-50/50 text-xs"
                 >
                   <div className="flex justify-between items-center text-[10px] text-stone-400 mb-1">
-                    <span className="font-semibold text-stone-700">Staff Note</span>
-                    <span>{n.date}</span>
+                    <span className="font-semibold text-stone-700">{n.authorName || "Staff"}</span>
+                    <span>{n.createdAt ? formatDate(n.createdAt) : ""}</span>
                   </div>
                   <p className="text-stone-700">{n.text}</p>
                 </div>
@@ -274,22 +293,31 @@ export const CustomerDetailsPage = () => {
               </div>
               <div className="flex items-center gap-2.5 text-stone-700">
                 <Phone className="w-4 h-4 text-emerald-800 flex-shrink-0" />
-                <span>{customer.phone || "+91 98765 43210"}</span>
+                <span>{customer.phone || "No phone number provided"}</span>
               </div>
               <div className="flex items-center gap-2.5 text-stone-700">
                 <MapPin className="w-4 h-4 text-emerald-800 flex-shrink-0" />
-                <span>{customer.city || "Mumbai"}, {customer.state || "Maharashtra"}</span>
+                <span>{location || "No address saved yet"}</span>
               </div>
             </div>
           </AdminCard>
 
           <AdminCard title="Default Delivery Address" subtitle="Registered shipping destination">
-            <div className="text-xs text-stone-700 leading-relaxed">
-              <p className="font-semibold text-stone-900">{customer.name}</p>
-              <p>{customer.address || "Flat 304, Green Meadows, MG Road"}</p>
-              <p>{customer.city || "Mumbai"}, {customer.state || "Maharashtra"} - {customer.pincode || "400001"}</p>
-              <p>India</p>
-            </div>
+            {customer.address ? (
+              <div className="text-xs text-stone-700 leading-relaxed">
+                <p className="font-semibold text-stone-900">{customer.addressName || customer.name}</p>
+                <p>{customer.address}</p>
+                {customer.addressLine2 && <p>{customer.addressLine2}</p>}
+                <p>
+                  {[customer.city, customer.state].filter(Boolean).join(", ")}
+                  {customer.pincode ? ` - ${customer.pincode}` : ""}
+                </p>
+                {customer.addressPhone && <p className="text-stone-500">Phone: {customer.addressPhone}</p>}
+                <p>India</p>
+              </div>
+            ) : (
+              <p className="text-xs text-stone-400">This customer hasn't saved a delivery address yet.</p>
+            )}
           </AdminCard>
         </div>
       </div>

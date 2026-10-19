@@ -17,7 +17,7 @@ export const AdminUsersPage = () => {
   const defaultForm = {
     name: "",
     email: "",
-    role: "catalog_manager",
+    role: "Super Admin",
     status: "Active",
     password: "",
   };
@@ -127,7 +127,7 @@ export const AdminUsersPage = () => {
           >
             <Edit className="w-4 h-4" />
           </button>
-          {row.role !== "super_admin" && (
+          {row.email !== "admin@divyamayurveda.demo" && (
             <button
               type="button"
               onClick={() => {
