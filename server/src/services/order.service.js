@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Order } from "../models/Order.js";
+import { Shipment } from "../models/Shipment.js";
 import { Quote } from "../models/Quote.js";
 import { User } from "../models/User.js";
 import { Product } from "../models/Product.js";
@@ -123,13 +124,33 @@ export class OrderService {
         await referralService.recordOrder(order, user);
       }
 
-      return order.toJSON();
+      let paymentSession = null;
+      if (isOnline) {
+        try {
+          const { paymentService } = await import("./payment.service.js");
+          paymentSession = await paymentService.createCashfreeSession({
+            orderNumber: order.orderNumber,
+            returnUrl: payload.returnUrl,
+            user,
+          });
+        } catch (pgErr) {
+          throw ApiError.badRequest(
+            pgErr.message || "Failed to initialize Cashfree payment session."
+          );
+        }
+      }
+
+      const orderJson = order.toJSON();
+      if (paymentSession) {
+        orderJson.paymentSession = paymentSession;
+      }
+      return orderJson;
     }
 
     // PATH B: Direct checkout placement from client (saves immediately to MongoDB)
     const orderNumber = generateOrderNumber();
-    const initialStatus = ORDER_STATUS.CONFIRMED;
-    const initialPaymentStatus = isOnline ? "paid" : "pending";
+    const initialStatus = isOnline ? ORDER_STATUS.PENDING_PAYMENT : ORDER_STATUS.CONFIRMED;
+    const initialPaymentStatus = PAYMENT_STATUS.PENDING;
 
     const initialTimeline = [
       { status: "Order Placed", time: new Date(), completed: true, note: "Order placed successfully" },
@@ -355,13 +376,35 @@ export class OrderService {
       throw err;
     }
 
-    // Count the redemption (drives usage limits)
-    if (verifiedOfferCode) await couponService.recordUsage(verifiedOfferCode);
-    // First order through a friend's referral code: the reward is held until it is delivered
-    if (verifiedReferralCode) await referralService.recordOrder(order, user);
+    // Count the redemption (drives usage limits) for confirmed/COD orders; online orders record upon payment success
+    if (isCOD) {
+      if (verifiedOfferCode) await couponService.recordUsage(verifiedOfferCode);
+      if (verifiedReferralCode) await referralService.recordOrder(order, user);
+    }
     await invalidateCache("catalog"); // storefront stock changed
 
-    return order.toJSON();
+    let paymentSession = null;
+    if (isOnline) {
+      try {
+        const { paymentService } = await import("./payment.service.js");
+        paymentSession = await paymentService.createCashfreeSession({
+          orderNumber: order.orderNumber,
+          returnUrl: payload.returnUrl,
+          user,
+        });
+      } catch (pgErr) {
+        if (stockReserved) await inventoryService.releaseReservedStock(reservations, orderNumber);
+        throw ApiError.badRequest(
+          pgErr.message || "Failed to initialize secure Cashfree payment session. Please try again."
+        );
+      }
+    }
+
+    const orderJson = order.toJSON();
+    if (paymentSession) {
+      orderJson.paymentSession = paymentSession;
+    }
+    return orderJson;
   }
 
   /**
@@ -376,6 +419,8 @@ export class OrderService {
       ],
     });
     if (!order) throw ApiError.notFound("Order not found.");
+
+    const shipment = await Shipment.findOne({ orderNumber: order.orderNumber }).lean();
 
     // Staff see everything; everyone else (including signed-out visitors) only sees their own orders in full
     if (!user || !user.isStaff) {
@@ -401,6 +446,7 @@ export class OrderService {
           carrier: json.carrier,
           trackingUrl: json.trackingUrl,
           shippingLabelUrl: json.shippingLabelUrl,
+          shipment: shipment || null,
           shippingAddress: {
             city: json.shippingAddress?.city,
             state: json.shippingAddress?.state,
@@ -413,7 +459,9 @@ export class OrderService {
       }
     }
 
-    return order.toJSON();
+    const fullOrder = order.toJSON();
+    fullOrder.shipment = shipment || null;
+    return fullOrder;
   }
 
   /**
@@ -429,7 +477,11 @@ export class OrderService {
       ((order.userId && order.userId.toString() === user._id.toString()) ||
         (order.customer?.email && order.customer.email.toLowerCase() === user.email.toLowerCase()));
     if (!owns) throw ApiError.notFound("Order not found.");
-    return order.toJSON();
+
+    const shipment = await Shipment.findOne({ orderNumber: order.orderNumber }).lean();
+    const res = order.toJSON();
+    res.shipment = shipment || null;
+    return res;
   }
 
   async trackOrder(orderNumber, email) {
@@ -446,7 +498,10 @@ export class OrderService {
       throw ApiError.notFound("No matching order found for this order number and email address.");
     }
 
-    return order.toJSON();
+    const shipment = await Shipment.findOne({ orderNumber: order.orderNumber }).lean();
+    const result = order.toJSON();
+    result.shipment = shipment || null;
+    return result;
   }
 
   /**
@@ -612,6 +667,8 @@ export class OrderService {
 
     if (newPaymentStatus) {
       order.paymentStatus = String(newPaymentStatus).toLowerCase().trim();
+    } else if (normalizedStatus === ORDER_STATUS.DELIVERED && order.paymentStatus === "pending") {
+      order.paymentStatus = "paid";
     }
 
     await order.save();

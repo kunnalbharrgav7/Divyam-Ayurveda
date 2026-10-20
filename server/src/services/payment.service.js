@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Order } from "../models/Order.js";
 import { Payment } from "../models/Payment.js";
 import { WebhookEvent } from "../models/WebhookEvent.js";
@@ -6,6 +7,7 @@ import { cashfree } from "../integrations/cashfree/cashfree.adapter.js";
 import { orderService } from "./order.service.js";
 import { inventoryService } from "./inventory.service.js";
 import { couponService } from "./coupon.service.js";
+import { referralService } from "./referral.service.js";
 import { ORDER_STATUS } from "../constants/orderStatus.js";
 import { PAYMENT_STATUS } from "../constants/paymentStatus.js";
 import { sha256 } from "../utils/crypto.js";
@@ -16,29 +18,52 @@ export class PaymentService {
   /**
    * Create or reuse a pending internal order and create a Cashfree PG session
    */
-  async createCashfreeSession({ quoteId, returnUrl = null, user = null, idempotencyKey = null }) {
-    const quote = await Quote.findById(quoteId);
-    if (!quote) throw ApiError.badRequest("Invalid or expired checkout quote.");
+  async createCashfreeSession({ orderNumber = null, quoteId = null, returnUrl = null, user = null, idempotencyKey = null }) {
+    let order = null;
 
-    // Check if an order already exists for this quote to prevent duplicates
-    let order = await Order.findOne({ quoteId: quote._id, status: ORDER_STATUS.PENDING_PAYMENT });
-
-    if (!order) {
-      // Create pending order and reserve stock
-      order = await orderService.createOrder({
-        quoteId: quote._id,
-        paymentMethod: "cashfree",
-        notes: "Online Cashfree Payment",
-        user,
+    if (orderNumber) {
+      const isObjectId = mongoose.Types.ObjectId.isValid(orderNumber);
+      order = await Order.findOne({
+        $or: [
+          { orderNumber },
+          ...(isObjectId ? [{ _id: orderNumber }] : []),
+        ],
       });
+      if (!order) throw ApiError.notFound("Order not found.");
+      if (order.paymentStatus === PAYMENT_STATUS.SUCCEEDED) {
+        return {
+          alreadyPaid: true,
+          orderNumber: order.orderNumber,
+          orderStatus: order.status,
+          paymentStatus: order.paymentStatus,
+        };
+      }
+    } else if (quoteId) {
+      const quote = await Quote.findById(quoteId);
+      if (!quote) throw ApiError.badRequest("Invalid or expired checkout quote.");
+
+      order = await Order.findOne({ quoteId: quote._id, status: ORDER_STATUS.PENDING_PAYMENT });
+      if (!order) {
+        order = await orderService.createOrder({
+          quoteId: quote._id,
+          paymentMethod: "cashfree",
+          notes: "Online Cashfree Payment",
+          user,
+        });
+      }
+    } else {
+      throw ApiError.badRequest("Either orderNumber or quoteId is required to create a payment session.");
     }
 
-    const orderNumber = order.orderNumber;
-    const amountPaise = order.pricing?.totalPaise || quote.totalPaise;
+    const orderNum = order.orderNumber;
+    const amountPaise = order.pricing?.totalPaise || 0;
+    if (amountPaise <= 0) {
+      throw ApiError.badRequest("Invalid order total amount.");
+    }
 
     // Call Cashfree adapter
     const cfResult = await cashfree.createPaymentSession({
-      orderNumber,
+      orderNumber: orderNum,
       amountPaise,
       customer: order.customer,
       returnUrl,
@@ -46,10 +71,10 @@ export class PaymentService {
 
     // Create or update Payment record
     await Payment.findOneAndUpdate(
-      { orderNumber },
+      { orderNumber: orderNum },
       {
         orderId: order._id || order.id,
-        orderNumber,
+        orderNumber: orderNum,
         provider: "cashfree",
         providerOrderId: cfResult.cfOrderId,
         paymentSessionId: cfResult.paymentSessionId,
@@ -63,7 +88,7 @@ export class PaymentService {
 
     return {
       paymentSessionId: cfResult.paymentSessionId,
-      orderNumber,
+      orderNumber: orderNum,
       cfOrderId: cfResult.cfOrderId,
       amount: amountPaise / 100,
       environment: cfResult.environment,
@@ -148,11 +173,12 @@ export class PaymentService {
             providerPaymentId,
             verifiedAt: new Date(),
             rawWebhookPayload: payload,
-          }
+          },
+          { upsert: true }
         );
 
         // Transition order to confirmed if not already paid
-        if (order.status === ORDER_STATUS.PENDING_PAYMENT) {
+        if (order.status === ORDER_STATUS.PENDING_PAYMENT || order.paymentStatus !== PAYMENT_STATUS.SUCCEEDED) {
           order.status = ORDER_STATUS.CONFIRMED;
           order.paymentStatus = PAYMENT_STATUS.SUCCEEDED;
           order.timeline.push({
@@ -171,8 +197,11 @@ export class PaymentService {
           );
 
           // Apply coupon usage
-          if (order.pricing.appliedCoupon) {
+          if (order.pricing?.appliedCoupon) {
             await couponService.recordUsage(order.pricing.appliedCoupon);
+          }
+          if (order.pricing?.referralCode && order.userId) {
+            await referralService.recordOrder(order, { _id: order.userId });
           }
         }
       } else {
@@ -201,37 +230,83 @@ export class PaymentService {
   }
 
   /**
-   * Refresh payment status by querying Cashfree API server-to-server
+   * Refresh and verify payment status by querying Cashfree API server-to-server
    */
   async refreshPaymentStatus(orderNumber) {
-    const order = await Order.findOne({ orderNumber });
+    const isObjectId = mongoose.Types.ObjectId.isValid(orderNumber);
+    const order = await Order.findOne({
+      $or: [
+        { orderNumber },
+        ...(isObjectId ? [{ _id: orderNumber }] : []),
+      ],
+    });
     if (!order) throw ApiError.notFound("Order not found.");
 
-    const cfStatus = await cashfree.getOrderStatus(orderNumber);
-    if (cfStatus.orderStatus === "PAID" && order.status === ORDER_STATUS.PENDING_PAYMENT) {
-      order.status = ORDER_STATUS.CONFIRMED;
-      order.paymentStatus = PAYMENT_STATUS.SUCCEEDED;
-      order.timeline.push({
-        status: "Payment Verified via Cashfree API Refresh",
-        time: new Date(),
-        completed: true,
-      });
-      await order.save();
+    const orderNum = order.orderNumber;
+    const cfStatus = await cashfree.getOrderStatus(orderNum);
+    const payments = await cashfree.getOrderPayments(orderNum);
 
-      await inventoryService.commitSoldStock(order.items, order.orderNumber);
-      if (order.pricing.appliedCoupon) {
-        await couponService.recordUsage(order.pricing.appliedCoupon);
+    const successfulPayment =
+      payments.find((p) => p.payment_status === "SUCCESS") ||
+      (Array.isArray(cfStatus.payments) && cfStatus.payments.find((p) => p.payment_status === "SUCCESS"));
+
+    const isPaid = cfStatus.orderStatus === "PAID" || Boolean(successfulPayment);
+
+    if (isPaid) {
+      const providerPaymentId = successfulPayment?.cf_payment_id || `cf_pay_${Date.now()}`;
+
+      await Payment.findOneAndUpdate(
+        { orderNumber: orderNum },
+        {
+          status: PAYMENT_STATUS.SUCCEEDED,
+          providerPaymentId,
+          verifiedAt: new Date(),
+        },
+        { upsert: true }
+      );
+
+      if (order.status === ORDER_STATUS.PENDING_PAYMENT || order.paymentStatus !== PAYMENT_STATUS.SUCCEEDED) {
+        order.status = ORDER_STATUS.CONFIRMED;
+        order.paymentStatus = PAYMENT_STATUS.SUCCEEDED;
+        order.timeline.push({
+          status: "Payment Verified via Cashfree API",
+          time: new Date(),
+          note: `Transaction ID: ${providerPaymentId}`,
+          completed: true,
+        });
+        await order.save();
+
+        await inventoryService.commitSoldStock(order.items, order.orderNumber, "cashfree_api_commit");
+        if (order.pricing?.appliedCoupon) {
+          await couponService.recordUsage(order.pricing.appliedCoupon);
+        }
+        if (order.pricing?.referralCode && order.userId) {
+          await referralService.recordOrder(order, { _id: order.userId });
+        }
+      }
+    } else {
+      const lastPayment = payments[payments.length - 1];
+      if (lastPayment && ["FAILED", "USER_DROPPED", "CANCELLED"].includes(lastPayment.payment_status)) {
+        await Payment.findOneAndUpdate(
+          { orderNumber: orderNum },
+          { status: PAYMENT_STATUS.FAILED },
+          { upsert: true }
+        );
+        if (order.status === ORDER_STATUS.PENDING_PAYMENT) {
+          order.paymentStatus = PAYMENT_STATUS.FAILED;
+          await order.save();
+        }
       }
     }
 
     return {
-      orderNumber,
+      orderNumber: orderNum,
       orderStatus: order.status,
       paymentStatus: order.paymentStatus,
       cashfreeStatus: cfStatus.orderStatus,
+      isPaid,
     };
   }
 }
 
 export const paymentService = new PaymentService();
-

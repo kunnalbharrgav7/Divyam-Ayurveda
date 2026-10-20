@@ -11,6 +11,11 @@ router.post(
   requireIdempotency(false),
   paymentController.createCashfreeSession
 );
+router.post(
+  "/cashfree/verify",
+  optionalAuthenticate,
+  paymentController.verifyPayment
+);
 router.get(
   "/cashfree/orders/:orderNumber/status",
   optionalAuthenticate,

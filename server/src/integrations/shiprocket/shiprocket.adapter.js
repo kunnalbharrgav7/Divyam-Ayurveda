@@ -144,22 +144,147 @@ export class ShiprocketAdapter {
       });
 
       const data = await response.json();
+      if (!response.ok) {
+        logger.error({ data, orderNumber: orderData.orderNumber }, "Shiprocket order creation failed");
+        throw new Error(data.message || "Failed to create shipment order in Shiprocket");
+      }
+
+      let awbCode = data.awb_code || null;
+      let courierName = data.courier_name || null;
+      let courierId = data.courier_company_id || null;
+
+      // Assign AWB immediately if not provided in adhoc response
+      if (!awbCode && data.shipment_id) {
+        try {
+          const awbRes = await fetch(`${this.baseUrl}/v1/external/courier/assign/awb`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              shipment_id: data.shipment_id,
+              ...(orderData.courierId ? { courier_id: orderData.courierId } : {}),
+            }),
+          });
+          const awbData = await awbRes.json();
+          if (awbRes.ok && (awbData?.response?.data?.awb_code || awbData?.awb_code)) {
+            awbCode = awbData?.response?.data?.awb_code || awbData?.awb_code;
+            courierName = awbData?.response?.data?.courier_name || awbData?.courier_name || courierName;
+            courierId = awbData?.response?.data?.courier_company_id || awbData?.courier_company_id || courierId;
+          }
+        } catch (awbErr) {
+          logger.warn({ err: awbErr.message, shipmentId: data.shipment_id }, "Immediate Shiprocket AWB assignment attempt error");
+        }
+      }
+
+      // Generate shipping label PDF URL if shipment and AWB exist
+      let labelUrl = "";
+      if (data.shipment_id && awbCode) {
+        try {
+          const labelRes = await fetch(`${this.baseUrl}/v1/external/courier/generate/label`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ shipment_id: [data.shipment_id] }),
+          });
+          const labelData = await labelRes.json();
+          if (labelRes.ok && labelData?.label_url) {
+            labelUrl = labelData.label_url;
+          }
+        } catch {}
+      }
+
       return {
         orderNumber: orderData.orderNumber,
         shiprocketOrderId: data.order_id,
         shipmentId: data.shipment_id,
-        awbCode: data.awb_code || `AWB-${Date.now()}`,
-        courierName: data.courier_name || "Shiprocket Standard",
-        courierId: data.courier_company_id || "",
-        trackingUrl: `https://shiprocket.co/tracking/${data.awb_code}`,
-        labelUrl: "",
+        awbCode: awbCode,
+        courierName: courierName || "Shiprocket Courier Partner",
+        courierId: courierId || "",
+        trackingUrl: awbCode ? `https://shiprocket.co/tracking/${awbCode}` : "",
+        labelUrl,
         manifestUrl: "",
-        status: "CREATED",
+        status: awbCode ? "AWB_ASSIGNED" : "PROCESSING",
       };
     } catch (err) {
       logger.error({ err: err.message }, "Shiprocket create shipment error");
       throw err;
     }
+  }
+
+  /**
+   * Fetch live tracking details from Shiprocket courier partner
+   */
+  async trackShipment(awbCode) {
+    if (this.isMock) {
+      return this.mock.trackShipment(awbCode);
+    }
+    if (!awbCode) return null;
+
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${this.baseUrl}/v1/external/courier/track/awb/${encodeURIComponent(awbCode)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        logger.warn({ awbCode, data }, "Shiprocket track shipment API error");
+        return null;
+      }
+      return data.tracking_data || data;
+    } catch (err) {
+      logger.error({ err: err.message, awbCode }, "Shiprocket tracking API request failed");
+      return null;
+    }
+  }
+
+  /**
+   * Explicitly assign courier and AWB to existing Shiprocket shipment
+   */
+  async assignCourierAwb(shipmentId, courierId = null) {
+    if (this.isMock) {
+      return this.mock.assignAwb(shipmentId, courierId);
+    }
+    const token = await this.getAuthToken();
+    const response = await fetch(`${this.baseUrl}/v1/external/courier/assign/awb`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shipment_id: shipmentId,
+        ...(courierId ? { courier_id: courierId } : {}),
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to assign courier AWB");
+    }
+    return data.response?.data || data;
+  }
+
+  /**
+   * Cancel courier shipment
+   */
+  async cancelShipment(awbCode) {
+    if (this.isMock) {
+      return this.mock.cancelShipment(awbCode);
+    }
+    if (!awbCode) return { success: false, message: "AWB code is required" };
+    const token = await this.getAuthToken();
+    const response = await fetch(`${this.baseUrl}/v1/external/orders/cancel/shipment/awbs`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ awbs: [awbCode] }),
+    });
+    return response.json();
   }
 
   /**

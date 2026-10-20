@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link, Navigate } from "react-router-dom";
+import { load } from "@cashfreepayments/cashfree-js";
 import {
   ShieldCheck,
   Truck,
@@ -220,18 +221,64 @@ export const CheckoutPage = () => {
         deliveryMethod,
         paymentMethod:
           paymentMethod === "cod" ? "Cash on Delivery (COD)" : "Online Payment",
-        paymentStatus: paymentMethod === "cod" ? "Pending" : "Paid",
+        paymentStatus: "Pending",
         notes: formData.notes,
       };
 
       const createdOrder = await placeOrder(orderPayload);
-      if (creditApplied > 0) refreshCredit();
+      const confirmationId = createdOrder.orderNumber || createdOrder.id;
 
+      if (paymentMethod === "online") {
+        let paymentSessionId = createdOrder.paymentSession?.paymentSessionId;
+        let cfEnv = createdOrder.paymentSession?.environment || "production";
+
+        // Fallback: fetch session if not attached
+        if (!paymentSessionId) {
+          try {
+            const sessRes = await fetch("/api/v1/payment/cashfree/session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ orderNumber: confirmationId }),
+            });
+            const sessData = await sessRes.json();
+            if (sessData.success && sessData.data?.paymentSessionId) {
+              paymentSessionId = sessData.data.paymentSessionId;
+              cfEnv = sessData.data.environment || cfEnv;
+            }
+          } catch (sessErr) {
+            console.warn("Could not retrieve payment session:", sessErr);
+          }
+        }
+
+        if (paymentSessionId) {
+          try {
+            const cashfree = await load({
+              mode: cfEnv === "production" ? "production" : "sandbox",
+            });
+            await cashfree.checkout({
+              paymentSessionId,
+              redirectTarget: "_modal",
+            });
+          } catch (sdkErr) {
+            console.warn("Cashfree checkout interaction:", sdkErr);
+          }
+        }
+
+        if (creditApplied > 0) refreshCredit();
+        if (referralDiscount > 0) clearAttribution();
+        setOrderCompleted(true);
+        removeCheckedOutItems();
+        navigate(`/order-confirmation/${confirmationId}`);
+        return;
+      }
+
+      // COD path
+      if (creditApplied > 0) refreshCredit();
       if (referralDiscount > 0) clearAttribution(); // the invitation is used up with this first order
 
       setOrderCompleted(true);
       removeCheckedOutItems();
-      const confirmationId = createdOrder.orderNumber || createdOrder.id;
       navigate(`/order-confirmation/${confirmationId}`);
     } catch (err) {
       console.error("Order creation failed:", err);

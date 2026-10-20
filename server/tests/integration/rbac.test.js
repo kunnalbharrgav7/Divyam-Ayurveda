@@ -4,6 +4,7 @@ import app from "../../src/app.js";
 import { User } from "../../src/models/User.js";
 import { Role } from "../../src/models/Role.js";
 import { ROLES } from "../../src/constants/roles.js";
+import { ALL_PERMISSIONS } from "../../src/constants/permissions.js";
 import { generateAccessToken } from "../../src/utils/token.js";
 
 describe("RBAC Permissions and Access Control Integration", () => {
@@ -32,7 +33,28 @@ describe("RBAC Permissions and Access Control Integration", () => {
     });
 
     // 2. Super Admin token
-    const admin = await User.findOne({ email: "admin@divyamayurveda.demo" });
+    let superAdminRole = await Role.findOne({ name: ROLES.SUPER_ADMIN });
+    if (!superAdminRole) {
+      superAdminRole = await Role.create({
+        name: ROLES.SUPER_ADMIN,
+        description: "Super Administrator with all permissions",
+        permissions: ALL_PERMISSIONS,
+      });
+    }
+    let admin = await User.findOne({ email: "admin@divyamayurveda.demo" });
+    if (!admin) {
+      admin = await User.create({
+        name: "Super Admin",
+        email: "admin@divyamayurveda.demo",
+        passwordHash: "testHash123",
+        isStaff: true,
+        roles: [superAdminRole._id],
+      });
+    } else {
+      admin.roles = [superAdminRole._id];
+      admin.isStaff = true;
+      await admin.save();
+    }
     superAdminToken = generateAccessToken({
       id: admin._id,
       email: admin.email,

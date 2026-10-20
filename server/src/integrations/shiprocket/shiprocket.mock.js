@@ -43,6 +43,43 @@ export class ShiprocketMock {
     return data;
   }
 
+  async assignAwb(shipmentId, courierId = null) {
+    const awbCode = `AWB${Date.now()}`;
+    return {
+      awb_code: awbCode,
+      courier_company_id: courierId || 12,
+      courier_name: "Bluedart Air",
+    };
+  }
+
+  async trackShipment(awbCode) {
+    const shipment = Array.from(this.shipments.values()).find((s) => s.awbCode === awbCode);
+    return {
+      track_status: 1,
+      shipment_status: 7,
+      shipment_track: [
+        {
+          id: 1,
+          awb_code: awbCode,
+          current_status: shipment?.status || "IN_TRANSIT",
+          courier_name: shipment?.courierName || "Bluedart Air",
+          delivered_to: "Customer",
+          destination: "Bengaluru",
+          origin: "Bengaluru Dispensary Hub",
+        },
+      ],
+      shipment_track_activities: [
+        {
+          date: new Date().toISOString(),
+          status: shipment?.status || "IN_TRANSIT",
+          activity: "Package in transit with courier partner",
+          location: "Bengaluru Hub",
+        },
+      ],
+      track_url: `https://shiprocket.co/tracking/${awbCode}`,
+    };
+  }
+
   async cancelShipment(awbCode) {
     return {
       success: true,

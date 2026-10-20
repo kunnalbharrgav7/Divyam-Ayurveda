@@ -26,7 +26,6 @@ export class CashfreeMock {
     };
   }
 
-  // Sandbox/mock refunds succeed immediately
   async createRefund({ orderNumber, refundId, amountPaise }) {
     return {
       refundId,
@@ -46,8 +45,9 @@ export class CashfreeMock {
     if (!session) {
       return {
         orderId: orderNumber,
-        orderStatus: "PAID", // Default to paid for demo check
+        orderStatus: "ACTIVE",
         orderAmount: 100,
+        payments: [],
       };
     }
 
@@ -55,7 +55,24 @@ export class CashfreeMock {
       orderId: session.orderId,
       orderStatus: session.status,
       orderAmount: session.amountPaise / 100,
+      payments: session.status === "PAID" ? [{ payment_status: "SUCCESS", cf_payment_id: `cf_mock_${Date.now()}` }] : [],
     };
+  }
+
+  async getOrderPayments(orderNumber) {
+    const session = this.sessions.get(orderNumber);
+    if (session && session.status === "PAID") {
+      return [
+        {
+          payment_status: "SUCCESS",
+          cf_payment_id: `cf_mock_pay_${Date.now()}`,
+          payment_amount: session.amountPaise / 100,
+          payment_currency: "INR",
+          payment_time: new Date().toISOString(),
+        },
+      ];
+    }
+    return [];
   }
 
   markPaid(orderNumber) {
@@ -65,4 +82,3 @@ export class CashfreeMock {
     }
   }
 }
-

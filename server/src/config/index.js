@@ -42,6 +42,7 @@ const envSchema = z.object({
   SHIPROCKET_EMAIL: z.string().default("shipping@divyamayurveda.test"),
   SHIPROCKET_PASSWORD: z.string().default("TestShiprocketPass123!"),
   SHIPROCKET_WEBHOOK_SECRET: z.string().default("test_shiprocket_webhook_secret_999"),
+  SHIPROCKET_PICKUP_LOCATION: z.string().default("Primary Dispensary"),
 
   OBJECT_STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
   S3_BUCKET: z.string().optional(),

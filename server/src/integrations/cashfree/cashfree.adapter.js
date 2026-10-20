@@ -30,19 +30,28 @@ export class CashfreeAdapter {
       return this.mock.createPaymentSession({ orderNumber, amountPaise, customer, returnUrl });
     }
 
+    const rawId = String(customer?.id || customer?._id || customer?.email || "guest").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const customerId = rawId.length >= 3 ? rawId.slice(0, 50) : `cust_${rawId}`;
+    const cleanPhone = String(customer?.phone || "").replace(/[^0-9]/g, "").slice(-10);
+    const customerPhone = cleanPhone.length === 10 ? cleanPhone : "9876543210";
+    const webhookUrl =
+      config.CASHFREE_WEBHOOK_URL || `${config.API_URL.replace(/\/+$/, "")}/api/v1/webhooks/cashfree`;
+
     const payload = {
-      order_id: orderNumber,
-      order_amount: toRupees(amountPaise),
+      order_id: String(orderNumber).trim(),
+      order_amount: Number(toRupees(amountPaise)),
       order_currency: "INR",
       customer_details: {
-        customer_id: customer.id || customer.email.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 50),
-        customer_email: customer.email,
-        customer_phone: customer.phone.replace(/[^0-9]/g, "").slice(-10),
-        customer_name: customer.name,
+        customer_id: customerId,
+        customer_email: customer?.email || "customer@divyamayurveda.com",
+        customer_phone: customerPhone,
+        customer_name: customer?.name || "Customer",
       },
       order_meta: {
-        return_url: returnUrl || `${config.CLIENT_ORIGIN}/order-confirmation/${orderNumber}`,
-        notify_url: config.CASHFREE_WEBHOOK_URL,
+        return_url:
+          returnUrl ||
+          `${config.CLIENT_ORIGIN.replace(/\/+$/, "")}/order-confirmation/${orderNumber}?order_id={order_id}`,
+        notify_url: webhookUrl,
       },
     };
 
@@ -85,7 +94,7 @@ export class CashfreeAdapter {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/orders/${orderNumber}`, {
+      const response = await fetch(`${this.baseUrl}/orders/${encodeURIComponent(orderNumber)}`, {
         headers: {
           "x-client-id": this.appId,
           "x-client-secret": this.secretKey,
@@ -111,8 +120,36 @@ export class CashfreeAdapter {
   }
 
   /**
+   * Fetch payment attempts from Cashfree for an order
+   */
+  async getOrderPayments(orderNumber) {
+    if (this.isMock) {
+      return this.mock.getOrderPayments ? this.mock.getOrderPayments(orderNumber) : [];
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/orders/${encodeURIComponent(orderNumber)}/payments`, {
+        headers: {
+          "x-client-id": this.appId,
+          "x-client-secret": this.secretKey,
+          "x-api-version": this.apiVersion,
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return [];
+      }
+
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      logger.warn({ err: err.message, orderNumber }, "Cashfree get payments warning");
+      return [];
+    }
+  }
+
+  /**
    * Refund (part of) a paid order back to the customer's original payment method.
-   * status: SUCCESS | PENDING | CANCELLED | ONHOLD (Cashfree). Throws with Cashfree's message on API errors.
    */
   async createRefund({ orderNumber, refundId, amountPaise, note = "" }) {
     if (this.isMock) {
@@ -130,7 +167,7 @@ export class CashfreeAdapter {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        refund_amount: toRupees(amountPaise),
+        refund_amount: Number(toRupees(amountPaise)),
         refund_id: refundId,
         refund_note: note.slice(0, 100),
         refund_speed: "STANDARD",
@@ -158,7 +195,7 @@ export class CashfreeAdapter {
   }
 
   /**
-   * Verify Cashfree Webhook Signature
+   * Verify Cashfree Webhook Signature (supports both Hex and Base64 signatures)
    */
   verifyWebhookSignature(rawBody, headers) {
     const signature = headers["x-webhook-signature"] || headers["x-cashfree-signature"];

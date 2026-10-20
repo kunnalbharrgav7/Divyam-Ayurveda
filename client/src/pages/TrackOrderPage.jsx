@@ -311,6 +311,28 @@ export const TrackOrderPage = () => {
                   </div>
                 )}
 
+                {/* Live Carrier Scan Updates */}
+                {trackedOrder.shipment?.trackingEvents && trackedOrder.shipment.trackingEvents.length > 0 && (
+                  <div className="pt-4 border-t border-[#E5E7DF] space-y-3">
+                    <h4 className="font-heading tracking-tight text-sm font-bold text-[#171A17] flex items-center gap-2">
+                      <Truck size={16} className="text-[#386B40]" />
+                      <span>Courier Activity History ({trackedOrder.shipment.courierName || trackedOrder.carrier})</span>
+                    </h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {trackedOrder.shipment.trackingEvents.slice().reverse().map((ev, i) => (
+                        <div key={i} className="p-3 rounded-xl bg-stone-50 border border-stone-200/70 text-xs">
+                          <div className="flex items-center justify-between font-semibold text-[#171A17]">
+                            <span>{ev.status}</span>
+                            <span className="text-stone-400 font-normal text-[11px]">{formatDate(ev.time)}</span>
+                          </div>
+                          {ev.activity && <p className="text-stone-600 mt-1">{ev.activity}</p>}
+                          {ev.location && <p className="text-stone-400 text-[11px] mt-0.5">Location: {ev.location}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Shipping Destination */}
                 <div className="p-4 bg-[#FBFAF6] rounded-2xl border border-[#E5E7DF] flex items-start gap-3 text-xs sm:text-sm">
                   <MapPin size={20} className="text-[#386B40] shrink-0 mt-0.5" />
@@ -330,7 +352,7 @@ export const TrackOrderPage = () => {
                   No order found with ID &ldquo;{orderIdInput}&rdquo;
                 </p>
                 <p className="text-xs text-[#666B64] mb-4">
-                  Please verify your order number. In this demo environment, orders are tracked within the active browser session.
+                  Please verify your order number and check your email confirmation for tracking updates.
                 </p>
                 <Link
                   to="/products"

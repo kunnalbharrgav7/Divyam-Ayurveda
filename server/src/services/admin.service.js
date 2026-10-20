@@ -420,14 +420,9 @@ export class AdminService {
       const resolved = resolveStoredImages(data.images, existingImages, product._id);
       // Only newly uploaded photos are compressed; images already stored are left untouched so repeated
       // saves never re-encode (and degrade) them.
-      product.images = (await Promise.all(
-        resolved.map(async (img) => {
-          if (existingImages.includes(img) && (!img.startsWith("data:") || img.length < 400000)) {
-            return img;
-          }
-          return (await compressImages([img]))[0];
-        })
-      )).filter(Boolean);
+      product.images = await Promise.all(
+        resolved.map(async (img) => (existingImages.includes(img) ? img : (await compressImages([img]))[0]))
+      );
     }
     if (data.isFeatured !== undefined) product.isFeatured = Boolean(data.isFeatured);
     if (data.isBestSeller !== undefined || data.isBestseller !== undefined) {

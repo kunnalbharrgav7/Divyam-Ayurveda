@@ -435,6 +435,11 @@ export const getOrderShipment = asyncHandler(async (req, res) => {
   return sendSuccess(res, shipment);
 });
 
+export const getLiveShipmentTracking = asyncHandler(async (req, res) => {
+  const result = await shipmentService.getLiveTracking(req.params.orderNumber);
+  return sendSuccess(res, result);
+});
+
 export const cancelOrder = asyncHandler(async (req, res) => {
   const order = await orderService.cancelOrder(
     req.params.orderNumber,

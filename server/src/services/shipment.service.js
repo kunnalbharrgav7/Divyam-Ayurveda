@@ -184,19 +184,70 @@ export class ShipmentService {
       });
       await shipment.save();
 
-      // If delivered, update order status
-      if (currentStatus === "DELIVERED") {
-        const order = await Order.findById(shipment.orderId);
-        if (order && order.status !== ORDER_STATUS.DELIVERED) {
+      // Update milestone progression across all major logistics events
+      const order = await Order.findById(shipment.orderId);
+      if (order) {
+        const standardMilestones = [
+          "Order Placed",
+          "Packed at Dispensary",
+          "Dispatched",
+          "Out for Delivery",
+          "Delivered",
+        ];
+        const existingCleanTimeline = (order.timeline || []).filter(
+          (entry) => !entry.status.startsWith("Status changed to")
+        );
+
+        if (currentStatus === "DELIVERED") {
           order.status = ORDER_STATUS.DELIVERED;
-          order.timeline.push({
-            status: "Delivered",
-            time: new Date(),
-            note: "Delivered to customer address",
-            completed: true,
+          order.fulfilmentStatus = FULFILMENT_STATUS.FULFILLED;
+          if (!order.deliveredAt) order.deliveredAt = new Date();
+          const isCod = String(order.paymentMethod || "").toLowerCase().includes("cod") || String(order.paymentMethod || "").toLowerCase().includes("cash");
+          if (isCod) {
+            order.paymentStatus = "paid";
+          }
+          order.timeline = standardMilestones.map((mName, idx) => {
+            const match = existingCleanTimeline.find((e) => e.status.toLowerCase() === mName.toLowerCase());
+            return {
+              status: mName,
+              time: match?.time || new Date(),
+              note: idx === 4 ? (payload.activity || "Delivered to customer address") : (match?.note || ""),
+              completed: true,
+            };
           });
-          await order.save();
+        } else if (currentStatus === "OUT_FOR_DELIVERY" || currentStatus === "OUT FOR DELIVERY") {
+          order.status = ORDER_STATUS.OUT_FOR_DELIVERY;
+          order.fulfilmentStatus = FULFILMENT_STATUS.FULFILLED;
+          order.timeline = standardMilestones.map((mName, idx) => {
+            const match = existingCleanTimeline.find((e) => e.status.toLowerCase() === mName.toLowerCase());
+            const isCompleted = idx <= 3;
+            return {
+              status: mName,
+              time: isCompleted ? (match?.time || new Date()) : null,
+              note: idx === 3 ? (payload.activity || "Out for delivery with courier agent") : (match?.note || ""),
+              completed: isCompleted,
+            };
+          });
+        } else if (
+          currentStatus === "SHIPPED" ||
+          currentStatus === "DISPATCHED" ||
+          currentStatus === "IN_TRANSIT" ||
+          currentStatus === "IN TRANSIT"
+        ) {
+          order.status = ORDER_STATUS.DISPATCHED;
+          order.fulfilmentStatus = FULFILMENT_STATUS.FULFILLED;
+          order.timeline = standardMilestones.map((mName, idx) => {
+            const match = existingCleanTimeline.find((e) => e.status.toLowerCase() === mName.toLowerCase());
+            const isCompleted = idx <= 2;
+            return {
+              status: mName,
+              time: isCompleted ? (match?.time || new Date()) : null,
+              note: idx === 2 ? (payload.activity || `Shipped via ${shipment.courierName}. AWB: ${shipment.awbCode}`) : (match?.note || ""),
+              completed: isCompleted,
+            };
+          });
         }
+        await order.save();
       }
 
       webhookRecord.status = "processed";
@@ -409,6 +460,56 @@ export class ShipmentService {
     }
     const shipment = await Shipment.findOne({ orderNumber: orderNum });
     return shipment ? shipment.toJSON() : null;
+  }
+
+  /**
+   * Sync and fetch live courier tracking from Shiprocket API
+   */
+  async getLiveTracking(orderNumber) {
+    const isObjectId = mongoose.Types.ObjectId.isValid(orderNumber);
+    const order = await Order.findOne({
+      $or: [
+        { orderNumber },
+        ...(isObjectId ? [{ _id: orderNumber }] : []),
+      ],
+    });
+    if (!order) throw ApiError.notFound("Order not found.");
+
+    const shipment = await Shipment.findOne({ orderNumber: order.orderNumber });
+    if (!shipment || !shipment.awbCode) {
+      return {
+        order: order.toJSON(),
+        shipment: shipment ? shipment.toJSON() : null,
+        liveTracking: null,
+      };
+    }
+
+    const liveData = await shiprocket.trackShipment(shipment.awbCode);
+    if (liveData?.shipment_track_activities && Array.isArray(liveData.shipment_track_activities)) {
+      const existingTimestamps = new Set(
+        (shipment.trackingEvents || []).map((e) => new Date(e.time).getTime())
+      );
+
+      for (const act of liveData.shipment_track_activities) {
+        const actTime = new Date(act.date || act.time || Date.now()).getTime();
+        if (!existingTimestamps.has(actTime)) {
+          shipment.trackingEvents.push({
+            status: act.status || act.activity || "In Transit",
+            activity: act.activity || act.status,
+            location: act.location || "",
+            time: new Date(actTime),
+          });
+          existingTimestamps.add(actTime);
+        }
+      }
+      await shipment.save();
+    }
+
+    return {
+      order: order.toJSON(),
+      shipment: shipment.toJSON(),
+      liveTracking: liveData,
+    };
   }
 }
 

@@ -59,6 +59,7 @@ router.post("/orders/:orderNumber/shipments", requirePermission(PERMISSIONS.ORDE
 router.post("/orders/:orderNumber/shipments/advance", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.advanceShipment);
 router.patch("/orders/:orderNumber/tracking", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.updateOrderTracking);
 router.get("/orders/:orderNumber/shipment", requirePermission(PERMISSIONS.ORDERS_VIEW), adminController.getOrderShipment);
+router.get("/orders/:orderNumber/shipment/live", requirePermission(PERMISSIONS.ORDERS_VIEW), adminController.getLiveShipmentTracking);
 router.post("/orders/:orderNumber/cancel", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.cancelOrder);
 
 // Returns & Refunds
