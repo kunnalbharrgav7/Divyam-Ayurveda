@@ -47,9 +47,15 @@ export const normalizeProduct = (p) => {
     p.image ||
     (Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : "") ||
     "/images/ProductImages/Ashuwaganda.png";
-  const fixUrl = (u) => (typeof u === "string" && u.startsWith("/api/") ? apiUrl(u) : u);
-  image = fixUrl(image);
-  let images = (Array.isArray(p.images) && p.images.length > 0 ? p.images : [image]).map(fixUrl);
+  const sanitizeUrl = (u) => {
+    if (typeof u === "string" && u.startsWith("data:") && u.length > 500000) {
+      const pid = p.id || p._id;
+      return pid ? apiUrl(`/api/v1/products/${pid}/images/0`) : "/images/ProductImages/Ashuwaganda.png";
+    }
+    return typeof u === "string" && u.startsWith("/api/") ? apiUrl(u) : u;
+  };
+  image = sanitizeUrl(image);
+  let images = (Array.isArray(p.images) && p.images.length > 0 ? p.images : [image]).map(sanitizeUrl);
   const stock =
     p.stock !== undefined ? p.stock : (p.stockQuantity !== undefined ? p.stockQuantity : 0);
   const stockQuantity = stock;

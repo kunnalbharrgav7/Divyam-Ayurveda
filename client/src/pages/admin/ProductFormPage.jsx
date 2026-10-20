@@ -98,6 +98,8 @@ export const ProductFormPage = () => {
           existingImages = [defaultFormData.image];
         }
 
+        existingImages = existingImages.filter(img => !img || !img.startsWith("data:") || img.length < 500000);
+        if (existingImages.length === 0) existingImages = [defaultFormData.image];
         const primaryImage = existing.image || existingImages[0] || defaultFormData.image;
         if (!existingImages.includes(primaryImage)) {
           existingImages = [primaryImage, ...existingImages];
@@ -140,25 +142,38 @@ export const ProductFormPage = () => {
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
+    setSubmitError("");
 
-    // Resize + re-encode each photo (WebP, max 1600px) before it is stored
-    const readers = files.map((file) => compressImageFile(file, { maxDimension: 1600 }));
+    // Resize + re-encode each photo (WebP, max 1000px, quality 0.75) before storing
+    const readers = files.map((file) => compressImageFile(file, { maxDimension: 1000, quality: 0.75 }));
 
-    Promise.all(readers).then((newUploads) => {
-      setFormData((prev) => {
-        const currentImages = Array.isArray(prev.images) && prev.images.length > 0
-          ? prev.images
-          : (prev.image ? [prev.image] : []);
-        const combined = [...currentImages, ...newUploads];
-        return {
-          ...prev,
-          images: combined,
-          gallery: combined,
-          image: prev.image || combined[0],
-        };
+    Promise.all(readers)
+      .then((newUploads) => {
+        const validUploads = newUploads.filter(Boolean);
+        if (!validUploads.length) return;
+
+        setFormData((prev) => {
+          const isPlaceholder = (img) =>
+            typeof img === "string" &&
+            (img.includes("Ashuwaganda.png") || img === "/images/ProductImages/Ashuwaganda.png");
+
+          const currentImages = (Array.isArray(prev.images) ? prev.images : [])
+            .filter((img) => !isPlaceholder(img));
+
+          const combined = [...currentImages, ...validUploads];
+          return {
+            ...prev,
+            images: combined,
+            gallery: combined,
+            image: combined[0] || validUploads[0],
+          };
+        });
+        e.target.value = "";
+      })
+      .catch((err) => {
+        console.error("Image upload failed:", err);
+        setSubmitError(err.message || "Failed to process the uploaded image file.");
       });
-      e.target.value = "";
-    });
   };
 
   const handleAddImageUrl = () => {
@@ -333,9 +348,12 @@ export const ProductFormPage = () => {
       : (primaryImg ? [primaryImg] : []);
 
     // Ensure primary image is at index 0 of allImages
-    const orderedImages = primaryImg && imagesList.includes(primaryImg)
+    let orderedImages = primaryImg && imagesList.includes(primaryImg)
       ? [primaryImg, ...imagesList.filter((img) => img !== primaryImg)]
       : imagesList;
+    // Safety guard: strip any corrupted oversized data URLs (> 500 KB) from outgoing payload
+    orderedImages = orderedImages.filter(img => typeof img === "string" && (!img.startsWith("data:") || img.length < 500000));
+    if (orderedImages.length === 0 && primaryImg) orderedImages = [primaryImg];
 
     const matchedCategoryObj = categories.find(
       (c) =>
