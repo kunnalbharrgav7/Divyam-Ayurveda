@@ -1,12 +1,21 @@
 import { beforeAll, afterAll } from "vitest";
-import { connectDB, disconnectDB } from "../src/db/connection.js";
+import mongoose from "mongoose";
+import { logger } from "../src/config/logger.js";
 
 beforeAll(async () => {
   process.env.NODE_ENV = "test";
-  await connectDB();
+  // Protect production/Atlas database from test mutations
+  const testUri = process.env.MONGODB_TEST_URI || "mongodb://127.0.0.1:27017/divyam_ayurveda_test";
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+  }
+  await mongoose.connect(testUri, { serverSelectionTimeoutMS: 5000 });
+  logger.info({ database: mongoose.connection.name }, "Connected to dedicated test database");
 });
 
 afterAll(async () => {
-  await disconnectDB();
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+  }
 });
 

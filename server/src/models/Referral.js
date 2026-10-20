@@ -20,8 +20,7 @@ const referralSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null,
-      index: true,
-    },
+      },
     refereeEmail: {
       type: String,
       required: true,

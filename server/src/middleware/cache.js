@@ -10,6 +10,10 @@ export const cacheMiddleware = (ttlSeconds = 60, tag = "global") => async (req, 
   }
 
   const redis = getRedisClient();
+  if (redis.status && redis.status !== "ready" && redis.status !== "connect") {
+    return next();
+  }
+
   const normalizedQuery = Object.keys(req.query || {})
     .sort()
     .map((k) => `${k}=${req.query[k]}`)
@@ -50,6 +54,9 @@ export const cacheMiddleware = (ttlSeconds = 60, tag = "global") => async (req, 
 
 export const invalidateCache = async (tag) => {
   const redis = getRedisClient();
+  if (redis.status && redis.status !== "ready" && redis.status !== "connect") {
+    return;
+  }
   try {
     const tagKey = `${CACHE_PREFIX}tag:${tag}`;
     const keys = await redis.smembers(tagKey);
@@ -59,7 +66,6 @@ export const invalidateCache = async (tag) => {
       logger.info({ tag, count: keys.length }, "Invalidated cache tag");
     }
   } catch (err) {
-    logger.warn({ err: err.message, tag }, "Failed to invalidate cache tag");
+    logger.debug({ err: err.message, tag }, "Failed to invalidate cache tag");
   }
 };
-

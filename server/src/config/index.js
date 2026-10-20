@@ -1,7 +1,11 @@
+import path from "path";
+import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { z } from "zod";
 import { logger } from "./logger.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 dotenv.config();
 
 const envSchema = z.object({

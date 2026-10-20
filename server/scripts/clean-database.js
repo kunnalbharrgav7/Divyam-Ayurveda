@@ -22,6 +22,13 @@ export const cleanDatabase = async (options = {}) => {
     );
   }
 
+  const isAtlas = (config.MONGODB_URI || "").includes("mongodb+srv") || (config.MONGODB_URI || "").includes(".mongodb.net");
+  if (isAtlas && process.env.ALLOW_ATLAS_CLEANUP !== "true") {
+    throw new Error(
+      "Safety guard: Connected database appears to be MongoDB Atlas. Wiping or cleaning an Atlas database requires explicit ALLOW_ATLAS_CLEANUP=true."
+    );
+  }
+
   logger.info({ uri: config.MONGODB_URI, env: config.NODE_ENV }, "Connecting to MongoDB for database cleanup...");
   await mongoose.connect(config.MONGODB_URI);
   const db = mongoose.connection.db;

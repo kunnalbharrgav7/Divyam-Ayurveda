@@ -1,4 +1,5 @@
 import { connectDB, disconnectDB } from "../src/db/connection.js";
+import { config } from "../src/config/index.js";
 import { logger } from "../src/config/logger.js";
 import { toPaise } from "../src/utils/currency.js";
 import { hashPassword } from "../src/utils/crypto.js";
@@ -37,6 +38,14 @@ import { blogPosts as seedBlogPosts } from "../../client/src/data/blogPosts.js";
 import { initialHomepageContent, initialStoreSettings } from "../../client/src/data/storeSettings.js";
 
 const runSeed = async () => {
+  const isAtlas = (config.MONGODB_URI || "").includes("mongodb+srv") || (config.MONGODB_URI || "").includes(".mongodb.net");
+  if (isAtlas && process.env.ALLOW_ATLAS_SEED !== "true") {
+    logger.warn(
+      "Safety guard: Connected database is MongoDB Atlas. Demo seeding is disabled on Atlas to protect migrated and live data. Set ALLOW_ATLAS_SEED=true if you deliberately intend to seed Atlas."
+    );
+    process.exit(0);
+  }
+
   if (process.env.ALLOW_DEMO_SEED !== "true" && !process.argv.includes("--force")) {
     logger.warn("Seeding is disabled to protect clean database state. Run with ALLOW_DEMO_SEED=true or --force if you deliberately want to re-populate demo records.");
     process.exit(0);

@@ -1,0 +1,199 @@
+{
+  "timestamp": "2026-10-20T03:19:41.529Z",
+  "sourceDatabase": "divyam_ayurveda",
+  "destinationDatabase": "divyam_ayurveda",
+  "collections": {
+    "contactenquiries": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 2
+    },
+    "users": {
+      "count": 4,
+      "bsonBytes": 2312,
+      "ejsonBytes": 3116,
+      "indexesCount": 6
+    },
+    "faqs": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 2
+    },
+    "quotes": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 2
+    },
+    "refunds": {
+      "count": 1,
+      "bsonBytes": 396,
+      "ejsonBytes": 592,
+      "indexesCount": 7
+    },
+    "referrals": {
+      "count": 1,
+      "bsonBytes": 418,
+      "ejsonBytes": 668,
+      "indexesCount": 7
+    },
+    "subscribers": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 3
+    },
+    "ingredients": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 3
+    },
+    "idempotencykeys": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 3
+    },
+    "reviews": {
+      "count": 2,
+      "bsonBytes": 608,
+      "ejsonBytes": 1129,
+      "indexesCount": 5
+    },
+    "supporttickets": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 4
+    },
+    "webhookevents": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 7
+    },
+    "referralprograms": {
+      "count": 1,
+      "bsonBytes": 413,
+      "ejsonBytes": 685,
+      "indexesCount": 1
+    },
+    "blogposts": {
+      "count": 4,
+      "bsonBytes": 6927,
+      "ejsonBytes": 7406,
+      "indexesCount": 3
+    },
+    "wallettransactions": {
+      "count": 3,
+      "bsonBytes": 926,
+      "ejsonBytes": 1431,
+      "indexesCount": 4
+    },
+    "inventorymovements": {
+      "count": 4,
+      "bsonBytes": 1192,
+      "ejsonBytes": 1869,
+      "indexesCount": 7
+    },
+    "coupons": {
+      "count": 1,
+      "bsonBytes": 439,
+      "ejsonBytes": 717,
+      "indexesCount": 4
+    },
+    "shipments": {
+      "count": 2,
+      "bsonBytes": 1937,
+      "ejsonBytes": 2467,
+      "indexesCount": 7
+    },
+    "roles": {
+      "count": 1,
+      "bsonBytes": 586,
+      "ejsonBytes": 586,
+      "indexesCount": 2
+    },
+    "brands": {
+      "count": 1,
+      "bsonBytes": 52341,
+      "ejsonBytes": 52468,
+      "indexesCount": 4
+    },
+    "homepageconfigs": {
+      "count": 1,
+      "bsonBytes": 1696,
+      "ejsonBytes": 1832,
+      "indexesCount": 1
+    },
+    "auditlogs": {
+      "count": 316,
+      "bsonBytes": 341005,
+      "ejsonBytes": 405998,
+      "indexesCount": 6
+    },
+    "products": {
+      "count": 5,
+      "bsonBytes": 1103883,
+      "ejsonBytes": 1104553,
+      "indexesCount": 16
+    },
+    "collections": {
+      "count": 1,
+      "bsonBytes": 371,
+      "ejsonBytes": 477,
+      "indexesCount": 3
+    },
+    "categories": {
+      "count": 2,
+      "bsonBytes": 359183,
+      "ejsonBytes": 359470,
+      "indexesCount": 3
+    },
+    "carts": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 4
+    },
+    "orders": {
+      "count": 4,
+      "bsonBytes": 7677,
+      "ejsonBytes": 10829,
+      "indexesCount": 11
+    },
+    "testimonials": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 2
+    },
+    "productvariants": {
+      "count": 8,
+      "bsonBytes": 2800,
+      "ejsonBytes": 5241,
+      "indexesCount": 4
+    },
+    "storesettings": {
+      "count": 1,
+      "bsonBytes": 2069,
+      "ejsonBytes": 2496,
+      "indexesCount": 1
+    },
+    "payments": {
+      "count": 0,
+      "bsonBytes": 0,
+      "ejsonBytes": 2,
+      "indexesCount": 7
+    },
+    "returnrequests": {
+      "count": 1,
+      "bsonBytes": 113573,
+      "ejsonBytes": 114063,
+      "indexesCount": 6
+    }
+  }
+}

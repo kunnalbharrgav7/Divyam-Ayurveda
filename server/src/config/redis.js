@@ -15,29 +15,46 @@ export const initRedis = () => {
   }
 
   try {
+    let mockActive = false;
+    const activateMock = (reason) => {
+      if (!mockActive) {
+        mockActive = true;
+        redisClient = new RedisMock();
+        logger.info({ reason }, "Redis in-memory mock cache activated");
+      }
+    };
+
     const client = new Redis(config.REDIS_URL, {
       maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+      connectTimeout: 2000,
       retryStrategy(times) {
-        if (times > 3) {
-          logger.warn("Redis connection attempts exhausted. Falling back to in-memory cache.");
-          return null; // Stop retrying and fallback
+        if (times >= 1) {
+          activateMock("Connection retry stopped");
+          return null; // Stop retrying
         }
-        return Math.min(times * 100, 1000);
+        return 100;
       },
       lazyConnect: true,
     });
+
+    let reportedFailure = false;
 
     client.on("connect", () => {
       logger.info({ url: config.REDIS_URL }, "Redis client connected successfully");
     });
 
     client.on("error", (err) => {
-      logger.warn({ err: err.message }, "Redis connection failed. Utilizing in-memory mock fallback.");
+      if (!reportedFailure) {
+        reportedFailure = true;
+        logger.warn({ err: err.message }, "Local Redis unavailable. Utilizing in-memory mock cache.");
+      }
+      activateMock(err.message);
     });
 
     // Try connecting lazily
-    client.connect().catch(() => {
-      logger.warn("Failed initial Redis connection. Active in-memory fallback enabled.");
+    client.connect().catch((err) => {
+      activateMock(err.message);
     });
 
     redisClient = client;
@@ -55,4 +72,3 @@ export const getRedisClient = () => {
   }
   return redisClient;
 };
-

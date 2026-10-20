@@ -1,0 +1,36 @@
+[
+  {
+    "v": 2,
+    "key": {
+      "_id": 1
+    },
+    "name": "_id_"
+  },
+  {
+    "v": 2,
+    "key": {
+      "userId": 1
+    },
+    "name": "userId_1",
+    "background": true,
+    "sparse": true
+  },
+  {
+    "v": 2,
+    "key": {
+      "guestTokenHash": 1
+    },
+    "name": "guestTokenHash_1",
+    "background": true,
+    "sparse": true
+  },
+  {
+    "v": 2,
+    "key": {
+      "expiresAt": 1
+    },
+    "name": "expiresAt_1",
+    "background": true,
+    "expireAfterSeconds": 0
+  }
+]
