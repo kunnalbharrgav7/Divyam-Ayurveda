@@ -498,14 +498,16 @@ export class AdminService {
   }
 
   /**
-   * Soft-delete/archive product
+   * Permanently delete a product and its product-owned records.
+   *
+   * Orders, returns, inventory movements, and audit logs deliberately keep
+   * their historical product ids/snapshots; deleting those would corrupt
+   * financial and inventory history. Variants and reviews are dependent
+   * catalog data, so they are removed together with the product.
    */
   async deleteProduct(id, staffUser) {
     const product = await Product.findById(id);
     if (!product) throw ApiError.notFound("Product not found");
-
-    product.status = "archived";
-    await product.save();
 
     await logAudit({
       actorId: staffUser?._id,
@@ -514,12 +516,18 @@ export class AdminService {
       action: "products.delete",
       module: "Catalog",
       targetId: product.id,
-      details: `Archived product "${product.name}"`,
+      details: `Permanently deleted product "${product.name}"`,
     });
+
+    await Promise.all([
+      ProductVariant.deleteMany({ productId: product._id }),
+      Review.deleteMany({ productId: product._id }),
+    ]);
+    await Product.deleteOne({ _id: product._id });
 
     await invalidateStorefrontCache();
 
-    return { message: "Product archived successfully." };
+    return { message: "Product deleted permanently." };
   }
 
   /**
