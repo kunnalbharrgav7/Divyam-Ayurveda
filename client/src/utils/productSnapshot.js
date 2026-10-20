@@ -5,9 +5,11 @@
  * same bytes (GET /api/v1/products/:id/images/:index) and is cached by the browser.
  */
 
+import { apiUrl } from "../config/api";
+
 const isDataUrl = (value) => typeof value === "string" && value.startsWith("data:");
 
-const toImageUrl = (productId, index) => `/api/v1/products/${productId}/images/${index}`;
+const toImageUrl = (productId, index) => apiUrl(`/api/v1/products/${productId}/images/${index}`);
 
 export const compactProduct = (product) => {
   if (!product || typeof product !== "object" || !product.id) return product;
