@@ -5,6 +5,9 @@ import compression from "compression";
 import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import mongoose from "mongoose";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 
 import { config } from "./config/index.js";
 import { requestId } from "./middleware/requestId.js";
@@ -12,6 +15,10 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { openApiSpec } from "./docs/openapi.js";
 import { getRedisClient } from "./config/redis.js";
 import v1Routes from "./routes/v1/index.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientDistPath = path.resolve(__dirname, "../../client/dist");
+const hasClientBuild = fs.existsSync(clientDistPath) && fs.existsSync(path.join(clientDistPath, "index.html"));
 
 const app = express();
 
@@ -81,12 +88,48 @@ app.get("/ready", async (req, res) => {
   });
 });
 
+// Root handler: Serve React frontend if built, or API status JSON
+if (hasClientBuild) {
+  app.use(express.static(clientDistPath));
+}
+
+app.get("/", (req, res) => {
+  if (hasClientBuild) {
+    return res.sendFile(path.join(clientDistPath, "index.html"));
+  }
+  return res.status(200).json({
+    success: true,
+    service: "Divyam Ayurveda REST API",
+    version: "1.0.0",
+    status: "healthy",
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    documentation: "/api/docs",
+    healthCheck: "/health",
+    readiness: "/ready",
+  });
+});
+
 // 6. OpenAPI Documentation
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 app.use("/api/v1/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
 // 7. Mount Versioned API Routes (/api/v1)
 app.use("/api/v1", v1Routes);
+
+// SPA client fallback for non-API routes when client build exists
+if (hasClientBuild) {
+  app.use((req, res, next) => {
+    if (
+      req.method !== "GET" ||
+      req.originalUrl.startsWith("/api") ||
+      req.originalUrl.startsWith("/health") ||
+      req.originalUrl.startsWith("/ready")
+    ) {
+      return next();
+    }
+    return res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+}
 
 // 8. 404 Catch-All Handler
 app.use((req, res) => {
