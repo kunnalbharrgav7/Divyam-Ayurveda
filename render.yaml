@@ -8,6 +8,9 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
+    envVars:
+      - key: CLIENT_ORIGIN
+        value: https://divyam-ayurveda-dgha.onrender.com
 
   # Frontend Static Site
   - type: web

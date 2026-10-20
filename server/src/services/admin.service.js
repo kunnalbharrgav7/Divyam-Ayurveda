@@ -381,13 +381,39 @@ export class AdminService {
     const before = product.toJSON();
     const oldBasePricePaise = product.basePricePaise;
 
-    if (data.name || data.title) product.name = (data.name || data.title).trim();
-    if (data.slug) product.slug = data.slug.trim().toLowerCase();
-    if (data.price) product.basePricePaise = toPaise(Number(data.price));
-    if (data.compareAtPrice) product.compareAtPricePaise = toPaise(Number(data.compareAtPrice));
-    if (data.status) product.status = data.status.toLowerCase();
-    if (data.shortDescription) product.shortDescription = data.shortDescription;
-    if (data.description) product.description = data.description;
+    if (data.name || data.title) product.name = String(data.name || data.title).trim();
+    if (data.slug !== undefined) product.slug = String(data.slug).trim().toLowerCase();
+    if (data.sku !== undefined) product.sku = String(data.sku).trim().toUpperCase();
+    if (data.price !== undefined) product.basePricePaise = toPaise(Number(data.price));
+    if (data.compareAtPrice !== undefined) product.compareAtPricePaise = toPaise(Number(data.compareAtPrice));
+    if (data.status !== undefined) product.status = String(data.status).toLowerCase();
+
+    // Keep every editable formulation field in sync with the admin form. The
+    // prior implementation only persisted a small subset (name, price and a
+    // few flags), which made successful edits appear to be lost after reload.
+    for (const field of [
+      "brand", "categoryId", "subcategoryId", "subcategory", "shortDescription",
+      "description", "packSize", "productForm", "dosage", "warnings",
+    ]) {
+      if (data[field] !== undefined) product[field] = data[field];
+    }
+    for (const field of ["tags", "dosha", "benefits"]) {
+      if (Array.isArray(data[field])) product[field] = data[field].map(String).filter(Boolean);
+    }
+    if (Array.isArray(data.ingredients)) {
+      product.ingredients = data.ingredients
+        .map((ingredient) => typeof ingredient === "string" ? ingredient : ingredient?.name)
+        .filter(Boolean)
+        .map(String);
+    }
+    if (data.productInformation && typeof data.productInformation === "object") {
+      const currentInfo = product.productInformation?.toObject?.() || product.productInformation || {};
+      product.productInformation = { ...currentInfo, ...data.productInformation };
+    }
+    if (data.seo && typeof data.seo === "object") {
+      const currentSeo = product.seo?.toObject?.() || product.seo || {};
+      product.seo = { ...currentSeo, ...data.seo };
+    }
     // The form round-trips images it loaded as image-endpoint URLs; map those back to the stored data
     if (data.images) {
       const existingImages = [...product.images];
@@ -422,8 +448,8 @@ export class AdminService {
       if (packSizes.length > 0) {
         const matching = packSizes.filter((v) => v.pricePaise === oldBasePricePaise);
         for (const v of matching.length > 0 ? matching : [packSizes[0]]) {
-          if (data.price) v.pricePaise = product.basePricePaise;
-          if (data.compareAtPrice) v.compareAtPricePaise = product.compareAtPricePaise;
+          if (data.price !== undefined) v.pricePaise = product.basePricePaise;
+          if (data.compareAtPrice !== undefined) v.compareAtPricePaise = product.compareAtPricePaise;
           await v.save();
         }
       }

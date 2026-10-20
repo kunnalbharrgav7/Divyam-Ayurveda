@@ -401,6 +401,10 @@ export const ProductFormPage = () => {
       isNewArrival: Boolean(formData.isNewArrival),
       reorderThreshold: Number(formData.reorderThreshold),
       costPrice: Number(formData.costPrice),
+      productInformation: {
+        ...(formData.productInformation || {}),
+        certifications: Array.isArray(formData.certifications) ? formData.certifications : [],
+      },
       updatedAt: new Date().toISOString(),
     };
 

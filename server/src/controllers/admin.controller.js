@@ -50,7 +50,11 @@ export const getSalesReport = asyncHandler(async (req, res) => {
 // Catalog Admin
 export const listAdminProducts = asyncHandler(async (req, res) => {
   const { q, status, category, brand, lowStock, page = 1, limit = 20 } = req.query;
-  const filter = {};
+  // A product deletion is an archive operation so order history can still
+  // reference the product. Do not return archived rows in the normal admin
+  // catalogue, otherwise a row that was removed optimistically reappears on
+  // the next refresh.
+  const filter = { status: { $ne: "archived" } };
 
   if (status && status !== "all") filter.status = status;
   if (category && category !== "all") filter.categoryId = category;

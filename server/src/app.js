@@ -22,6 +22,20 @@ const hasClientBuild = fs.existsSync(clientDistPath) && fs.existsSync(path.join(
 
 const app = express();
 
+// Render gives the static frontend a generated hostname.  Keep an explicit
+// production allowlist (with an environment override for custom domains) so
+// credentialed PATCH/DELETE responses always carry the same CORS headers as
+// their OPTIONS preflight response.
+const allowedOrigins = new Set(
+  [
+    config.CLIENT_ORIGIN,
+    "https://divyam-ayurveda-dgha.onrender.com",
+    ...(process.env.CLIENT_ORIGINS || "").split(","),
+  ]
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .filter(Boolean)
+);
+
 // 1. Security Headers
 app.use(
   helmet({
@@ -33,11 +47,12 @@ app.use(
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow localhost, client origin, and undefined (server-to-server/curl/webhooks)
-      if (!origin || origin.startsWith("http://localhost:") || origin === config.CLIENT_ORIGIN) {
+      const normalizedOrigin = origin?.replace(/\/+$/, "");
+      // Allow local development, configured frontends, and non-browser callers.
+      if (!normalizedOrigin || normalizedOrigin.startsWith("http://localhost:") || allowedOrigins.has(normalizedOrigin)) {
         return callback(null, true);
       }
-      return callback(null, true); // Permissive for local development
+      return callback(new Error("CORS origin is not allowed"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
