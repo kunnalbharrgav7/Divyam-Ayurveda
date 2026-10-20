@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { ScrollReveal } from "../../animations/useScrollReveal";
+import { apiUrl } from "../../config/api";
 
 export const Footer = () => {
   const [email, setEmail] = useState("");
@@ -18,7 +19,7 @@ export const Footer = () => {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/newsletter/subscriptions", {
+      const res = await fetch(apiUrl("/api/v1/newsletter/subscriptions"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),

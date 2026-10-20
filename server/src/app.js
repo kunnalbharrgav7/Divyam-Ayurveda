@@ -48,13 +48,13 @@ app.use(
 // 3. Request parsing with raw buffer capture for HMAC webhook verification
 app.use(
   express.json({
-    limit: "10mb",
+    limit: "50mb",
     verify: (req, res, buf) => {
       req.rawBody = buf.toString("utf-8");
     },
   })
 );
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 app.use(compression());
 

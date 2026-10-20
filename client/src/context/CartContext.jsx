@@ -3,6 +3,7 @@ import { storage } from "../utils/storage";
 import { useAuth } from "./AuthContext";
 import { useLiveStock, getAvailableUnits } from "../hooks/useLiveStock";
 import { compactCartItems } from "../utils/productSnapshot";
+import { apiUrl } from "../config/api";
 
 const CartContext = createContext();
 
@@ -258,7 +259,7 @@ export const CartProvider = ({ children }) => {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch("/api/v1/checkout/discounts", {
+        const res = await fetch(apiUrl("/api/v1/checkout/discounts"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

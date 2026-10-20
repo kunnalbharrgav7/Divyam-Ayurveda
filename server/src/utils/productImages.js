@@ -5,6 +5,8 @@
  * and serves the bytes from GET /api/v1/products/:id/images/:index.
  */
 
+import { config } from "../config/index.js";
+
 const IMAGE_URL_PATTERN = /\/api\/v1\/products\/([a-f0-9]{24})\/images\/(\d+)/i;
 
 const isDataUrl = (value) => typeof value === "string" && value.startsWith("data:");
@@ -14,8 +16,12 @@ export const toPublicImages = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
   const id = String(product?._id || product?.id || "");
   const version = product?.updatedAt ? new Date(product.updatedAt).getTime() : 0;
+  const baseUrl =
+    config.API_URL && !config.API_URL.includes("localhost")
+      ? config.API_URL.replace(/\/+$/, "")
+      : "";
   return images.map((img, index) =>
-    isDataUrl(img) && id ? `/api/v1/products/${id}/images/${index}?v=${version}` : img
+    isDataUrl(img) && id ? `${baseUrl}/api/v1/products/${id}/images/${index}?v=${version}` : img
   );
 };
 

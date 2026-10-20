@@ -3,6 +3,7 @@
  * the only thing kept in the browser is the invitation code a visitor arrived with (and when).
  */
 import { storage } from "../utils/storage";
+import { apiUrl } from "../config/api";
 
 const ATTRIBUTION_KEY = "divyam_referral_attribution";
 
@@ -65,7 +66,7 @@ export const clearAttribution = () => {
 /** Is this a real code? Who invited me, and what is the offer? (public endpoint) */
 export const lookupReferralCode = async (code) => {
   try {
-    const res = await fetch(`/api/v1/referrals/code/${encodeURIComponent(String(code).trim())}`);
+    const res = await fetch(apiUrl(`/api/v1/referrals/code/${encodeURIComponent(String(code).trim())}`));
     const json = await res.json();
     if (res.ok && json.success) return json.data;
     return { valid: false, reason: json?.error?.message || "This referral code is not valid." };

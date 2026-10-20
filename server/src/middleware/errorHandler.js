@@ -9,6 +9,18 @@ export const errorHandler = (err, req, res, next) => {
     return sendError(res, err, err.statusCode);
   }
 
+  // Payload too large error (Express body-parser)
+  if (err.type === "entity.too.large" || err.status === 413) {
+    return sendError(
+      res,
+      {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "The uploaded image or payload is too large. Please select a smaller photo or compress it.",
+      },
+      413
+    );
+  }
+
   // 2. Mongoose Duplicate Key Error (E11000)
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue || {})[0] || "field";

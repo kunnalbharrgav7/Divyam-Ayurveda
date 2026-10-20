@@ -15,7 +15,7 @@ const envSchema = z.object({
   REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
   CLIENT_ORIGIN: z.string().default("http://localhost:5173"),
   APP_URL: z.string().default("http://localhost:5173"),
-  API_URL: z.string().default("http://localhost:5000"),
+  API_URL: z.string().default(process.env.RENDER_EXTERNAL_URL || (process.env.NODE_ENV === "production" ? "https://divyam-ayurveda.onrender.com" : "http://localhost:5000")),
 
   JWT_ACCESS_SECRET: z.string().min(32).default("divyam_ayurveda_local_dev_access_secret_key_108_with_extra_entropy_for_security_2026"),
   JWT_REFRESH_SECRET: z.string().min(32).default("divyam_ayurveda_local_dev_refresh_secret_key_108_with_extra_entropy_for_security_2026"),

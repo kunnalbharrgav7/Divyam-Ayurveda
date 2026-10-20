@@ -3,6 +3,7 @@ import { storage } from "../utils/storage";
 import { compactProduct } from "../utils/productSnapshot";
 import { getStatusLabel } from "../utils/orderStatus";
 import { ROLE_DEFINITIONS } from "../data/adminUsers";
+import { apiUrl } from "../config/api";
 import {
   initialHomepageContent,
   initialStoreSettings,
@@ -46,7 +47,9 @@ export const normalizeProduct = (p) => {
     p.image ||
     (Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : "") ||
     "/images/ProductImages/Ashuwaganda.png";
-  let images = Array.isArray(p.images) && p.images.length > 0 ? p.images : [image];
+  const fixUrl = (u) => (typeof u === "string" && u.startsWith("/api/") ? apiUrl(u) : u);
+  image = fixUrl(image);
+  let images = (Array.isArray(p.images) && p.images.length > 0 ? p.images : [image]).map(fixUrl);
   const stock =
     p.stock !== undefined ? p.stock : (p.stockQuantity !== undefined ? p.stockQuantity : 0);
   const stockQuantity = stock;
@@ -448,7 +451,7 @@ export const AdminProvider = ({ children }) => {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    let res = await fetch(url, {
+    let res = await fetch(apiUrl(url), {
       ...options,
       headers,
       credentials: "include",
@@ -456,7 +459,7 @@ export const AdminProvider = ({ children }) => {
 
     if (res.status === 401) {
       try {
-        const refreshRes = await fetch("/api/v1/auth/refresh", {
+        const refreshRes = await fetch(apiUrl("/api/v1/auth/refresh"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -473,7 +476,7 @@ export const AdminProvider = ({ children }) => {
                 storage.set("divyam_ayurveda_admin_user", adminUser);
               }
             }
-            res = await fetch(url, {
+            res = await fetch(apiUrl(url), {
               ...options,
               headers,
               credentials: "include",

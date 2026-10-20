@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { storage } from "../utils/storage";
 import { storeAttribution } from "../services/referralService";
+import { apiUrl } from "../config/api";
 
 const AuthContext = createContext();
 
@@ -87,7 +88,7 @@ export const AuthProvider = ({ children }) => {
   // API call as the logged-in customer, with one token-refresh retry on 401
   const authFetch = async (path, options = {}) => {
     const send = (token) =>
-      fetch(path, {
+      fetch(apiUrl(path), {
         ...options,
         headers: {
           "Content-Type": "application/json",
@@ -100,7 +101,7 @@ export const AuthProvider = ({ children }) => {
     let res = await send(user?.accessToken);
     if (res.status === 401) {
       try {
-        const refreshRes = await fetch("/api/v1/auth/refresh", {
+        const refreshRes = await fetch(apiUrl("/api/v1/auth/refresh"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -160,7 +161,7 @@ export const AuthProvider = ({ children }) => {
   // Unified Single Login: authenticates via backend API or dev fallback
   const login = async (email, password) => {
     try {
-      const response = await fetch("/api/v1/auth/login", {
+      const response = await fetch(apiUrl("/api/v1/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -199,7 +200,7 @@ export const AuthProvider = ({ children }) => {
   // Unified Registration: creates customer account
   const register = async (userData) => {
     try {
-      const response = await fetch("/api/v1/auth/register", {
+      const response = await fetch(apiUrl("/api/v1/auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -252,7 +253,7 @@ export const AuthProvider = ({ children }) => {
 
     // 2. Best-effort async notification to server
     try {
-      fetch("/api/v1/auth/logout", {
+      fetch(apiUrl("/api/v1/auth/logout"), {
         method: "POST",
         headers: user?.accessToken ? { Authorization: `Bearer ${user.accessToken}` } : {},
         credentials: "include",

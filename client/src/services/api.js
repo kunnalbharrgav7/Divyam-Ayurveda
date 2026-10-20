@@ -4,6 +4,19 @@
  */
 
 import { storage } from "../utils/storage";
+import { apiUrl } from "../config/api";
+
+export const normalizeProductImages = (p) => {
+  if (!p) return p;
+  if (Array.isArray(p)) return p.map(normalizeProductImages);
+  if (typeof p !== "object") return p;
+  const fixUrl = (u) => (typeof u === "string" && u.startsWith("/api/") ? apiUrl(u) : u);
+  const images = Array.isArray(p.images) && p.images.length > 0 
+    ? p.images.map(fixUrl) 
+    : (p.image ? [fixUrl(p.image)] : []);
+  const image = fixUrl(p.image) || images[0] || "/images/ProductImages/Ashuwaganda.png";
+  return { ...p, image, images };
+};
 
 const PRODUCTS_KEY = "divyam_ayurveda_products";
 const CATEGORIES_KEY = "divyam_ayurveda_categories";
@@ -64,7 +77,7 @@ export const productService = {
           const safeLimit = json.meta?.limit ?? Number(limit);
           const totalPages = json.meta?.totalPages ?? (total > 0 ? Math.ceil(total / safeLimit) : 0);
           return {
-            products: json.data,
+            products: json.data.map(normalizeProductImages),
             total,
             page: safePage,
             totalPages,
@@ -188,7 +201,7 @@ export const productService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (e) {
@@ -226,7 +239,7 @@ export const productService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (_) {}
@@ -242,7 +255,7 @@ export const productService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (_) {}
@@ -258,7 +271,7 @@ export const productService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (_) {}
@@ -274,7 +287,7 @@ export const productService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (_) {}
@@ -309,7 +322,7 @@ export const productService = {
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
-            return json.data;
+            return normalizeProductImages(json.data);
           }
         }
       } catch (_) {}
@@ -327,7 +340,7 @@ export const categoryService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (e) {
@@ -342,7 +355,7 @@ export const categoryService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (e) {
@@ -375,7 +388,7 @@ export const collectionService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (e) {
@@ -443,7 +456,7 @@ export const contentService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (_) {}
@@ -500,7 +513,7 @@ export const contentService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (_) {}
@@ -512,7 +525,7 @@ export const contentService = {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          return json.data;
+          return normalizeProductImages(json.data);
         }
       }
     } catch (_) {}
