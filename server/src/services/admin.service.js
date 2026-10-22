@@ -23,13 +23,8 @@ import { ApiError } from "../utils/apiError.js";
 import { toRupees, toPaise } from "../utils/currency.js";
 import { hashPassword } from "../utils/crypto.js";
 import { inventoryService } from "./inventory.service.js";
-import { invalidateCache } from "../middleware/cache.js";
 import { toPublicImages, resolveStoredImages } from "../utils/productImages.js";
 import { compressImages } from "../utils/imageCompression.js";
-
-/** Drop cached public catalog/taxonomy responses so storefront reflects admin changes immediately. */
-export const invalidateStorefrontCache = () =>
-  Promise.all([invalidateCache("catalog"), invalidateCache("taxonomy")]);
 
 /** Admin-facing product shape: product doc + variants + aggregated available stock. */
 export const formatAdminProduct = (product, variants = []) => {
@@ -366,8 +361,6 @@ export class AdminService {
       after: product.toJSON(),
     });
 
-    await invalidateStorefrontCache();
-
     return formatAdminProduct(product, createdVariants);
   }
 
@@ -486,8 +479,6 @@ export class AdminService {
       after: product.toJSON(),
     });
 
-    await invalidateStorefrontCache();
-
     const variants = await ProductVariant.find({ productId: product._id }).sort({ createdAt: 1 });
     return formatAdminProduct(product, variants);
   }
@@ -519,8 +510,6 @@ export class AdminService {
       Review.deleteMany({ productId: product._id }),
     ]);
     await Product.deleteOne({ _id: product._id });
-
-    await invalidateStorefrontCache();
 
     return { message: "Product deleted permanently." };
   }

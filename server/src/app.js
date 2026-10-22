@@ -13,7 +13,6 @@ import { config } from "./config/index.js";
 import { requestId } from "./middleware/requestId.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { openApiSpec } from "./docs/openapi.js";
-import { getRedisClient } from "./config/redis.js";
 import v1Routes from "./routes/v1/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -81,24 +80,14 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
-app.get("/ready", async (req, res) => {
+app.get("/ready", (req, res) => {
   const isDbReady = mongoose.connection.readyState === 1;
-  let isRedisReady = false;
-  try {
-    const redis = getRedisClient();
-    await redis.ping();
-    isRedisReady = true;
-  } catch {
-    isRedisReady = false;
-  }
-
   const isReady = isDbReady;
   const status = isReady ? 200 : 503;
 
   res.status(status).json({
     ready: isReady,
     database: isDbReady ? "connected" : "disconnected",
-    redis: isRedisReady ? "connected" : "in_memory_fallback",
     timestamp: new Date().toISOString(),
   });
 });

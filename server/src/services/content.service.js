@@ -7,7 +7,6 @@ import { ContactEnquiry } from "../models/ContactEnquiry.js";
 import { SupportTicket } from "../models/SupportTicket.js";
 import { Subscriber } from "../models/Subscriber.js";
 import { ApiError } from "../utils/apiError.js";
-import { invalidateCache } from "../middleware/cache.js";
 
 export class ContentService {
   async getHomepageConfig() {
@@ -102,8 +101,6 @@ export class ContentService {
       status: (data.status || "published").toLowerCase(),
       publishedAt: data.date ? new Date(data.date) : (data.publishedAt ? new Date(data.publishedAt) : new Date()),
     });
-
-    await invalidateCache("content");
     return post;
   }
 
@@ -137,14 +134,12 @@ export class ContentService {
     else if (data.publishedAt) post.publishedAt = new Date(data.publishedAt);
 
     await post.save();
-    await invalidateCache("content");
     return post;
   }
 
   async deleteBlogPost(id, user = null) {
     const post = await BlogPost.findByIdAndDelete(id);
     if (!post) throw ApiError.notFound("Blog post not found.");
-    await invalidateCache("content");
     return { id, message: "Blog post deleted successfully." };
   }
 

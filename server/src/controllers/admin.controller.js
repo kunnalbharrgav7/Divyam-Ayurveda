@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { adminService, formatAdminProduct, invalidateStorefrontCache } from "../services/admin.service.js";
+import { adminService, formatAdminProduct } from "../services/admin.service.js";
 import { inventoryService } from "../services/inventory.service.js";
 import { orderService } from "../services/order.service.js";
 import { shipmentService } from "../services/shipment.service.js";
@@ -109,8 +109,6 @@ export const adjustInventory = asyncHandler(async (req, res) => {
   const result = productId
     ? await inventoryService.adjustProductStock({ productId, ...common })
     : await inventoryService.adjustStock({ variantId, ...common });
-
-  await invalidateStorefrontCache();
   return sendSuccess(res, result);
 });
 
@@ -169,7 +167,6 @@ export const createCategory = asyncHandler(async (req, res) => {
     targetId: cat.id,
     details: `Created category ${cat.name}`,
   });
-  await invalidateStorefrontCache();
   return sendSuccess(res, cat, undefined, 201);
 });
 
@@ -180,14 +177,12 @@ export const updateCategory = asyncHandler(async (req, res) => {
   }
   const cat = await Category.findByIdAndUpdate(req.params.id, fields, { new: true, runValidators: true });
   if (!cat) throw ApiError.notFound("Category not found");
-  await invalidateStorefrontCache();
   return sendSuccess(res, cat);
 });
 
 export const deleteCategory = asyncHandler(async (req, res) => {
   const cat = await Category.findByIdAndDelete(req.params.id);
   if (!cat) throw ApiError.notFound("Category not found");
-  await invalidateStorefrontCache();
   return sendSuccess(res, { message: "Category deleted" });
 });
 
@@ -220,7 +215,6 @@ export const createBrand = asyncHandler(async (req, res) => {
     throw ApiError.conflict(`A brand named "${fields.name}" already exists.`);
   }
   const brand = await Brand.create(fields);
-  await invalidateStorefrontCache();
   return sendSuccess(res, brand, undefined, 201);
 });
 
@@ -234,14 +228,12 @@ export const updateBrand = asyncHandler(async (req, res) => {
   }
   const brand = await Brand.findByIdAndUpdate(req.params.id, fields, { new: true, runValidators: true });
   if (!brand) throw ApiError.notFound("Brand not found");
-  await invalidateStorefrontCache();
   return sendSuccess(res, brand);
 });
 
 export const deleteBrand = asyncHandler(async (req, res) => {
   const brand = await Brand.findByIdAndDelete(req.params.id);
   if (!brand) throw ApiError.notFound("Brand not found");
-  await invalidateStorefrontCache();
   return sendSuccess(res, { message: "Brand deleted" });
 });
 
@@ -277,7 +269,6 @@ export const createCollection = asyncHandler(async (req, res) => {
   if (fields.isFeatured === undefined) fields.isFeatured = true;
 
   const col = await Collection.create(fields);
-  await invalidateStorefrontCache();
   return sendSuccess(res, col, undefined, 201);
 });
 
@@ -288,14 +279,12 @@ export const updateCollection = asyncHandler(async (req, res) => {
   }
   const col = await Collection.findByIdAndUpdate(req.params.id, fields, { new: true, runValidators: true });
   if (!col) throw ApiError.notFound("Collection not found");
-  await invalidateStorefrontCache();
   return sendSuccess(res, col);
 });
 
 export const deleteCollection = asyncHandler(async (req, res) => {
   const col = await Collection.findByIdAndDelete(req.params.id);
   if (!col) throw ApiError.notFound("Collection not found");
-  await invalidateStorefrontCache();
   return sendSuccess(res, { message: "Collection deleted" });
 });
 
@@ -648,7 +637,6 @@ export const moderateReview = asyncHandler(async (req, res) => {
   );
   if (!review) throw ApiError.notFound("Review not found");
   await recalculateProductRating(review.productId);
-  await invalidateStorefrontCache();
   const populated = await Review.findById(review._id).populate("productId", "name slug").lean();
   return sendSuccess(res, serializeReview(populated));
 });
@@ -657,7 +645,6 @@ export const deleteReview = asyncHandler(async (req, res) => {
   const review = await Review.findByIdAndDelete(req.params.id);
   if (!review) throw ApiError.notFound("Review not found");
   await recalculateProductRating(review.productId);
-  await invalidateStorefrontCache();
   return sendSuccess(res, { message: "Review deleted" });
 });
 

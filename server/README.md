@@ -18,7 +18,6 @@ Production-quality Node.js/Express backend for **Divyam Ayurveda**, an India-foc
   - Soft delete (`isArchived: true`) for catalog, orders & audit safety
   - All monetary values stored as integer paise (`pricePaise: 24900`)
   - Server-authoritative 12% GST calculation & dynamic shipping rates
-- **Caching & Locks:** Redis 7 with automatic fallback to `ioredis-mock` for seamless zero-dependency local dev and testing
 - **Validation:** Zod schemas enforcing strict types and Indian postal/mobile formats
 - **Security:**
   - JWT access tokens (15 min) + rotating refresh tokens (30 days) with SHA-256 session tracking
@@ -40,12 +39,12 @@ server/
 ├── src/
 │   ├── app.js                     # Express app setup, raw-body middleware, error handling
 │   ├── server.js                  # Boot listener, graceful shutdown signals
-│   ├── config/                    # Zod-validated environment config, Pino logger, Redis client
+│   ├── config/                    # Zod-validated environment config, Pino logger
 │   ├── db/                        # Mongoose connection & disconnect helpers
 │   ├── constants/                 # Permissions, roles, order/payment status, inventory reasons
 │   ├── models/                    # 18 Mongoose models (User, Product, Order, Payment, Shipment, etc.)
 │   ├── validators/                # Zod schemas for auth, catalog, cart, checkout, admin
-│   ├── middleware/                # Auth, RBAC, idempotency, rateLimiter, cache, errorHandler
+│   ├── middleware/                # Auth, RBAC, idempotency, rateLimiter, errorHandler
 │   ├── integrations/
 │   │   ├── cashfree/              # Cashfree PG adapter (Orders API 2025-01-01) + mock fallback
 │   │   └── shiprocket/            # Shiprocket courier adapter + token caching + mock fallback
@@ -65,7 +64,7 @@ server/
 │       ├── catalog.test.js        # Catalog filtering, search, and pagination tests
 │       ├── checkout.test.js       # Pricing calculation, quote fingerprint & concurrency tests
 │       └── webhooks.test.js       # Cashfree & Shiprocket webhooks, HMAC verification & idempotency
-├── docker-compose.yml             # MongoDB 7.0 and Redis 7 services
+├── docker-compose.yml             # MongoDB 7.0 and API services
 ├── .env.example                   # Full environment variable template
 └── package.json
 ```
@@ -74,9 +73,9 @@ server/
 
 ## 3. Quickstart & Local Setup
 
-### Option A: Using Docker Compose (Recommended for isolated DB & Redis)
+### Option A: Using Docker Compose (Recommended for isolated DB)
 
-1. Start MongoDB and Redis containers:
+1. Start the MongoDB container:
    ```bash
    docker-compose up -d
    ```
@@ -97,7 +96,7 @@ server/
    npm run dev
    ```
 
-### Option B: Using Local MongoDB and In-Memory Redis Mock
+### Option B: Using a Local MongoDB
 
 If you already have a local MongoDB instance running on `localhost:27017`:
 ```bash
@@ -105,7 +104,6 @@ npm install
 npm run seed
 npm run dev
 ```
-*(If Redis is not running locally, the server automatically boots an in-memory mock Redis for zero-setup development).*
 
 ---
 

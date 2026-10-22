@@ -16,7 +16,6 @@ import { referralService } from "./referral.service.js";
 import { walletService } from "./wallet.service.js";
 import { logAudit } from "./audit.service.js";
 import { ApiError } from "../utils/apiError.js";
-import { invalidateCache } from "../middleware/cache.js";
 
 export class OrderService {
   /**
@@ -381,7 +380,6 @@ export class OrderService {
       if (verifiedOfferCode) await couponService.recordUsage(verifiedOfferCode);
       if (verifiedReferralCode) await referralService.recordOrder(order, user);
     }
-    await invalidateCache("catalog"); // storefront stock changed
 
     let paymentSession = null;
     if (isOnline) {
@@ -662,7 +660,6 @@ export class OrderService {
         await inventoryService.releaseReservedStock(stockLines, order.orderNumber);
         order.stockState = "released";
       }
-      await invalidateCache("catalog");
     }
 
     if (newPaymentStatus) {
@@ -783,7 +780,6 @@ export class OrderService {
         await order.save();
       }
     }
-    await invalidateCache("catalog");
 
     if (staffUser) {
       await logAudit({

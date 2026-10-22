@@ -1,6 +1,5 @@
 import { connectDB } from "../src/db/connection.js";
 import { BlogPost } from "../src/models/BlogPost.js";
-import { invalidateCache } from "../src/middleware/cache.js";
 
 async function main() {
   await connectDB();
@@ -112,8 +111,6 @@ When selecting authentic Ayurvedic products, transparency is essential. High-int
       console.log(`Updated blog post: ${post.title}`);
     }
   }
-
-  await invalidateCache("content");
   console.log("Total blog posts in DB now:", await BlogPost.countDocuments());
   process.exit(0);
 }

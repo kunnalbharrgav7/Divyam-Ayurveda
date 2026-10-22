@@ -1,9 +1,8 @@
 import { config } from "../../config/index.js";
 import { logger } from "../../config/logger.js";
-import { getRedisClient } from "../../config/redis.js";
 import { ShiprocketMock } from "./shiprocket.mock.js";
 
-const TOKEN_CACHE_KEY = "shiprocket:jwt_token";
+const TOKEN_TTL_MS = 9 * 24 * 60 * 60 * 1000;
 
 export class ShiprocketAdapter {
   constructor() {
@@ -26,17 +25,23 @@ export class ShiprocketAdapter {
   }
 
   /**
-   * Obtain authenticated Shiprocket JWT token with Redis caching (10-day TTL)
+   * Obtain authenticated Shiprocket JWT token, cached in process memory (9-day TTL).
+   * Concurrent callers share one in-flight login.
    */
   async getAuthToken() {
     if (this.isMock) return "mock_shiprocket_token";
 
-    const redis = getRedisClient();
-    try {
-      const cached = await redis.get(TOKEN_CACHE_KEY);
-      if (cached) return cached;
-    } catch {}
+    if (this.cachedToken && Date.now() < this.cachedTokenExpiresAt) return this.cachedToken;
 
+    if (!this.loginInFlight) {
+      this.loginInFlight = this.#login().finally(() => {
+        this.loginInFlight = null;
+      });
+    }
+    return this.loginInFlight;
+  }
+
+  async #login() {
     try {
       const response = await fetch(`${this.baseUrl}/v1/external/auth/login`, {
         method: "POST",
@@ -49,9 +54,8 @@ export class ShiprocketAdapter {
         throw new Error(data.message || "Shiprocket authentication failed");
       }
 
-      try {
-        await redis.setex(TOKEN_CACHE_KEY, 86400 * 9, data.token); // 9 days
-      } catch {}
+      this.cachedToken = data.token;
+      this.cachedTokenExpiresAt = Date.now() + TOKEN_TTL_MS;
 
       return data.token;
     } catch (err) {

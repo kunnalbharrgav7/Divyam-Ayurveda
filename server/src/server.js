@@ -2,16 +2,12 @@ import app from "./app.js";
 import { config } from "./config/index.js";
 import { logger } from "./config/logger.js";
 import { connectDB, disconnectDB } from "./db/connection.js";
-import { initRedis } from "./config/redis.js";
 import { referralService } from "./services/referral.service.js";
 
 const startServer = async () => {
   try {
     // 1. Connect to MongoDB
     await connectDB();
-
-    // 2. Initialize Redis
-    initRedis();
 
     // Pay referral rewards once their orders are delivered and past the return window
     const sweepReferrals = () => referralService.qualifyDue().catch((err) => logger.error({ err: err.message }, "Referral reward sweep failed"));

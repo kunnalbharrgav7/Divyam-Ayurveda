@@ -12,7 +12,6 @@ import { walletService } from "./wallet.service.js";
 import { referralService } from "./referral.service.js";
 import { cashfree } from "../integrations/cashfree/cashfree.adapter.js";
 import { normalizePaymentMethod, PAYMENT_METHODS } from "../constants/paymentMethods.js";
-import { invalidateCache } from "../middleware/cache.js";
 import {
   RETURN_REASONS,
   RETURN_STATUS,
@@ -269,7 +268,6 @@ export class ReturnService {
     if (shouldRestock) {
       await inventoryService.restockReturned(ret.items, ret.orderNumber, staff?.id || "staff");
       ret.restocked = true;
-      await invalidateCache("catalog");
     }
     ret.status = RETURN_STATUS.RECEIVED;
     addTimeline(ret, RETURN_STATUS.RECEIVED, `${shouldRestock ? "Restocked. " : "Not restocked. "}${note}`.trim(), staff?.name || "staff");

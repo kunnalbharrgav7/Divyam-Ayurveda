@@ -12,7 +12,6 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().default(5000),
   MONGODB_URI: z.string().default("mongodb://127.0.0.1:27017/divyam_ayurveda"),
-  REDIS_URL: z.string().default("redis://127.0.0.1:6379"),
   CLIENT_ORIGIN: z.string().default("http://localhost:5173"),
   APP_URL: z.string().default("http://localhost:5173"),
   API_URL: z.string().default(
