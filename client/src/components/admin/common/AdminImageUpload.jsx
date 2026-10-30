@@ -138,7 +138,7 @@ export const AdminImageUpload = ({
           <div
             className={`w-full overflow-hidden rounded-lg bg-stone-900/5 flex items-center justify-center ${aspectClass}`}
           >
-            <img
+            <img loading="lazy" decoding="async"
               src={value}
               alt={label}
               className="w-full h-full object-cover transition-transform group-hover:scale-[1.02] duration-300"

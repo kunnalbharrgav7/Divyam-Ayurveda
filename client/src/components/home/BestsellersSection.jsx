@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ProductCard } from "../products/ProductCard";
 import { productService } from "../../services/api";
 import { ScrollReveal } from "../../animations/useScrollReveal";
+import { ProductGridSkeleton } from "../common/Skeleton";
 
 const DOSHA_TABS = [
   { id: "all", label: "All Bestsellers", icon: Sparkles },
@@ -132,11 +133,7 @@ export const BestsellersSection = () => {
 
         {/* Animated Product Cards Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <div key={n} className="h-72 bg-stone-100 rounded-2xl animate-pulse" />
-            ))}
-          </div>
+          <ProductGridSkeleton count={5} />
         ) : displayedProducts.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-stone-100">
             <p className="text-stone-500 text-sm">No products found in this category yet.</p>

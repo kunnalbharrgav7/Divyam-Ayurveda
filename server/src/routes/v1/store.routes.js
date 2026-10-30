@@ -14,6 +14,7 @@ router.get("/blog/:slug", contentController.getBlogPostBySlug);
 
 // Faqs & Testimonials
 router.get("/faqs", contentController.getFaqs);
+router.get("/content-pages/:slug", contentController.getContentPage);
 router.get("/testimonials", contentController.getTestimonials);
 
 // Inquiries & Subscriptions

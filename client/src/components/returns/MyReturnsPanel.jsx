@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { CheckCircle2, Circle, XCircle, Wallet } from "lucide-react";
 import { useReturns } from "../../context/ReturnContext";
 import { formatINR, formatDate } from "../../utils/formatters";
+import { ListRowsSkeleton } from "../common/Skeleton";
 
 export const RETURN_STATUS_STYLE = {
   requested: "bg-amber-100 text-amber-800",
@@ -101,9 +102,11 @@ export const MyReturnsPanel = () => {
 
       {error && <p className="text-xs text-red-600">{error}</p>}
 
-      {returns.length === 0 ? (
+      {returns.length === 0 && loading ? (
+        <ListRowsSkeleton rows={2} label="Loading your returns" />
+      ) : returns.length === 0 ? (
         <div className="p-10 text-center bg-stone-50 rounded-2xl text-xs text-stone-500">
-          {loading ? "Loading your returns…" : "You haven't requested any returns. Delivered orders can be returned from My Orders within 7 days."}
+          You haven't requested any returns. Delivered orders can be returned from My Orders within 7 days.
         </div>
       ) : (
         <div className="space-y-4">
@@ -132,7 +135,7 @@ export const MyReturnsPanel = () => {
               <div className="space-y-1.5">
                 {r.items.map((it, i) => (
                   <div key={i} className="flex items-center gap-3 text-xs">
-                    {it.image && <img src={it.image} alt="" className="w-9 h-9 rounded-lg object-contain bg-[#FBFAF6] border p-1" />}
+                    {it.image && <img width={36} height={36} loading="lazy" decoding="async" src={it.image} alt="" className="w-9 h-9 rounded-lg object-contain bg-[#FBFAF6] border p-1" />}
                     <span className="flex-1 font-semibold text-[#171A17]">
                       {it.name} <span className="text-stone-500 font-normal">&bull; {it.size} &bull; Qty {it.quantity}</span>
                     </span>

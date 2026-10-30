@@ -19,7 +19,7 @@ import { AdminTable } from "../../components/admin/common/AdminTable";
 import { formatCurrency, formatDate } from "../../utils/formatters";
 
 export const OrdersPage = () => {
-  const { orders, updateOrderStatus, updatePaymentStatus, refreshOrders } = useAdmin();
+  const { adminTableState, orders, updateOrderStatus, updatePaymentStatus, refreshOrders } = useAdmin();
 
   useEffect(() => {
     if (refreshOrders) {
@@ -353,6 +353,7 @@ export const OrdersPage = () => {
         </div>
 
         <AdminTable
+          {...adminTableState("orders", paginatedOrders)}
           columns={columns}
           data={paginatedOrders}
           keyField="id"

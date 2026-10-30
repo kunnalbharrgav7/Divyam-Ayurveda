@@ -113,7 +113,7 @@ export const FaqPage = () => {
           {loading ? (
             <div className="p-6 space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-10 bg-stone-100 rounded-xl animate-pulse" />
+                <div key={i} className="h-10 bg-stone-100 rounded-xl motion-safe:animate-pulse" />
               ))}
             </div>
           ) : filteredFaqs.length === 0 ? (

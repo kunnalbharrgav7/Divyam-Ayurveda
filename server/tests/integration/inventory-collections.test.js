@@ -430,14 +430,16 @@ describe("Admin inventory updates & collections", () => {
       expect(row).toMatchObject({ address: "12 Lake View Road", city: "Pune", state: "Maharashtra", pincode: "411001" });
       expect(row).not.toHaveProperty("notes");
 
-      // Real order totals (cancelled orders excluded)
+      // Real order totals (cancelled orders excluded). The server prices the order from the catalogue.
+      const manualProduct = await Product.create({ name: `Manual ${stamp}`, slug: `manual-${stamp}`, sku: `MAN-${stamp}`, categoryId: "wellness-essentials", description: "x", status: "active", basePricePaise: 25000 });
+      await ProductVariant.create({ productId: manualProduct._id, sku: `MAN-${stamp}-S`, label: "Std", pricePaise: 25000, stockOnHand: 10, isActive: true });
       const placedRes = await request(app)
         .post("/api/v1/orders")
         .set(asCustomer)
         .send({
           customer: { name: "Real Customer", email, phone: "9876543210" },
           shippingAddress: { street: "12 Lake View Road", city: "Pune", state: "Maharashtra", pincode: "411001" },
-          items: [{ name: "Manual item", size: "Std", price: 250, quantity: 2 }],
+          items: [{ productId: String(manualProduct._id), name: manualProduct.name, size: "Std", price: 250, quantity: 2 }],
           pricing: { subtotal: 500, total: 500 },
           paymentMethod: "Cash on Delivery (COD)",
         });

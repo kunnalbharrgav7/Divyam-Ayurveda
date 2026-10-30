@@ -6,7 +6,7 @@ import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { EmptyState } from "../components/common/EmptyState";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import { useAdmin } from "../context/AdminContext";
+import { useStoreSettings } from "../hooks/useStoreSettings";
 import { formatINR } from "../utils/formatters";
 import { calculateShippingAndTax, INDIAN_STATES } from "../utils/shippingCalculator";
 
@@ -38,7 +38,7 @@ export const CartPage = () => {
   } = useCart();
   const [couponInput, setCouponInput] = useState("");
   const { isAuthenticated } = useAuth();
-  const { storeSettings } = useAdmin();
+  const { settings: storeSettings } = useStoreSettings();
   const navigate = useNavigate();
   const [destState, setDestState] = useState("Karnataka");
 
@@ -202,7 +202,7 @@ export const CartPage = () => {
                         to={`/products/${item.product.slug}`}
                         className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-[#FBFAF6] border border-[#E5E7DF] p-2 flex items-center justify-center shrink-0 overflow-hidden"
                       >
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={item.product.images?.[0]}
                           alt={item.product.name}
                           className="w-full h-full object-contain hover:scale-105 transition-transform"

@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -14,7 +14,6 @@ import {
   Ticket,
   Users,
   Star,
-  Globe,
   FileText,
   BookOpen,
   Mail,
@@ -48,6 +47,21 @@ export const AdminSidebar = ({
   } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Off-canvas drawer (mobile): close on Escape and lock page scroll while open
+  useEffect(() => {
+    if (!isMobileOpen) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setIsMobileOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileOpen, setIsMobileOpen]);
 
   // Determine precise active state so nested routes like /admin/products/new
   // don't simultaneously highlight /admin/products
@@ -154,11 +168,6 @@ export const AdminSidebar = ({
     {
       group: "Storefront Management",
       items: [
-        {
-          label: "Homepage Builder",
-          to: "/admin/homepage-builder",
-          icon: Globe,
-        },
         { label: "Content Pages", to: "/admin/content-pages", icon: FileText },
         { label: "Blog & Education", to: "/admin/blog", icon: BookOpen },
       ],

@@ -11,7 +11,10 @@ gsap.registerPlugin(ScrollTrigger);
 
 const FRAME_COUNT = 300;
 const SCROLL_DISTANCE = 2200; // Pinned scroll distance in px
-const CONCURRENT_WORKERS = 10; // High-speed parallel image loaders
+const CONCURRENT_WORKERS = 4; // Parallel image loaders (kept low so they do not starve API calls)
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const COARSE_STEP = 10; // First pass loads every 10th frame so scrubbing works everywhere early
 
 const HOTSPOTS = [
   {
@@ -167,9 +170,14 @@ export const ScrollProductHero = () => {
     drawFrame(currentFrameRef.current);
   }, [drawFrame]);
 
-  // Fast Concurrent Preloading Engine (Loads all 300 frames in <300ms across parallel workers)
+  // Progressive frame preloading: frame 1 immediately for first paint, then (once the page has
+  // loaded and the browser is idle) a coarse pass of every COARSE_STEP-th frame so scrubbing works
+  // everywhere straight away, then the remaining frames nearest to the current scroll position
+  // first. drawFrame() always falls back to the closest loaded frame while the gaps fill in.
   useEffect(() => {
     let isMounted = true;
+    let startTimer;
+    let idleHandle;
     const images = imagesRef.current;
     const loaded = loadedFramesRef.current;
 
@@ -178,6 +186,7 @@ export const ScrollProductHero = () => {
 
       return new Promise((resolve) => {
         const img = new Image();
+        img.decoding = "async";
         img.src = getFrameUrl(index);
         img.onload = () => {
           if (!isMounted) return resolve(null);
@@ -206,22 +215,63 @@ export const ScrollProductHero = () => {
     // 1. Immediately load Frame 1 for instant paint
     loadSingle(1);
 
-    // 2. High-speed concurrent worker pool to load all 300 frames rapidly
-    let nextIndex = 2;
-    const spawnWorker = () => {
-      if (!isMounted || nextIndex > FRAME_COUNT) return;
-      const targetIndex = nextIndex++;
-      loadSingle(targetIndex).then(() => {
-        if (isMounted) spawnWorker();
-      });
+    // 2. Everything else waits for the page to finish loading, so it doesn't compete with the
+    // API calls and images that make the page usable.
+    const coarse = [];
+    const remaining = new Set();
+    for (let i = 2; i <= FRAME_COUNT; i++) {
+      if (i % COARSE_STEP === 0) coarse.push(i);
+      else remaining.add(i);
+    }
+
+    // Reduced motion: keep the coarse set only (fewer, coarser frames) instead of downloading all 300
+    if (prefersReducedMotion()) remaining.clear();
+
+    const takeNext = () => {
+      if (coarse.length > 0) return coarse.shift();
+      let best = null;
+      let bestDistance = Infinity;
+      for (const i of remaining) {
+        const distance = Math.abs(i - currentFrameRef.current);
+        if (distance < bestDistance) {
+          best = i;
+          bestDistance = distance;
+        }
+      }
+      if (best !== null) remaining.delete(best);
+      return best;
     };
 
-    for (let w = 0; w < CONCURRENT_WORKERS; w++) {
-      spawnWorker();
-    }
+    const spawnWorker = () => {
+      if (!isMounted) return;
+      const targetIndex = takeNext();
+      if (targetIndex === null) return;
+      loadSingle(targetIndex).then(spawnWorker);
+    };
+
+    const startWorkers = () => {
+      for (let w = 0; w < CONCURRENT_WORKERS; w++) spawnWorker();
+    };
+
+    const scheduleStart = () => {
+      if (typeof window.requestIdleCallback === "function") {
+        idleHandle = window.requestIdleCallback(startWorkers, { timeout: 1500 });
+      } else {
+        startTimer = setTimeout(startWorkers, 300);
+      }
+    };
+
+    const onWindowLoad = () => scheduleStart();
+    if (document.readyState === "complete") scheduleStart();
+    else window.addEventListener("load", onWindowLoad, { once: true });
 
     return () => {
       isMounted = false;
+      window.removeEventListener("load", onWindowLoad);
+      clearTimeout(startTimer);
+      if (idleHandle !== undefined && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleHandle);
+      }
     };
   }, [drawFrame]);
 
@@ -379,7 +429,7 @@ export const ScrollProductHero = () => {
         {/* Top Badges */}
         <div className="flex flex-wrap items-center justify-center gap-2.5">
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/45 backdrop-blur-md border border-[#D4AF37]/35 shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-[#A9D18E] animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-[#A9D18E] motion-safe:animate-pulse" />
             <span className="text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-[#E8D9B5]">
               Pure Himalayan Shilajit • 100% Gold Grade Resin
             </span>
@@ -396,7 +446,7 @@ export const ScrollProductHero = () => {
             <div className="w-3.5 h-5 border border-white/60 rounded-full flex justify-center pt-0.5">
               <motion.div
                 animate={{ y: [0, 5, 0] }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                transition={prefersReducedMotion() ? { duration: 0 } : { duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
                 className="w-1 h-1.5 bg-[#A9D18E] rounded-full"
               />
             </div>
@@ -422,14 +472,14 @@ export const ScrollProductHero = () => {
             initial={{ opacity: 0, scale: 0.88, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: -12 }}
-            transition={{ type: "spring", stiffness: 300, damping: 24 }}
+            transition={prefersReducedMotion() ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 24 }}
             className={`absolute z-30 pointer-events-auto ${currentHotspot.positionClasses}`}
           >
             <div className="flex items-start gap-3.5 p-4 rounded-2xl bg-black/80 backdrop-blur-xl border border-[#D4AF37]/50 shadow-2xl max-w-[280px] sm:max-w-[340px] text-white">
               {/* Pulsing Gold Beacon */}
               <div className="relative shrink-0 mt-1">
                 <span className="w-3.5 h-3.5 rounded-full bg-[#D4AF37] block shadow-md" />
-                <span className="absolute inset-0 rounded-full bg-[#D4AF37] animate-ping opacity-75" />
+                <span className="absolute inset-0 rounded-full bg-[#D4AF37] motion-safe:animate-ping opacity-75" />
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">

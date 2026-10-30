@@ -106,7 +106,7 @@ export const AdminHeader = ({ isCollapsed, setIsMobileOpen }) => {
             >
               <Bell className="w-5 h-5" />
               {totalNotifications > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white motion-safe:animate-pulse" />
               )}
             </button>
 

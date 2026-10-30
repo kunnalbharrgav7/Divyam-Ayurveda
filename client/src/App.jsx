@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminProvider } from "./context/AdminContext";
@@ -9,70 +9,71 @@ import { ReturnProvider } from "./context/ReturnContext";
 import { ReferralProvider } from "./context/ReferralContext";
 import { HeroNavProvider } from "./context/HeroNavContext";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
+import { lazyPage } from "./utils/lazyPage";
 
 // Layouts
 import { MainLayout } from "./layouts/MainLayout";
-import { AdminLayout } from "./layouts/AdminLayout";
+import { PageSkeleton } from "./components/common/Skeleton";
+const AdminLayout = lazyPage(() => import("./layouts/AdminLayout"), "AdminLayout");
 
 // Customer Storefront Pages
 import { HomePage } from "./pages/HomePage";
-import { CatalogPage } from "./pages/CatalogPage";
-import { CategoryPage } from "./pages/CategoryPage";
-import { ProductDetailPage } from "./pages/ProductDetailPage";
-import { CartPage } from "./pages/CartPage";
-import { WishlistPage } from "./pages/WishlistPage";
-import { CheckoutPage } from "./pages/CheckoutPage";
-import { OrderConfirmationPage } from "./pages/OrderConfirmationPage";
-import { TrackOrderPage } from "./pages/TrackOrderPage";
-import { LoginPage } from "./pages/LoginPage";
-import { RegisterPage } from "./pages/RegisterPage";
-import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
-import { AccountPage } from "./pages/AccountPage";
-import { ReferralPage } from "./pages/ReferralPage";
-import { AboutPage } from "./pages/AboutPage";
-import { CustomerReviewsPage } from "./pages/CustomerReviewsPage";
-import { OurStoryPage } from "./pages/OurStoryPage";
-import { AyurvedaEduPage } from "./pages/AyurvedaEduPage";
-import { IngredientsPage } from "./pages/IngredientsPage";
-import { BlogListPage } from "./pages/BlogListPage";
-import { BlogPostDetailPage } from "./pages/BlogPostDetailPage";
-import { FaqPage } from "./pages/FaqPage";
-import { ContactPage } from "./pages/ContactPage";
-import { OffersPage } from "./pages/OffersPage";
-import { ShippingPage } from "./pages/ShippingPage";
-import { ReturnsPage } from "./pages/ReturnsPage";
-import { PrivacyPage } from "./pages/PrivacyPage";
-import { TermsPage } from "./pages/TermsPage";
+const CatalogPage = lazyPage(() => import("./pages/CatalogPage"), "CatalogPage");
+const CategoryPage = lazyPage(() => import("./pages/CategoryPage"), "CategoryPage");
+const ProductDetailPage = lazyPage(() => import("./pages/ProductDetailPage"), "ProductDetailPage");
+const CartPage = lazyPage(() => import("./pages/CartPage"), "CartPage");
+const WishlistPage = lazyPage(() => import("./pages/WishlistPage"), "WishlistPage");
+const CheckoutPage = lazyPage(() => import("./pages/CheckoutPage"), "CheckoutPage");
+const OrderConfirmationPage = lazyPage(() => import("./pages/OrderConfirmationPage"), "OrderConfirmationPage");
+const TrackOrderPage = lazyPage(() => import("./pages/TrackOrderPage"), "TrackOrderPage");
+const LoginPage = lazyPage(() => import("./pages/LoginPage"), "LoginPage");
+const RegisterPage = lazyPage(() => import("./pages/RegisterPage"), "RegisterPage");
+const ForgotPasswordPage = lazyPage(() => import("./pages/ForgotPasswordPage"), "ForgotPasswordPage");
+const AccountPage = lazyPage(() => import("./pages/AccountPage"), "AccountPage");
+const ReferralPage = lazyPage(() => import("./pages/ReferralPage"), "ReferralPage");
+const AboutPage = lazyPage(() => import("./pages/AboutPage"), "AboutPage");
+const CustomerReviewsPage = lazyPage(() => import("./pages/CustomerReviewsPage"), "CustomerReviewsPage");
+const OurStoryPage = lazyPage(() => import("./pages/OurStoryPage"), "OurStoryPage");
+const AyurvedaEduPage = lazyPage(() => import("./pages/AyurvedaEduPage"), "AyurvedaEduPage");
+const IngredientsPage = lazyPage(() => import("./pages/IngredientsPage"), "IngredientsPage");
+const BlogListPage = lazyPage(() => import("./pages/BlogListPage"), "BlogListPage");
+const BlogPostDetailPage = lazyPage(() => import("./pages/BlogPostDetailPage"), "BlogPostDetailPage");
+const FaqPage = lazyPage(() => import("./pages/FaqPage"), "FaqPage");
+const ContactPage = lazyPage(() => import("./pages/ContactPage"), "ContactPage");
+const OffersPage = lazyPage(() => import("./pages/OffersPage"), "OffersPage");
+const ShippingPage = lazyPage(() => import("./pages/ShippingPage"), "ShippingPage");
+const ReturnsPage = lazyPage(() => import("./pages/ReturnsPage"), "ReturnsPage");
+const PrivacyPage = lazyPage(() => import("./pages/PrivacyPage"), "PrivacyPage");
+const TermsPage = lazyPage(() => import("./pages/TermsPage"), "TermsPage");
 import { NotFoundPage } from "./pages/NotFoundPage";
 
 // Admin Dashboard Pages
-import { DashboardPage } from "./pages/admin/DashboardPage";
-import { ProductsPage } from "./pages/admin/ProductsPage";
-import { ProductFormPage } from "./pages/admin/ProductFormPage";
-import { CategoriesPage } from "./pages/admin/CategoriesPage";
-import { BrandsPage } from "./pages/admin/BrandsPage";
-import { CollectionsPage } from "./pages/admin/CollectionsPage";
-import { InventoryPage } from "./pages/admin/InventoryPage";
-import { IngredientsAdminPage } from "./pages/admin/IngredientsAdminPage";
-import { OrdersPage } from "./pages/admin/OrdersPage";
-import { OrderDetailsPage } from "./pages/admin/OrderDetailsPage";
-import { ReturnsRefundsPage } from "./pages/admin/ReturnsRefundsPage";
-import { CouponsPage } from "./pages/admin/CouponsPage";
-import { CustomersPage } from "./pages/admin/CustomersPage";
-import { CustomerDetailsPage } from "./pages/admin/CustomerDetailsPage";
-import { AdminReferralsPage } from "./pages/admin/AdminReferralsPage";
-import { ReviewsPage } from "./pages/admin/ReviewsPage";
-import { HomepageBuilderPage } from "./pages/admin/HomepageBuilderPage";
-import { ContentPagesPage } from "./pages/admin/ContentPagesPage";
-import { BlogAdminPage } from "./pages/admin/BlogAdminPage";
-import { EnquiriesPage } from "./pages/admin/EnquiriesPage";
-import { SupportTicketsPage } from "./pages/admin/SupportTicketsPage";
-import { SubscribersPage } from "./pages/admin/SubscribersPage";
-import { ReportsPage } from "./pages/admin/ReportsPage";
-import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
-import { RolesPage } from "./pages/admin/RolesPage";
-import { AuditLogsPage } from "./pages/admin/AuditLogsPage";
-import { SettingsPage } from "./pages/admin/SettingsPage";
+const DashboardPage = lazyPage(() => import("./pages/admin/DashboardPage"), "DashboardPage");
+const ProductsPage = lazyPage(() => import("./pages/admin/ProductsPage"), "ProductsPage");
+const ProductFormPage = lazyPage(() => import("./pages/admin/ProductFormPage"), "ProductFormPage");
+const CategoriesPage = lazyPage(() => import("./pages/admin/CategoriesPage"), "CategoriesPage");
+const BrandsPage = lazyPage(() => import("./pages/admin/BrandsPage"), "BrandsPage");
+const CollectionsPage = lazyPage(() => import("./pages/admin/CollectionsPage"), "CollectionsPage");
+const InventoryPage = lazyPage(() => import("./pages/admin/InventoryPage"), "InventoryPage");
+const IngredientsAdminPage = lazyPage(() => import("./pages/admin/IngredientsAdminPage"), "IngredientsAdminPage");
+const OrdersPage = lazyPage(() => import("./pages/admin/OrdersPage"), "OrdersPage");
+const OrderDetailsPage = lazyPage(() => import("./pages/admin/OrderDetailsPage"), "OrderDetailsPage");
+const ReturnsRefundsPage = lazyPage(() => import("./pages/admin/ReturnsRefundsPage"), "ReturnsRefundsPage");
+const CouponsPage = lazyPage(() => import("./pages/admin/CouponsPage"), "CouponsPage");
+const CustomersPage = lazyPage(() => import("./pages/admin/CustomersPage"), "CustomersPage");
+const CustomerDetailsPage = lazyPage(() => import("./pages/admin/CustomerDetailsPage"), "CustomerDetailsPage");
+const AdminReferralsPage = lazyPage(() => import("./pages/admin/AdminReferralsPage"), "AdminReferralsPage");
+const ReviewsPage = lazyPage(() => import("./pages/admin/ReviewsPage"), "ReviewsPage");
+const ContentPagesPage = lazyPage(() => import("./pages/admin/ContentPagesPage"), "ContentPagesPage");
+const BlogAdminPage = lazyPage(() => import("./pages/admin/BlogAdminPage"), "BlogAdminPage");
+const EnquiriesPage = lazyPage(() => import("./pages/admin/EnquiriesPage"), "EnquiriesPage");
+const SupportTicketsPage = lazyPage(() => import("./pages/admin/SupportTicketsPage"), "SupportTicketsPage");
+const SubscribersPage = lazyPage(() => import("./pages/admin/SubscribersPage"), "SubscribersPage");
+const ReportsPage = lazyPage(() => import("./pages/admin/ReportsPage"), "ReportsPage");
+const AdminUsersPage = lazyPage(() => import("./pages/admin/AdminUsersPage"), "AdminUsersPage");
+const RolesPage = lazyPage(() => import("./pages/admin/RolesPage"), "RolesPage");
+const AuditLogsPage = lazyPage(() => import("./pages/admin/AuditLogsPage"), "AuditLogsPage");
+const SettingsPage = lazyPage(() => import("./pages/admin/SettingsPage"), "SettingsPage");
 import { SmoothScroll } from "./animations/SmoothScroll";
 import { LiveOrderToast } from "./components/common/LiveOrderToast";
 
@@ -98,7 +99,14 @@ export const App = () => {
                   {/* ======================================================== */}
                   {/* PROTECTED ADMIN CONTROL CENTER */}
                   {/* ======================================================== */}
-                  <Route path="/admin" element={<AdminLayout />}>
+                  <Route
+                    path="/admin"
+                    element={
+                      <Suspense fallback={<PageSkeleton />}>
+                        <AdminLayout />
+                      </Suspense>
+                    }
+                  >
                     <Route index element={<DashboardPage />} />
                     <Route path="dashboard" element={<DashboardPage />} />
 
@@ -125,7 +133,6 @@ export const App = () => {
                     <Route path="reviews" element={<ReviewsPage />} />
 
                     {/* Storefront Customization */}
-                    <Route path="homepage-builder" element={<HomepageBuilderPage />} />
                     <Route path="content-pages" element={<ContentPagesPage />} />
                     <Route path="blog" element={<BlogAdminPage />} />
 

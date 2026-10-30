@@ -77,7 +77,7 @@ export const IngredientsPage = () => {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 my-8">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-white rounded-3xl border border-[#E5E7DF] p-6 h-64 animate-pulse" />
+              <div key={i} className="bg-white rounded-3xl border border-[#E5E7DF] p-6 h-64 motion-safe:animate-pulse" />
             ))}
           </div>
         ) : filteredIngredients.length === 0 ? (
@@ -95,7 +95,7 @@ export const IngredientsPage = () => {
                 {/* Thumbnail & Title */}
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl overflow-hidden bg-stone-100 shrink-0 border border-stone-200">
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={item.image}
                       alt={item.name}
                       className="w-full h-full object-cover"

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Clock, BookOpen, ArrowRight } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { contentService } from "../services/api";
+import { Skeleton, SkeletonRegion } from "../components/common/Skeleton";
 import { formatDate } from "../utils/formatters";
 
 export const BlogListPage = () => {
@@ -59,11 +60,11 @@ export const BlogListPage = () => {
 
         {/* Articles Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 my-8">
+          <SkeletonRegion label="Loading articles" className="grid grid-cols-1 md:grid-cols-3 gap-8 my-8">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-3xl border border-[#E5E7DF] h-80 animate-pulse" />
+              <Skeleton key={i} className="border border-[#E5E7DF] rounded-3xl h-80" />
             ))}
-          </div>
+          </SkeletonRegion>
         ) : posts.length === 0 ? (
           <div className="py-16 text-center text-stone-500">
             No articles published yet. Check back soon for traditional Ayurvedic insights!
@@ -76,7 +77,7 @@ export const BlogListPage = () => {
               className="bg-white rounded-3xl border border-[#E5E7DF] overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-md hover:border-[#A9D18E]/60 shadow-xs"
             >
               <Link to={`/blog/${post.slug}`} className="block relative aspect-16/10 overflow-hidden bg-stone-50 flex items-center justify-center p-3">
-                <img
+                <img loading="lazy" decoding="async"
                   src={post.image || "/images/ProductImages/Himalya.png"}
                   alt={post.title}
                   className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"

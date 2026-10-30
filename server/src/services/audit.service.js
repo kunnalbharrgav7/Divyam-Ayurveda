@@ -1,5 +1,9 @@
+import { AsyncLocalStorage } from "async_hooks";
 import { AuditLog } from "../models/AuditLog.js";
 import { logger } from "../config/logger.js";
+
+// Set by middleware/auditContext.js for admin requests (kept here to avoid a circular import)
+export const requestAuditStore = new AsyncLocalStorage();
 
 /**
  * Audit snapshots must stay small: product photos are stored as base64 data URLs (hundreds of KB each),
@@ -31,9 +35,22 @@ export const logAudit = async ({
   requestId = null,
 }) => {
   try {
+    const ctx = requestAuditStore.getStore();
+    if (ctx) {
+      ctx.logged = true;
+      const user = ctx.req?.user;
+      if (!actorId && user) {
+        actorId = user._id;
+        actorName = user.name;
+      }
+      if (actorRole === "System" && user) actorRole = user.roles?.[0]?.name || "Staff";
+      ip = ip || ctx.ip;
+      userAgent = userAgent || ctx.userAgent;
+      requestId = requestId || ctx.requestId;
+    }
     await AuditLog.create({
       actorId,
-      actorName,
+      actorName: actorName || "System",
       actorRole,
       action,
       module,

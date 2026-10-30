@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { Clock, User, Calendar, ArrowLeft, Share2, Tag, BookOpen } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { EmptyState } from "../components/common/EmptyState";
+import { ArticleSkeleton } from "../components/common/Skeleton";
 import { contentService } from "../services/api";
 import { formatDate } from "../utils/formatters";
 
@@ -12,26 +13,30 @@ export const BlogPostDetailPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchPost = async () => {
       setLoading(true);
       try {
         const item = await contentService.getBlogPostBySlug(slug);
-        setPost(item);
+        if (!cancelled) setPost(item);
       } catch (err) {
         console.error("Error loading blog article:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchPost();
     window.scrollTo({ top: 0, behavior: "smooth" });
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <div className="animate-spin w-8 h-8 border-4 border-[#173D2A] border-t-transparent rounded-full mx-auto" />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <ArticleSkeleton />
       </div>
     );
   }

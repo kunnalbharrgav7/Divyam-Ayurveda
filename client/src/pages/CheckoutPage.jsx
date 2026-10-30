@@ -17,7 +17,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useReturns } from "../context/ReturnContext";
 import { useOrders } from "../context/OrderContext";
-import { useAdmin } from "../context/AdminContext";
+import { useStoreSettings } from "../hooks/useStoreSettings";
 import { useReferrals } from "../context/ReferralContext";
 import { formatINR } from "../utils/formatters";
 import { calculateShippingAndTax, INDIAN_STATES } from "../utils/shippingCalculator";
@@ -39,7 +39,7 @@ export const CheckoutPage = () => {
   const { storeCredit, refresh: refreshCredit } = useReturns();
   const [useCredit, setUseCredit] = useState(false);
   const { placeOrder } = useOrders();
-  const { storeSettings } = useAdmin();
+  const { settings: storeSettings, status: settingsStatus, retry: retrySettings } = useStoreSettings();
   const { activeAttribution, previewDiscount, clearAttribution, applyReferralCode } = useReferrals();
   const [codeInput, setCodeInput] = useState("");
   const [codeMessage, setCodeMessage] = useState("");
@@ -61,7 +61,7 @@ export const CheckoutPage = () => {
   });
 
   const [deliveryMethod, setDeliveryMethod] = useState("standard"); // standard, express
-  const [paymentMethod, setPaymentMethod] = useState("cod"); // cod, online
+  const [chosenMethod, setPaymentMethod] = useState("cod"); // cod, online (what the customer picked)
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderCompleted, setOrderCompleted] = useState(false);
@@ -81,6 +81,26 @@ export const CheckoutPage = () => {
     deliveryMethod,
     settings: storeSettings,
   });
+
+  // Referral discount: the server decides what the invitation is worth (and checks it again when the order is placed).
+  // It applies to a signed-in customer's first order and cannot be combined with a coupon or offer.
+  const referralCode = activeAttribution?.code || "";
+  const offerApplied = Boolean(appliedOffer);
+  useEffect(() => {
+    if (!referralCode) return setReferralPreview({ discount: 0, reason: "" });
+    if (!isAuthenticated) return setReferralPreview({ discount: 0, reason: "Sign in or create an account to use your friend's referral code." });
+    if (offerApplied) return setReferralPreview({ discount: 0, reason: "A referral code cannot be combined with a coupon or offer." });
+    if (subtotal <= 0) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const res = await previewDiscount(referralCode, subtotal);
+      if (!cancelled) setReferralPreview(res.valid ? { discount: res.discount, reason: "" } : { discount: 0, reason: res.reason || "" });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [referralCode, isAuthenticated, offerApplied, subtotal, previewDiscount]);
 
   // Guard: Unauthenticated guests cannot proceed to checkout
   if (!isAuthenticated) {
@@ -105,25 +125,6 @@ export const CheckoutPage = () => {
   const expressFee = shippingTaxCalc.isFreeEligible ? 60 : standardFee + 50;
   const calculatedShipping = shippingTaxCalc.shippingFee;
   
-  // Referral discount: the server decides what the invitation is worth (and checks it again when the order is placed).
-  // It applies to a signed-in customer's first order and cannot be combined with a coupon or offer.
-  const referralCode = activeAttribution?.code || "";
-  const offerApplied = Boolean(appliedOffer);
-  useEffect(() => {
-    if (!referralCode) return setReferralPreview({ discount: 0, reason: "" });
-    if (!isAuthenticated) return setReferralPreview({ discount: 0, reason: "Sign in or create an account to use your friend's referral code." });
-    if (offerApplied) return setReferralPreview({ discount: 0, reason: "A referral code cannot be combined with a coupon or offer." });
-    if (subtotal <= 0) return undefined;
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      const res = await previewDiscount(referralCode, subtotal);
-      if (!cancelled) setReferralPreview(res.valid ? { discount: res.discount, reason: "" } : { discount: 0, reason: res.reason || "" });
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [referralCode, isAuthenticated, offerApplied, subtotal, previewDiscount]);
   const referralDiscount = referralPreview.discount;
   const totalCombinedDiscounts = discountTotal + offerDiscount + referralDiscount;
   // MRP - product savings - referral + shipping. (`subtotal` is already net of product savings,
@@ -132,6 +133,21 @@ export const CheckoutPage = () => {
   // Store credit (from refunds) can cover everything except the last rupee, so there is always something to pay
   const creditApplied = useCredit ? Math.min(storeCredit, Math.max(0, Math.floor(orderTotal) - 1)) : 0;
   const finalTotal = Math.max(0, orderTotal - creditApplied);
+
+  // Which payment options the store currently offers (Admin -> Settings). COD can also be switched off for
+  // big orders by its limit. The server enforces the same rules when the order is placed.
+  const store = storeSettings?.store || {};
+  const onlineAllowed = store.enableOnlinePayments !== false;
+  const codSwitchedOn = store.enableCashOnDelivery !== false;
+  const codLimit = Number(store.maxCodLimit) || 0;
+  const codOverLimit = codSwitchedOn && codLimit > 0 && finalTotal > codLimit;
+  const codAllowed = codSwitchedOn && !codOverLimit;
+  const paymentMethod =
+    chosenMethod === "cod"
+      ? codAllowed || !onlineAllowed ? "cod" : "online"
+      : onlineAllowed || !codAllowed ? "online" : "cod";
+  const noPaymentAvailable = !codAllowed && !onlineAllowed;
+  const settingsReady = settingsStatus === "ready";
 
   // If cart is empty, redirect
   if (cartItems.length === 0) {
@@ -497,7 +513,7 @@ export const CheckoutPage = () => {
                   <div className="sm:col-span-2 p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                        <span className="w-2 h-2 rounded-full bg-emerald-600 motion-safe:animate-pulse" />
                         <span className="font-semibold text-emerald-950">
                           📍 {shippingTaxCalc.zone.name}
                         </span>
@@ -613,9 +629,25 @@ export const CheckoutPage = () => {
                 </h3>
 
                 <div className="space-y-3 text-xs">
+                  {settingsStatus === "error" && (
+                    <p className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700">
+                      We couldn't load the store's payment and delivery rules.{" "}
+                      <button type="button" onClick={retrySettings} className="font-semibold underline">
+                        Try again
+                      </button>
+                    </p>
+                  )}
+                  {noPaymentAvailable && settingsReady && (
+                    <p className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800">
+                      No payment method is available for this order right now. Please contact us to complete your purchase.
+                    </p>
+                  )}
                   {/* COD */}
+                  {codSwitchedOn && (
                   <label
-                    className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all ${
+                      codOverLimit ? "opacity-60 cursor-not-allowed border-[#E5E7DF]" : "cursor-pointer"
+                    } ${
                       paymentMethod === "cod"
                         ? "border-[#173D2A] bg-[#FBFAF6] ring-1 ring-[#173D2A]"
                         : "border-[#E5E7DF] hover:bg-stone-50"
@@ -626,6 +658,7 @@ export const CheckoutPage = () => {
                       name="payment"
                       value="cod"
                       checked={paymentMethod === "cod"}
+                      disabled={codOverLimit}
                       onChange={() => setPaymentMethod("cod")}
                       className="text-[#173D2A] focus:ring-[#386B40] mt-0.5"
                     />
@@ -635,12 +668,17 @@ export const CheckoutPage = () => {
                         <span>Cash on Delivery (COD)</span>
                       </div>
                       <p className="text-stone-500">
-                        Pay in cash or through UPI upon delivery of your Ayurvedic parcel.
+                        {codOverLimit
+                          ? `Cash on Delivery is available for orders up to ${formatINR(codLimit)}. Please pay online for this order.`
+                          : "Pay in cash or through UPI upon delivery of your Ayurvedic parcel."}
                       </p>
                     </div>
                   </label>
 
+                  )}
+
                   {/* Online Payment */}
+                  {onlineAllowed && (
                   <label
                     className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
                       paymentMethod === "online"
@@ -669,6 +707,7 @@ export const CheckoutPage = () => {
                       </p>
                     </div>
                   </label>
+                  )}
                 </div>
               </div>
             </div>
@@ -683,7 +722,7 @@ export const CheckoutPage = () => {
               <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
                 {cartItems.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-3 text-xs">
-                    <img
+                    <img width={48} height={48} loading="lazy" decoding="async"
                       src={item.product.images?.[0]}
                       alt={item.product.name}
                       className="w-12 h-12 rounded-lg bg-[#FBFAF6] border p-1 object-contain shrink-0"
@@ -844,7 +883,7 @@ export const CheckoutPage = () => {
               {/* Place Order CTA */}
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !settingsReady || noPaymentAvailable}
                 className="w-full py-4 px-6 bg-[#173D2A] hover:bg-[#0B2416] text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all disabled:opacity-50"
               >
                 {isSubmitting ? (

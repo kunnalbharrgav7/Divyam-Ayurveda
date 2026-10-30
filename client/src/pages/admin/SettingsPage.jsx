@@ -1,91 +1,279 @@
-import React, { useState } from "react";
-import { Save, Settings, Shield, Check, CreditCard, Truck, Bell, Building, MapPin, Info } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Save, Check, CreditCard, Truck, Bell, Building, Plus, Trash2, Info, AlertTriangle } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
-import { INDIAN_STATES, DEFAULT_SHIPPING_ZONES } from "../../utils/shippingCalculator";
+import { INDIAN_STATES } from "../../utils/shippingCalculator";
+import { DetailPageSkeleton } from "../../components/common/Skeleton";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
-export const SettingsPage = () => {
+const TABS = [
+  { id: "general", label: "General & Brand", icon: Building },
+  { id: "shipping", label: "Shipping & Tax", icon: Truck },
+  { id: "payments", label: "Payment Gateways", icon: CreditCard },
+  { id: "notifications", label: "Alerts & Notifications", icon: Bell },
+];
+
+const inputClass =
+  "w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:outline-none focus:ring-1 focus:ring-[#173D2A] focus:border-[#173D2A]";
+const labelClass = "block text-xs font-semibold text-stone-700 mb-1";
+const hintClass = "text-[11px] text-stone-400 mt-1";
+
+// The editable shape of each tab, taken from what the server has stored (nothing is invented here)
+const editable = (s) => ({
+  general: {
+    storeName: s.general?.storeName ?? "",
+    storeTagline: s.general?.storeTagline ?? "",
+    contactEmail: s.general?.contactEmail ?? "",
+    contactPhone: s.general?.contactPhone ?? "",
+    dispensaryAddress: s.general?.dispensaryAddress ?? "",
+    bannerAnnouncementText: s.appearance?.bannerAnnouncementText ?? "",
+  },
+  shipping: {
+    originState: s.shipping?.originState ?? "",
+    originCity: s.shipping?.originCity ?? "",
+    originPincode: s.shipping?.originPincode ?? "",
+    expressShippingFee: s.shipping?.expressShippingFee ?? 0,
+    dispatchLeadTime: s.shipping?.dispatchLeadTime ?? "",
+    zones: (s.shipping?.zones || []).map((z) => ({
+      id: z.id,
+      name: z.name ?? "",
+      tier: z.tier ?? "",
+      description: z.description ?? "",
+      baseFee: z.baseFee ?? 0,
+      freeThreshold: z.freeThreshold ?? 0,
+      deliveryDays: z.deliveryDays ?? "",
+      matchType: z.matchType || "states",
+      states: [...(z.states || [])],
+    })),
+    standardGstRate: s.tax?.standardGstRate ?? 0,
+    gstinNumber: s.tax?.gstinNumber ?? "",
+  },
+  payments: {
+    enableOnlinePayments: s.store?.enableOnlinePayments !== false,
+    enableCashOnDelivery: s.store?.enableCashOnDelivery !== false,
+    maxCodLimit: s.store?.maxCodLimit ?? 0,
+  },
+  notifications: {
+    emailOnNewOrder: Boolean(s.notifications?.emailOnNewOrder),
+    smsOnDispatch: Boolean(s.notifications?.smsOnDispatch),
+    lowStockAlerts: Boolean(s.notifications?.lowStockAlerts),
+    dailySalesDigest: Boolean(s.notifications?.dailySalesDigest),
+  },
+});
+
+// What to send to the API for a tab
+const toPatch = (tab, d) => {
+  if (tab === "general") {
+    const { bannerAnnouncementText, ...general } = d;
+    return { general, appearance: { bannerAnnouncementText } };
+  }
+  if (tab === "shipping") {
+    const { standardGstRate, gstinNumber, ...shipping } = d;
+    return { shipping, tax: { standardGstRate, gstinNumber } };
+  }
+  if (tab === "payments") return { store: d };
+  return { notifications: d };
+};
+
+const Switch = ({ checked, onChange, label, description, disabled = false }) => (
+  <label className={`flex items-start justify-between gap-4 p-4 rounded-xl border border-stone-200 bg-stone-50/60 ${disabled ? "opacity-60" : "cursor-pointer hover:bg-stone-50"}`}>
+    <span>
+      <span className="block font-semibold text-stone-900 text-sm">{label}</span>
+      {description && <span className="block text-xs text-stone-500 mt-0.5">{description}</span>}
+    </span>
+    <input
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.checked)}
+      className="w-4 h-4 mt-1 shrink-0 rounded border-stone-300 text-[#173D2A] focus:ring-[#173D2A]"
+    />
+  </label>
+);
+
+const ZONE_TYPES = [
+  { id: "origin", label: "Dispatch state only" },
+  { id: "states", label: "Selected states" },
+  { id: "rest", label: "All other states" },
+];
+
+const ZoneCard = ({ zone, index, zones, originState, onChange, onRemove }) => {
+  const takenBy = useMemo(() => {
+    const map = new Map();
+    zones.forEach((z) => {
+      if (z.id !== zone.id && z.matchType === "states") z.states.forEach((s) => map.set(s, z.name));
+    });
+    return map;
+  }, [zones, zone.id]);
+
+  const toggleState = (state) =>
+    onChange({
+      states: zone.states.includes(state) ? zone.states.filter((s) => s !== state) : [...zone.states, state],
+    });
+
+  return (
+    <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-3 flex-1">
+          <div>
+            <label className={labelClass}>Zone name</label>
+            <input className={inputClass} value={zone.name} onChange={(e) => onChange({ name: e.target.value })} />
+          </div>
+          <div>
+            <label className={labelClass}>Applies to</label>
+            <select className={inputClass} value={zone.matchType} onChange={(e) => onChange({ matchType: e.target.value })}>
+              {ZONE_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Delivery time</label>
+            <input className={inputClass} value={zone.deliveryDays} onChange={(e) => onChange({ deliveryDays: e.target.value })} placeholder="e.g. 2–4 Business Days" />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove ${zone.name || `zone ${index + 1}`}`}
+          className="mt-6 p-2 rounded-lg border border-stone-200 text-stone-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label className={labelClass}>Shipping fee (₹)</label>
+          <input type="number" min="0" step="1" className={inputClass} value={zone.baseFee} onChange={(e) => onChange({ baseFee: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelClass}>Free delivery from (₹)</label>
+          <input type="number" min="0" step="1" className={inputClass} value={zone.freeThreshold} onChange={(e) => onChange({ freeThreshold: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelClass}>Short description</label>
+          <input className={inputClass} value={zone.description} onChange={(e) => onChange({ description: e.target.value })} />
+        </div>
+      </div>
+
+      {zone.matchType === "origin" && (
+        <p className="text-xs text-stone-500">
+          Used for orders delivered within the dispatch state{originState ? ` (${originState})` : ""}.
+        </p>
+      )}
+      {zone.matchType === "rest" && (
+        <p className="text-xs text-stone-500">Used for every state that isn't covered by another zone. Exactly one zone must be set to this.</p>
+      )}
+      {zone.matchType === "states" && (
+        <div>
+          <p className={labelClass}>
+            States in this zone <span className="font-normal text-stone-400">({zone.states.length} selected)</span>
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-1.5 max-h-48 overflow-y-auto p-3 rounded-xl border border-stone-200 bg-stone-50/60">
+            {INDIAN_STATES.map((state) => {
+              const other = takenBy.get(state);
+              return (
+                <label key={state} className={`flex items-center gap-2 text-xs ${other ? "text-stone-400" : "text-stone-700 cursor-pointer"}`} title={other ? `Already in ${other}` : undefined}>
+                  <input
+                    type="checkbox"
+                    checked={zone.states.includes(state)}
+                    disabled={Boolean(other)}
+                    onChange={() => toggleState(state)}
+                    className="rounded border-stone-300 text-[#173D2A] focus:ring-[#173D2A]"
+                  />
+                  <span>{state}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SettingsPageForm = () => {
   const { storeSettings, saveStoreSettings } = useAdmin();
-  const [formData, setFormData] = useState(storeSettings);
+  const saved = useMemo(() => editable(storeSettings), [storeSettings]);
+  const [drafts, setDrafts] = useState(saved);
   const [activeTab, setActiveTab] = useState("general");
-  const [toastMessage, setToastMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null); // { text, isError }
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+  const isDirty = (tab) => JSON.stringify(saved[tab]) !== JSON.stringify(drafts[tab]);
+  const draft = drafts[activeTab];
+  const setField = (tab, patch) => setDrafts((prev) => ({ ...prev, [tab]: { ...prev[tab], ...patch } }));
+
+  const notify = (text, isError = false) => {
+    setToast({ text, isError });
+    setTimeout(() => setToast(null), 4000);
   };
 
-  const handleNestedChange = (group, field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [group]: {
-        ...prev[group],
-        [field]: value,
-      },
-    }));
-  };
-
-  const handleZoneChange = (zoneId, field, value) => {
-    const currentZones = formData.shipping?.zones || DEFAULT_SHIPPING_ZONES;
-    const updated = currentZones.map((z) =>
-      z.id === zoneId ? { ...z, [field]: value } : z
-    );
-    setFormData((prev) => ({
-      ...prev,
-      shipping: {
-        ...prev.shipping,
-        zones: updated,
-      },
-    }));
-  };
-
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    saveStoreSettings(formData);
-    setToastMessage("Store settings successfully saved!");
-    setTimeout(() => setToastMessage(""), 3000);
+    setSaving(true);
+    try {
+      const data = await saveStoreSettings(toPatch(activeTab, drafts[activeTab]));
+      // Show exactly what the server stored
+      setDrafts((prev) => ({ ...prev, [activeTab]: editable(data)[activeTab] }));
+      notify("Settings saved. The storefront uses them right away.");
+    } catch (err) {
+      notify(err.message || "Could not save settings.", true);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const updateZone = (id, patch) =>
+    setField("shipping", { zones: drafts.shipping.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)) });
+  const addZone = () =>
+    setField("shipping", {
+      zones: [
+        ...drafts.shipping.zones,
+        { id: `zone-${Date.now()}`, name: "New zone", tier: "Standard", description: "", baseFee: 0, freeThreshold: 0, deliveryDays: "", matchType: "states", states: [] },
+      ],
+    });
+  const removeZone = (id) => setField("shipping", { zones: drafts.shipping.zones.filter((z) => z.id !== id) });
+
+  const restCount = drafts.shipping.zones.filter((z) => z.matchType === "rest").length;
 
   return (
     <form onSubmit={handleSave} className="space-y-6 pb-12">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900 font-sans tracking-tight">
-            Store & Platform Settings
-          </h1>
+          <h1 className="text-2xl font-bold text-stone-900 font-sans tracking-tight">Store & Platform Settings</h1>
           <p className="text-xs sm:text-sm text-stone-500 mt-1">
-            Configure global store identity, payment processors, tax thresholds, and notifications.
+            Changes are saved to the database and apply to the storefront, cart and checkout immediately.
           </p>
         </div>
 
         <button
           type="submit"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#173D2A] text-white hover:bg-[#0B2416] text-xs font-semibold shadow-xs transition-colors self-start sm:self-auto"
+          disabled={!isDirty(activeTab) || saving}
+          className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 rounded-xl bg-[#173D2A] text-white hover:bg-[#0B2416] text-xs font-semibold shadow-xs transition-colors self-start sm:self-auto disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Save className="w-4 h-4" />
-          <span>Save Settings</span>
+          <span>{saving ? "Saving…" : "Save Settings"}</span>
         </button>
       </div>
 
-      {toastMessage && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-          <Check className="w-4 h-4" />
-          <span>{toastMessage}</span>
+      {toast && (
+        <div
+          role="status"
+          className={`p-3 border rounded-xl text-xs font-semibold flex items-center gap-2 ${
+            toast.isError ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}
+        >
+          {toast.isError ? <AlertTriangle className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+          <span>{toast.text}</span>
         </div>
       )}
 
-      {/* Tabs */}
       <div className="flex flex-wrap items-center gap-1 border-b border-stone-200 pb-3">
-        {[
-          { id: "general", label: "General & Brand", icon: Building },
-          { id: "shipping", label: "Shipping & Tax", icon: Truck },
-          { id: "payments", label: "Payment Gateways", icon: CreditCard },
-          { id: "notifications", label: "Alerts & Notifications", icon: Bell },
-        ].map((tab) => {
+        {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
@@ -93,397 +281,210 @@ export const SettingsPage = () => {
               type="button"
               onClick={() => setActiveTab(tab.id)}
               className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${
-                activeTab === tab.id
-                  ? "bg-[#173D2A] text-white"
-                  : "text-stone-600 hover:bg-stone-200/60"
+                activeTab === tab.id ? "bg-[#173D2A] text-white" : "text-stone-600 hover:bg-stone-200/60"
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
               <span>{tab.label}</span>
+              {isDirty(tab.id) && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Unsaved changes" />}
             </button>
           );
         })}
       </div>
 
-      {/* Tab: General */}
+      {/* ---------------------------------------------------------------- General */}
       {activeTab === "general" && (
-        <AdminCard title="General Store Information" subtitle="Brand coordinates and customer contact channels">
-          <div className="space-y-4 max-w-2xl">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Brand Store Name
-                </label>
-                <input
-                  type="text"
-                  name="storeName"
-                  value={formData.storeName || "Divyam Ayurveda"}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
-                />
+        <div className="space-y-6">
+          <AdminCard title="General Store Information" subtitle="Shown on the contact page and used across the storefront">
+            <div className="space-y-4 max-w-2xl">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Brand Store Name</label>
+                  <input className={inputClass} value={draft.storeName} onChange={(e) => setField("general", { storeName: e.target.value })} />
+                </div>
+                <div>
+                  <label className={labelClass}>Tagline</label>
+                  <input className={inputClass} value={draft.storeTagline} onChange={(e) => setField("general", { storeTagline: e.target.value })} />
+                </div>
+                <div>
+                  <label className={labelClass}>Support Email Address</label>
+                  <input type="email" className={inputClass} value={draft.contactEmail} onChange={(e) => setField("general", { contactEmail: e.target.value })} />
+                </div>
+                <div>
+                  <label className={labelClass}>Support Phone</label>
+                  <input className={inputClass} value={draft.contactPhone} onChange={(e) => setField("general", { contactPhone: e.target.value })} />
+                </div>
+                <div>
+                  <label className={labelClass}>Currency</label>
+                  <input className={`${inputClass} bg-stone-50 text-stone-500`} value="INR (₹)" disabled readOnly />
+                </div>
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Support Email Address
-                </label>
-                <input
-                  type="email"
-                  name="supportEmail"
-                  value={formData.supportEmail || "support@divyamayurveda.com"}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Customer Care Phone
-                </label>
-                <input
-                  type="text"
-                  name="phone"
-                  value={formData.phone || "+91 1800 258 7412"}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Default Currency
-                </label>
-                <input
-                  type="text"
-                  name="currency"
-                  value={formData.currency || "INR (₹)"}
-                  onChange={handleChange}
-                  disabled
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 bg-stone-100 text-stone-500 font-mono text-xs"
-                />
+                <label className={labelClass}>Registered Herbal Dispensary & Headquarters</label>
+                <textarea rows={2} className={inputClass} value={draft.dispensaryAddress} onChange={(e) => setField("general", { dispensaryAddress: e.target.value })} />
               </div>
             </div>
+          </AdminCard>
 
-            <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1">
-                Registered Herbal Dispensary & Headquarters
-              </label>
-              <textarea
-                rows={2}
-                name="address"
-                value={
-                  formData.address ||
-                  "Divyam Ayurveda Bhavan, Sector 4, Haridwar Industrial Area, Uttarakhand - 249403, India"
-                }
-                onChange={handleChange}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
-              />
+          <AdminCard title="Announcement Bar" subtitle="The message across the top of every storefront page">
+            <div className="max-w-2xl">
+              <label className={labelClass}>Announcement text</label>
+              <input className={inputClass} value={draft.bannerAnnouncementText} onChange={(e) => setField("general", { bannerAnnouncementText: e.target.value })} />
+              <p className={hintClass}>Put a dash between a headline and the message ("HEADLINE — message") to highlight the headline.</p>
             </div>
-          </div>
-        </AdminCard>
+          </AdminCard>
+        </div>
       )}
 
-      {/* Tab: Shipping & Tax */}
+      {/* ---------------------------------------------------------------- Shipping & Tax */}
       {activeTab === "shipping" && (
         <div className="space-y-6">
-          {/* Warehouse Origin Hub */}
-          <AdminCard
-            title="Dispatch Warehouse & Fulfillment Origin"
-            subtitle="The primary dispatch hub used to compute distance zones and place of supply for GST"
-          >
+          <AdminCard title="Dispatch Warehouse & Fulfillment Origin" subtitle="Where orders ship from. The dispatch state decides the local zone and whether GST is CGST+SGST or IGST">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Origin State (Home Base)
-                </label>
-                <select
-                  value={formData.shipping?.originState || "Karnataka"}
-                  onChange={(e) =>
-                    handleNestedChange("shipping", "originState", e.target.value)
-                  }
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white text-stone-800"
-                >
+                <label className={labelClass}>Origin State</label>
+                <select className={inputClass} value={draft.originState} onChange={(e) => setField("shipping", { originState: e.target.value })}>
                   {INDIAN_STATES.map((st) => (
                     <option key={st} value={st}>
                       {st}
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-stone-500 mt-1">
-                  Orders within this state are treated as Local (Intra-State GST).
+              </div>
+              <div>
+                <label className={labelClass}>Origin City</label>
+                <input className={inputClass} value={draft.originCity} onChange={(e) => setField("shipping", { originCity: e.target.value })} />
+              </div>
+              <div>
+                <label className={labelClass}>Origin Dispatch PIN Code</label>
+                <input inputMode="numeric" maxLength={6} className={`${inputClass} font-mono`} value={draft.originPincode} onChange={(e) => setField("shipping", { originPincode: e.target.value.replace(/\D/g, "") })} />
+              </div>
+              <div>
+                <label className={labelClass}>Express delivery fee (₹)</label>
+                <input type="number" min="0" step="1" className={inputClass} value={draft.expressShippingFee} onChange={(e) => setField("shipping", { expressShippingFee: e.target.value })} />
+                <p className={hintClass}>Added on top of the zone fee for express orders.</p>
+              </div>
+              <div>
+                <label className={labelClass}>Dispatch lead time</label>
+                <input className={inputClass} value={draft.dispatchLeadTime} onChange={(e) => setField("shipping", { dispatchLeadTime: e.target.value })} placeholder="e.g. 24-48 Hours" />
+              </div>
+            </div>
+          </AdminCard>
+
+          <AdminCard
+            title="Shipping Zones & Rates"
+            subtitle="Each order's delivery fee comes from the zone of its delivery state"
+            action={
+              <button
+                type="button"
+                onClick={addZone}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#173D2A] hover:underline"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add zone
+              </button>
+            }
+          >
+            <div className="space-y-4">
+              {restCount !== 1 && (
+                <p className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+                  Exactly one zone must be set to "All other states", so every address has a delivery rate. You currently have {restCount}.
                 </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Origin City / Hub
-                </label>
-                <input
-                  type="text"
-                  value={formData.shipping?.originCity || "Bengaluru"}
-                  onChange={(e) =>
-                    handleNestedChange("shipping", "originCity", e.target.value)
-                  }
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
+              )}
+              {drafts.shipping.zones.map((zone, index) => (
+                <ZoneCard
+                  key={zone.id}
+                  zone={zone}
+                  index={index}
+                  zones={drafts.shipping.zones}
+                  originState={drafts.shipping.originState}
+                  onChange={(patch) => updateZone(zone.id, patch)}
+                  onRemove={() => removeZone(zone.id)}
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Origin Dispatch PIN Code
-                </label>
-                <input
-                  type="text"
-                  value={formData.shipping?.originPincode || "560038"}
-                  onChange={(e) =>
-                    handleNestedChange("shipping", "originPincode", e.target.value)
-                  }
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white font-mono text-xs"
-                />
-              </div>
+              ))}
             </div>
           </AdminCard>
 
-          {/* Distance-Based Shipping Zones Matrix */}
-          <AdminCard
-            title="State Distance & Shipping Rates Matrix"
-            subtitle="Configure tier-based shipping charges and free delivery minimum order amounts per zone"
-            noPadding={true}
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-stone-700">
-                <thead className="bg-stone-50/80 text-[11px] font-semibold uppercase tracking-wider text-stone-500 border-b border-stone-200">
-                  <tr>
-                    <th className="px-4 py-3 min-w-[200px]">Shipping Zone Tier</th>
-                    <th className="px-4 py-3 min-w-[180px]">Delivery Coverage & Scope</th>
-                    <th className="px-4 py-3 text-center min-w-[130px]">Base Fee (₹)</th>
-                    <th className="px-4 py-3 text-center min-w-[160px]">Free Shipping Min (₹)</th>
-                    <th className="px-4 py-3 text-center min-w-[140px]">Transit Duration</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100">
-                  {(formData.shipping?.zones || DEFAULT_SHIPPING_ZONES).map((z) => (
-                    <tr key={z.id} className="hover:bg-stone-50/50">
-                      <td className="px-4 py-3.5 font-medium text-stone-900">
-                        <div className="font-semibold text-stone-900">{z.name}</div>
-                        <span className="inline-block px-2 py-0.5 mt-1 rounded bg-stone-100 text-[10px] font-mono text-stone-600">
-                          {z.tier}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-stone-500 text-[11px]">
-                        {z.description}
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-stone-400">₹</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={z.baseFee}
-                            onChange={(e) =>
-                              handleZoneChange(z.id, "baseFee", Number(e.target.value))
-                            }
-                            className="w-20 px-2 py-1 text-xs text-center rounded-lg border border-stone-300 bg-white font-semibold text-stone-900"
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <div className="inline-flex items-center gap-1">
-                          <span className="text-stone-400">₹</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={z.freeThreshold}
-                            onChange={(e) =>
-                              handleZoneChange(z.id, "freeThreshold", Number(e.target.value))
-                            }
-                            className="w-24 px-2 py-1 text-xs text-center rounded-lg border border-stone-300 bg-white font-semibold text-stone-900"
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <input
-                          type="text"
-                          value={z.deliveryDays}
-                          onChange={(e) =>
-                            handleZoneChange(z.id, "deliveryDays", e.target.value)
-                          }
-                          className="w-28 px-2 py-1 text-[11px] text-center rounded-lg border border-stone-300 bg-white text-stone-700"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </AdminCard>
-
-          {/* GST Tax Compliance */}
-          <AdminCard
-            title="GST & Tax Compliance Rules"
-            subtitle="Automated split of CGST, SGST, and IGST based on customer delivery destination"
-          >
-            <div className="space-y-4 max-w-2xl">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Standard Ayurvedic Herbal GST Rate (%)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="28"
-                    value={formData.tax?.standardGstRate ?? 12}
-                    onChange={(e) =>
-                      handleNestedChange("tax", "standardGstRate", Number(e.target.value))
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
-                  />
-                  <span className="text-[11px] text-stone-400">
-                    Typically 12% for Classical and Proprietary Ayurvedic Medicine.
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    GST Identification Number (GSTIN)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.tax?.gstinNumber || "29AABCD1234E1Z5"}
-                    onChange={(e) =>
-                      handleNestedChange("tax", "gstinNumber", e.target.value)
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white font-mono text-xs"
-                  />
-                </div>
+          <AdminCard title="GST (Tax) Configuration" subtitle="Product prices include GST; the tax shown on invoices is worked out from them">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+              <div>
+                <label className={labelClass}>Standard GST rate (%)</label>
+                <input type="number" min="0" max="40" step="0.5" className={inputClass} value={draft.standardGstRate} onChange={(e) => setField("shipping", { standardGstRate: e.target.value })} />
               </div>
-
-              {/* Informative Tax Split Preview */}
-              <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2">
-                <div className="flex items-center gap-2 text-emerald-900 font-semibold text-xs">
-                  <Info className="w-4 h-4 text-emerald-700" />
-                  <span>Indian GST Rule Computation Mode</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-emerald-800">
-                  <div className="p-3 bg-white/80 rounded-xl border border-emerald-100">
-                    <span className="font-bold block text-stone-900 mb-0.5">
-                      Intra-State Orders ({formData.shipping?.originState || "Karnataka"}):
-                    </span>
-                    <p className="text-[11px] text-stone-600">
-                      Split equally:{" "}
-                      <span className="font-semibold text-emerald-900">
-                        {((formData.tax?.standardGstRate ?? 12) / 2).toFixed(1)}% CGST +{" "}
-                        {((formData.tax?.standardGstRate ?? 12) / 2).toFixed(1)}% SGST
-                      </span>
-                    </p>
-                  </div>
-                  <div className="p-3 bg-white/80 rounded-xl border border-emerald-100">
-                    <span className="font-bold block text-stone-900 mb-0.5">
-                      Inter-State Orders (Outside {formData.shipping?.originState || "Karnataka"}):
-                    </span>
-                    <p className="text-[11px] text-stone-600">
-                      Levied wholly:{" "}
-                      <span className="font-semibold text-emerald-900">
-                        {(formData.tax?.standardGstRate ?? 12)}% IGST
-                      </span>
-                    </p>
-                  </div>
-                </div>
+              <div>
+                <label className={labelClass}>GSTIN</label>
+                <input maxLength={15} className={`${inputClass} font-mono uppercase`} value={draft.gstinNumber} onChange={(e) => setField("shipping", { gstinNumber: e.target.value.toUpperCase() })} placeholder="15-character GSTIN" />
               </div>
             </div>
           </AdminCard>
         </div>
       )}
 
-      {/* Tab: Payments */}
+      {/* ---------------------------------------------------------------- Payments */}
       {activeTab === "payments" && (
-        <AdminCard title="Payment Processing Channels" subtitle="Manage online gateways and cash collections">
+        <AdminCard title="Payment Processing Channels" subtitle="Which payment options customers see at checkout">
           <div className="space-y-4 max-w-2xl">
-            <div className="p-4 rounded-xl border border-stone-200 bg-stone-50/60 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-stone-900 text-sm">
-                    Razorpay & UPI Payments
-                  </h4>
-                  <p className="text-xs text-stone-500">
-                    Accept UPI (GPay, PhonePe, Paytm), NetBanking, and Debit/Credit cards.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={formData.payments?.razorpayEnabled ?? true}
-                  onChange={(e) =>
-                    handleNestedChange("payments", "razorpayEnabled", e.target.checked)
-                  }
-                  className="w-4 h-4 rounded border-stone-300 text-[#173D2A] focus:ring-[#173D2A]"
-                />
-              </div>
-            </div>
+            <Switch
+              checked={draft.enableOnlinePayments}
+              onChange={(v) => setField("payments", { enableOnlinePayments: v })}
+              label="Online payments (Cashfree)"
+              description="UPI, cards and NetBanking through Cashfree Payments."
+            />
+            <p className="flex items-start gap-2 text-[11px] text-stone-500 px-1">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
+              Cashfree account keys are kept in the server's secure configuration, not on this screen.
+            </p>
 
-            <div className="p-4 rounded-xl border border-stone-200 bg-stone-50/60 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-stone-900 text-sm">
-                    Cash on Delivery (COD)
-                  </h4>
-                  <p className="text-xs text-stone-500">
-                    Allow customers to pay with cash upon doorstep delivery.
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={formData.payments?.codEnabled ?? true}
-                  onChange={(e) =>
-                    handleNestedChange("payments", "codEnabled", e.target.checked)
-                  }
-                  className="w-4 h-4 rounded border-stone-300 text-[#173D2A] focus:ring-[#173D2A]"
-                />
-              </div>
+            <Switch
+              checked={draft.enableCashOnDelivery}
+              onChange={(v) => setField("payments", { enableCashOnDelivery: v })}
+              label="Cash on Delivery (COD)"
+              description="Let customers pay in cash or UPI when the parcel arrives."
+            />
+            <div className="max-w-xs">
+              <label className={labelClass}>Maximum COD order value (₹)</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                className={inputClass}
+                value={draft.maxCodLimit}
+                disabled={!draft.enableCashOnDelivery}
+                onChange={(e) => setField("payments", { maxCodLimit: e.target.value })}
+              />
+              <p className={hintClass}>Orders above this amount must be paid online. Enter 0 for no limit.</p>
             </div>
+            {!draft.enableOnlinePayments && !draft.enableCashOnDelivery && (
+              <p className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+                Keep at least one payment method on, or customers won't be able to check out.
+              </p>
+            )}
           </div>
         </AdminCard>
       )}
 
-      {/* Tab: Notifications */}
+      {/* ---------------------------------------------------------------- Notifications */}
       {activeTab === "notifications" && (
-        <AdminCard title="Automated Alerts & Communications" subtitle="Notification settings for customers and warehouse staff">
+        <AdminCard title="Automated Alerts & Communications" subtitle="Notification preferences for customers and warehouse staff">
           <div className="space-y-3 max-w-2xl">
+            <p className="flex items-start gap-2 p-3 rounded-xl bg-sky-50 border border-sky-200 text-xs text-sky-800">
+              <Info className="w-4 h-4 shrink-0 mt-px" />
+              Email and SMS sending isn't connected yet. Your choices are saved now and will take effect once a sending service is set up.
+            </p>
             {[
-              {
-                key: "orderConfirmation",
-                label: "Send Customer Email Order Confirmation",
-                desc: "Dispatches automated email invoice upon successful checkout.",
-              },
-              {
-                key: "dispatchSMS",
-                label: "Send Courier Dispatch SMS with Tracking Link",
-                desc: "Sends real-time SMS tracking updates through BlueDart/Delhivery API.",
-              },
-              {
-                key: "lowStockAlert",
-                label: "Send Warehouse Manager Low-Stock Email Alerts",
-                desc: "Sends daily digest when herbal products fall below reorder thresholds.",
-              },
+              { key: "emailOnNewOrder", label: "Email the customer an order confirmation", desc: "An email with the order summary after checkout." },
+              { key: "smsOnDispatch", label: "SMS the customer when the order is dispatched", desc: "A text message with the courier tracking link." },
+              { key: "lowStockAlerts", label: "Email low-stock alerts to the warehouse", desc: "A heads-up when products fall below their reorder level." },
+              { key: "dailySalesDigest", label: "Send a daily sales summary", desc: "A once-a-day recap of orders and revenue." },
             ].map((item) => (
-              <label
+              <Switch
                 key={item.key}
-                className="flex items-start justify-between p-3 rounded-xl border border-stone-200 hover:bg-stone-50 cursor-pointer transition-colors"
-              >
-                <div>
-                  <span className="font-semibold text-stone-900 text-xs block">
-                    {item.label}
-                  </span>
-                  <span className="text-xs text-stone-500">{item.desc}</span>
-                </div>
-                <input
-                  type="checkbox"
-                  defaultChecked={true}
-                  className="w-4 h-4 rounded border-stone-300 text-[#173D2A] focus:ring-[#173D2A] mt-1"
-                />
-              </label>
+                checked={draft[item.key]}
+                onChange={(v) => setField("notifications", { [item.key]: v })}
+                label={item.label}
+                description={item.desc}
+              />
             ))}
           </div>
         </AdminCard>
@@ -492,3 +493,10 @@ export const SettingsPage = () => {
   );
 };
 
+export const SettingsPage = () => {
+  const { isAdminLoading, hasAdminLoadError, retryAdminLoad } = useAdmin();
+  if (hasAdminLoadError("settings")) {
+    return <AdminLoadError what="the settings" onRetry={() => retryAdminLoad("settings")} />;
+  }
+  return isAdminLoading("settings") ? <DetailPageSkeleton label="Loading settings" /> : <SettingsPageForm />;
+};

@@ -6,6 +6,7 @@ import { shiprocket } from "../integrations/shiprocket/shiprocket.adapter.js";
 import { ORDER_STATUS } from "../constants/orderStatus.js";
 import { FULFILMENT_STATUS } from "../constants/paymentStatus.js";
 import { logAudit } from "./audit.service.js";
+import { settingsService } from "./settings.service.js";
 import { sha256 } from "../utils/crypto.js";
 import { ApiError } from "../utils/apiError.js";
 import { logger } from "../config/logger.js";
@@ -20,7 +21,7 @@ export class ShipmentService {
     }
 
     return shiprocket.checkServiceability({
-      pickupPincode: "560038", // Bengaluru dispensary
+      pickupPincode: (await settingsService.get()).shipping.originPincode, // dispatch PIN from Admin -> Settings
       deliveryPincode,
       cod,
       weightGrams,

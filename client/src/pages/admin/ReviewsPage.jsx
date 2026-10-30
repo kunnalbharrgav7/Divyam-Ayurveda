@@ -16,7 +16,7 @@ import { ConfirmDialog } from "../../components/admin/common/AdminModal";
 import { formatDate } from "../../utils/formatters";
 
 export const ReviewsPage = () => {
-  const { reviews, moderateReview, deleteReview, fetchAdminReviews } = useAdmin();
+  const { adminTableState, reviews, moderateReview, deleteReview, fetchAdminReviews } = useAdmin();
 
   // New customer reviews arrive at any time: load the latest list once when the page opens
   useEffect(() => {
@@ -273,6 +273,7 @@ export const ReviewsPage = () => {
         )}
 
         <AdminTable
+          {...adminTableState("reviews", filteredReviews)}
           columns={columns}
           data={filteredReviews}
           keyField="id"

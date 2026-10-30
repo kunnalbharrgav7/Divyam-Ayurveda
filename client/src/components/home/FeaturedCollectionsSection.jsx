@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { collectionService } from "../../services/api";
 import { ScrollReveal } from "../../animations/useScrollReveal";
 import { SpotlightCard } from "../reactbits/SpotlightCard";
+import { useNearViewport } from "../../hooks/useNearViewport";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -30,8 +31,10 @@ const cardVariants = {
 export const FeaturedCollectionsSection = () => {
   const [collectionsList, setCollectionsList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sectionRef, nearViewport] = useNearViewport();
 
   useEffect(() => {
+    if (!nearViewport) return undefined;
     let isMounted = true;
     const fetchCollections = async () => {
       try {
@@ -49,13 +52,13 @@ export const FeaturedCollectionsSection = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [nearViewport]);
 
   // Nothing curated in Admin → Collections yet: skip the section instead of showing an empty box
   if (!loading && collectionsList.length === 0) return null;
 
   return (
-    <section className="py-14 bg-white relative overflow-hidden">
+    <section ref={sectionRef} className="py-14 bg-white relative overflow-hidden">
       {/* Subtle organic ambient glow in background */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#A9D18E]/8 rounded-full blur-3xl pointer-events-none" />
 
@@ -77,7 +80,7 @@ export const FeaturedCollectionsSection = () => {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="aspect-4/5 rounded-2xl bg-stone-100 animate-pulse border border-stone-200" />
+              <div key={i} className="aspect-4/5 rounded-2xl bg-stone-100 motion-safe:animate-pulse border border-stone-200" />
             ))}
           </div>
         ) : collectionsList.length === 0 ? (

@@ -8,7 +8,7 @@ import { ROLE_DEFINITIONS } from "../../data/adminUsers";
 import { formatDate } from "../../utils/formatters";
 
 export const AdminUsersPage = () => {
-  const { adminUsers, saveAdminUser, deleteAdminUser } = useAdmin();
+  const { adminTableState, adminUsers, saveAdminUser, deleteAdminUser } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -169,6 +169,7 @@ export const AdminUsersPage = () => {
 
       <AdminCard noPadding={true}>
         <AdminTable
+          {...adminTableState("users", adminUsers)}
           columns={columns}
           data={adminUsers}
           keyField="id"

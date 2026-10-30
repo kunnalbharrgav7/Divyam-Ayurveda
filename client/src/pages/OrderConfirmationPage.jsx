@@ -16,6 +16,7 @@ import {
 import { load } from "@cashfreepayments/cashfree-js";
 import { useOrders } from "../context/OrderContext";
 import { formatINR, formatDate } from "../utils/formatters";
+import { Skeleton, SkeletonRegion } from "../components/common/Skeleton";
 
 export const OrderConfirmationPage = () => {
   const { orderId } = useParams();
@@ -109,9 +110,29 @@ export const OrderConfirmationPage = () => {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <div className="animate-spin w-8 h-8 border-4 border-[#173D2A] border-t-transparent rounded-full mx-auto mb-4" />
-        <p className="text-sm text-stone-500">Retrieving your order details...</p>
+      <div className="bg-[#FBFAF6] min-h-screen py-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <SkeletonRegion label="Retrieving your order details" className="space-y-6">
+            <div className="flex flex-col items-center gap-3 py-4">
+              <Skeleton className="h-16 w-16 rounded-full" />
+              <Skeleton className="h-8 w-72 max-w-full" />
+              <Skeleton className="h-4 w-96 max-w-full" />
+            </div>
+            <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 space-y-4">
+              <Skeleton className="h-5 w-40" />
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-16 w-16 rounded-xl shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/5" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                  <Skeleton className="h-5 w-16 shrink-0" />
+                </div>
+              ))}
+            </div>
+          </SkeletonRegion>
+        </div>
       </div>
     );
   }
@@ -303,7 +324,7 @@ export const OrderConfirmationPage = () => {
             {order.items?.map((item, idx) => (
               <div key={idx} className="py-3 flex items-center justify-between gap-4 text-xs sm:text-sm">
                 <div className="flex items-center gap-3">
-                  <img
+                  <img width={48} height={48} loading="lazy" decoding="async"
                     src={item.image}
                     alt={item.name}
                     className="w-12 h-12 rounded-xl object-contain bg-[#FBFAF6] border p-1"

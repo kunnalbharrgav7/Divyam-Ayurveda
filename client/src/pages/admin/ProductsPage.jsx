@@ -22,7 +22,7 @@ import { ProductQuickViewModal } from "../../components/admin/products/ProductQu
 import { formatCurrency } from "../../utils/formatters";
 
 export const ProductsPage = () => {
-  const {
+  const { adminTableState,
     products,
     categories,
     deleteProduct,
@@ -241,7 +241,7 @@ export const ProductsPage = () => {
             className="group relative w-11 h-11 rounded-lg overflow-hidden border border-stone-200 flex-shrink-0 cursor-pointer text-left"
             title="Click to view product details"
           >
-            <img
+            <img loading="lazy" decoding="async"
               src={row.image || (Array.isArray(row.images) ? row.images[0] : "") || "/images/ProductImages/Ashuwaganda.png"}
               alt={row.title || row.name || "Product"}
               className="w-full h-full object-cover transition-transform group-hover:scale-105"
@@ -567,6 +567,7 @@ export const ProductsPage = () => {
 
         {/* Data Table */}
         <AdminTable
+          {...adminTableState("products", paginatedData)}
           columns={columns}
           data={paginatedData}
           keyField="id"

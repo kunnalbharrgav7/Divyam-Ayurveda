@@ -15,14 +15,15 @@ import {
   Eye,
   CheckCircle2,
   XCircle,
-  TrendingUp,
   FileText,
 } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard, StatCard } from "../../components/admin/common/AdminCard";
+import { Skeleton, StatCardSkeleton, TableRowsSkeleton, ListRowsSkeleton } from "../../components/common/Skeleton";
 import { formatCurrency, formatDate } from "../../utils/formatters";
 import { useRevenueReport } from "../../hooks/useRevenueReport";
 import { RevenueFilters } from "../../components/admin/common/RevenueFilters";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
 const compactINR = (v) => (v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v >= 1000 ? `₹${(v / 1000).toFixed(1)}K` : `₹${Math.round(v)}`);
 const CATEGORY_COLORS = ["bg-[#173D2A]", "bg-[#386B40]", "bg-[#A9D18E]", "bg-amber-500", "bg-stone-400", "bg-sky-500"];
@@ -42,6 +43,12 @@ export const DashboardPage = () => {
   };
   const { report, error: reportError, days, setDays, basis, setBasis } = useRevenueReport({ months: 6 });
   const summary = report?.summary;
+  // Placeholders only for a first load that has no data yet; refreshes keep the numbers on screen
+  const isAdminLoading = adminContext?.isAdminLoading || (() => false);
+  const revenuePending = !summary && !reportError;
+  const failedKeys = ["orders", "products", "customers", "reviews"].filter((k) => adminContext?.hasAdminLoadError?.(k));
+  const retryFailed = () => failedKeys.forEach((k) => adminContext.retryAdminLoad(k));
+  const pendingFor = (key, list) => isAdminLoading(key) && (list || []).length === 0;
   const orders = adminContext?.orders || [];
   const products = adminContext?.products || [];
   const reviews = adminContext?.reviews || [];
@@ -117,82 +124,115 @@ export const DashboardPage = () => {
         </p>
         <RevenueFilters report={report} days={days} setDays={setDays} basis={basis} setBasis={setBasis} />
       </div>
+      {failedKeys.length > 0 && <AdminLoadError what={`some dashboard data (${failedKeys.join(", ")})`} onRetry={retryFailed} />}
       {reportError && <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-2.5">{reportError}</p>}
 
       {/* Top 8 KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Net Revenue"
-          value={formatCurrency(summary?.netRevenue ?? 0)}
-          {...growthProps(summary?.netGrowthPercent)}
-          subtitle={
-            summary
-              ? `${formatCurrency(summary.grossRevenue)} received − ${formatCurrency(summary.refunds)} refunded${days === "all" ? "" : " · vs previous period"}`
-              : "loading…"
-          }
-          icon={IndianRupee}
-          color="emerald"
-        />
+        {revenuePending ? (
+          <StatCardSkeleton />
+        ) : (
+          <StatCard
+            title="Net Revenue"
+            value={formatCurrency(summary?.netRevenue ?? 0)}
+            {...growthProps(summary?.netGrowthPercent)}
+            subtitle={
+              summary
+                ? `${formatCurrency(summary.grossRevenue)} received − ${formatCurrency(summary.refunds)} refunded${days === "all" ? "" : " · vs previous period"}`
+                : "loading…"
+            }
+            icon={IndianRupee}
+            color="emerald"
+          />
+        )}
 
-        <StatCard
-          title="Total Customer Orders"
-          value={summary?.orders ?? 0}
-          {...growthProps(summary?.ordersGrowthPercent)}
-          subtitle={summary ? `paid orders · ${summary.pendingOrders} awaiting payment (${formatCurrency(summary.pendingCollection)})` : "loading…"}
-          icon={ShoppingBag}
-          color="blue"
-        />
+        {revenuePending ? (
+          <StatCardSkeleton />
+        ) : (
+          <StatCard
+            title="Total Customer Orders"
+            value={summary?.orders ?? 0}
+            {...growthProps(summary?.ordersGrowthPercent)}
+            subtitle={summary ? `paid orders · ${summary.pendingOrders} awaiting payment (${formatCurrency(summary.pendingCollection)})` : "loading…"}
+            icon={ShoppingBag}
+            color="blue"
+          />
+        )}
 
-        <StatCard
-          title="Registered Customers"
-          value={kpis.totalCustomers}
-          subtitle="customer accounts"
-          icon={Users}
-          color="stone"
-        />
+        {pendingFor("customers", adminContext?.customers) ? (
+          <StatCardSkeleton />
+        ) : (
+          <StatCard
+            title="Registered Customers"
+            value={kpis.totalCustomers}
+            subtitle="customer accounts"
+            icon={Users}
+            color="stone"
+          />
+        )}
 
-        <StatCard
-          title="Active Products in Catalog"
-          value={kpis.totalProducts}
-          subtitle="herbal SKUs published"
-          icon={Package}
-          color="stone"
-        />
+        {pendingFor("products", products) ? (
+          <StatCardSkeleton />
+        ) : (
+          <StatCard
+            title="Active Products in Catalog"
+            value={kpis.totalProducts}
+            subtitle="herbal SKUs published"
+            icon={Package}
+            color="stone"
+          />
+        )}
 
-        <StatCard
-          title="Pending Fulfillment"
-          value={kpis.pendingOrders}
-          badgeText="Requires Action"
-          subtitle="unfulfilled orders"
-          icon={Clock}
-          color={kpis.pendingOrders > 0 ? "amber" : "stone"}
-        />
+        {pendingFor("orders", orders) ? (
+          <StatCardSkeleton />
+        ) : (
+          <StatCard
+            title="Pending Fulfillment"
+            value={kpis.pendingOrders}
+            badgeText="Requires Action"
+            subtitle="unfulfilled orders"
+            icon={Clock}
+            color={kpis.pendingOrders > 0 ? "amber" : "stone"}
+          />
+        )}
 
-        <StatCard
-          title="Low Stock Inventory"
-          value={kpis.lowStockCount}
-          badgeText={kpis.lowStockCount > 0 ? "Restock Needed" : "Healthy"}
-          subtitle="SKUs ≤ safety threshold"
-          icon={AlertTriangle}
-          color={kpis.lowStockCount > 0 ? "rose" : "emerald"}
-        />
+        {pendingFor("products", products) ? (
+          <StatCardSkeleton />
+        ) : (
+          <StatCard
+            title="Low Stock Inventory"
+            value={kpis.lowStockCount}
+            badgeText={kpis.lowStockCount > 0 ? "Restock Needed" : "Healthy"}
+            subtitle="SKUs ≤ safety threshold"
+            icon={AlertTriangle}
+            color={kpis.lowStockCount > 0 ? "rose" : "emerald"}
+          />
+        )}
 
-        <StatCard
-          title="Pending Reviews"
-          value={kpis.pendingReviews}
-          badgeText="Moderation"
-          subtitle="new customer ratings"
-          icon={Star}
-          color="amber"
-        />
+        {pendingFor("reviews", reviews) ? (
+          <StatCardSkeleton />
+        ) : (
+          <StatCard
+            title="Pending Reviews"
+            value={kpis.pendingReviews}
+            badgeText="Moderation"
+            subtitle="new customer ratings"
+            icon={Star}
+            color="amber"
+          />
+        )}
 
-        <StatCard
-          title="Open Support Requests"
-          value={kpis.openTickets}
-          subtitle="tickets & enquiries"
-          icon={LifeBuoy}
-          color="stone"
-        />
+        {pendingFor("supportTickets", adminContext?.supportTickets) || pendingFor("enquiries", adminContext?.enquiries) ? (
+          <StatCardSkeleton />
+        ) : (
+          <StatCard
+            title="Open Support Requests"
+            value={kpis.openTickets}
+            subtitle="tickets & enquiries"
+            icon={LifeBuoy}
+            color="stone"
+          />
+        )}
       </div>
 
       {/* Interactive Visual Analytics Charts (SVG) */}
@@ -215,7 +255,9 @@ export const DashboardPage = () => {
             {/* SVG Visual Area Chart */}
             <div className="pt-2">
               <div className="h-64 w-full flex flex-col justify-between">
-                {(() => {
+                {revenuePending ? (
+                  <Skeleton className="h-48 w-full rounded-xl" />
+                ) : (() => {
                   const trend = report?.trend || [];
                   const max = Math.max(1, ...trend.map((t) => t.net));
                   const pts = trend.map((t, i) => ({
@@ -335,7 +377,9 @@ export const DashboardPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
-                  {recentOrders.map((ord) => (
+                  {pendingFor("orders", orders) ? (
+                    <TableRowsSkeleton columns={6} rows={5} />
+                  ) : recentOrders.map((ord) => (
                     <tr
                       key={ord.id}
                       className="hover:bg-stone-50/60 transition-colors"
@@ -409,7 +453,9 @@ export const DashboardPage = () => {
               </Link>
             }
           >
-            {lowStockProducts.length === 0 ? (
+            {pendingFor("products", products) ? (
+              <ListRowsSkeleton rows={3} label="Loading inventory alerts" />
+            ) : lowStockProducts.length === 0 ? (
               <div className="py-8 text-center text-xs text-stone-400">
                 All inventory levels are currently above minimum safety
                 thresholds.
@@ -422,7 +468,7 @@ export const DashboardPage = () => {
                     className="flex items-center justify-between p-2.5 rounded-xl border border-stone-100 bg-stone-50/50 hover:bg-stone-100/60 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <img
+                      <img width={40} height={40} loading="lazy" decoding="async"
                         src={
                           p.image ||
                           (Array.isArray(p.images) ? p.images[0] : "") ||
@@ -488,7 +534,9 @@ export const DashboardPage = () => {
               </Link>
             }
           >
-            {pendingReviews.length === 0 ? (
+            {pendingFor("reviews", reviews) ? (
+              <ListRowsSkeleton rows={3} label="Loading reviews" />
+            ) : pendingReviews.length === 0 ? (
               <div className="py-6 text-center text-xs text-stone-400">
                 No customer reviews pending moderation. All reviews are up to
                 date!
@@ -559,16 +607,6 @@ export const DashboardPage = () => {
                 <Package className="w-5 h-5 mx-auto mb-1 text-stone-600 group-hover:text-emerald-800" />
                 <span className="text-xs font-semibold text-stone-800 block">
                   Add Product
-                </span>
-              </Link>
-
-              <Link
-                to="/admin/homepage-builder"
-                className="p-3 rounded-xl border border-stone-200 hover:border-emerald-600 hover:bg-emerald-50/40 transition-all text-center group"
-              >
-                <TrendingUp className="w-5 h-5 mx-auto mb-1 text-stone-600 group-hover:text-emerald-800" />
-                <span className="text-xs font-semibold text-stone-800 block">
-                  Homepage Builder
                 </span>
               </Link>
 

@@ -40,6 +40,25 @@ export const formatDate = (dateString) => {
 };
 
 /**
+ * Date and time in the viewer's own time zone, e.g. "24 Oct 2026, 11:52:05 am".
+ * Returns "—" for a missing or unparseable value instead of "Invalid Date".
+ */
+export const formatDateTime = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(date);
+};
+
+/**
  * Truncate text with ellipsis
  */
 export const truncateText = (text, maxLength = 100) => {

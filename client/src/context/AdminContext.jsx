@@ -1,15 +1,30 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { storage } from "../utils/storage";
 import { compactProduct } from "../utils/productSnapshot";
 import { getStatusLabel } from "../utils/orderStatus";
 import { ROLE_DEFINITIONS } from "../data/adminUsers";
 import { apiUrl } from "../config/api";
+import { invalidateCache } from "../services/requestCache";
+import { refreshStoreSettings } from "../hooks/useStoreSettings";
 import {
-  initialHomepageContent,
   initialStoreSettings,
 } from "../data/storeSettings";
 
 const AdminContext = createContext();
+
+// Drops the storefront's cached copy of a list when an admin changes it. Skips the first run:
+// that is just the initial mount, and invalidating then would discard a request a child component
+// has already started.
+const useInvalidateOnChange = (value, cachePrefix) => {
+  const isFirstRun = useRef(true);
+  useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+    invalidateCache(cachePrefix);
+  }, [value, cachePrefix]);
+};
 
 // Storage keys for persistence
 export const STORAGE_KEYS = {
@@ -27,7 +42,6 @@ export const STORAGE_KEYS = {
   ENQUIRIES: "divyam_ayurveda_enquiries",
   SUBSCRIBERS: "divyam_ayurveda_subscribers",
   ADMIN_USERS: "divyam_ayurveda_admin_users",
-  HOMEPAGE: "divyam_ayurveda_homepage",
   SETTINGS: "divyam_ayurveda_settings",
   AUDIT: "divyam_ayurveda_audit",
   RETURNS: "divyam_ayurveda_returns",
@@ -276,7 +290,7 @@ export const AdminProvider = ({ children }) => {
     return (raw || []).map(normalizeProduct).filter(Boolean).map(compactProduct);
   });
   useEffect(() => {
-    storage.set(STORAGE_KEYS.PRODUCTS, products);
+    storage.setDebounced(STORAGE_KEYS.PRODUCTS, products);
   }, [products]);
 
   // 2. Categories
@@ -284,15 +298,16 @@ export const AdminProvider = ({ children }) => {
     storage.get(STORAGE_KEYS.CATEGORIES, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.CATEGORIES, categories);
+    storage.setDebounced(STORAGE_KEYS.CATEGORIES, categories);
   }, [categories]);
+  useInvalidateOnChange(categories, "categories");
 
   // 3. Brands
   const [brands, setBrands] = useState(() =>
     storage.get(STORAGE_KEYS.BRANDS, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.BRANDS, brands);
+    storage.setDebounced(STORAGE_KEYS.BRANDS, brands);
   }, [brands]);
 
   // 4. Collections
@@ -300,8 +315,9 @@ export const AdminProvider = ({ children }) => {
     storage.get(STORAGE_KEYS.COLLECTIONS, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.COLLECTIONS, collections);
+    storage.setDebounced(STORAGE_KEYS.COLLECTIONS, collections);
   }, [collections]);
+  useInvalidateOnChange(collections, "collections");
 
   // 5. Orders (Synced with backend MongoDB API and browser storage)
   const [orders, setOrders] = useState(() => {
@@ -309,7 +325,7 @@ export const AdminProvider = ({ children }) => {
     return deduplicateOrders(raw || []);
   });
   useEffect(() => {
-    storage.set(STORAGE_KEYS.ORDERS, orders);
+    storage.setDebounced(STORAGE_KEYS.ORDERS, orders);
   }, [orders]);
 
   // 6. Customers
@@ -317,7 +333,7 @@ export const AdminProvider = ({ children }) => {
     storage.get(STORAGE_KEYS.CUSTOMERS, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.CUSTOMERS, customers);
+    storage.setDebounced(STORAGE_KEYS.CUSTOMERS, customers);
   }, [customers]);
 
   // 7. Reviews
@@ -326,7 +342,7 @@ export const AdminProvider = ({ children }) => {
     return (raw || []).map(normalizeReview).filter(Boolean);
   });
   useEffect(() => {
-    storage.set(STORAGE_KEYS.REVIEWS, reviews);
+    storage.setDebounced(STORAGE_KEYS.REVIEWS, reviews);
   }, [reviews]);
 
   // 8. Coupons
@@ -334,7 +350,7 @@ export const AdminProvider = ({ children }) => {
     storage.get(STORAGE_KEYS.COUPONS, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.COUPONS, coupons);
+    storage.setDebounced(STORAGE_KEYS.COUPONS, coupons);
   }, [coupons]);
 
   // 9. Blog posts
@@ -342,7 +358,7 @@ export const AdminProvider = ({ children }) => {
     storage.get(STORAGE_KEYS.BLOG, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.BLOG, blogPosts);
+    storage.setDebounced(STORAGE_KEYS.BLOG, blogPosts);
   }, [blogPosts]);
 
   // 10. Ingredients
@@ -350,15 +366,16 @@ export const AdminProvider = ({ children }) => {
     storage.get(STORAGE_KEYS.INGREDIENTS, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.INGREDIENTS, ingredients);
+    storage.setDebounced(STORAGE_KEYS.INGREDIENTS, ingredients);
   }, [ingredients]);
+  useInvalidateOnChange(ingredients, "ingredients");
 
   // 11. Support Tickets
   const [supportTickets, setSupportTickets] = useState(() =>
     storage.get(STORAGE_KEYS.SUPPORT, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.SUPPORT, supportTickets);
+    storage.setDebounced(STORAGE_KEYS.SUPPORT, supportTickets);
   }, [supportTickets]);
 
   // 12. Contact Enquiries
@@ -366,7 +383,7 @@ export const AdminProvider = ({ children }) => {
     storage.get(STORAGE_KEYS.ENQUIRIES, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.ENQUIRIES, contactEnquiries);
+    storage.setDebounced(STORAGE_KEYS.ENQUIRIES, contactEnquiries);
   }, [contactEnquiries]);
 
   // 13. Subscribers
@@ -374,7 +391,7 @@ export const AdminProvider = ({ children }) => {
     storage.get(STORAGE_KEYS.SUBSCRIBERS, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.SUBSCRIBERS, subscribers);
+    storage.setDebounced(STORAGE_KEYS.SUBSCRIBERS, subscribers);
   }, [subscribers]);
 
   // 14. Admin Users
@@ -382,23 +399,15 @@ export const AdminProvider = ({ children }) => {
     storage.get(STORAGE_KEYS.ADMIN_USERS, [])
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.ADMIN_USERS, adminUsers);
+    storage.setDebounced(STORAGE_KEYS.ADMIN_USERS, adminUsers);
   }, [adminUsers]);
-
-  // 15. Homepage Content
-  const [homepageContent, setHomepageContent] = useState(() =>
-    storage.get(STORAGE_KEYS.HOMEPAGE, initialHomepageContent)
-  );
-  useEffect(() => {
-    storage.set(STORAGE_KEYS.HOMEPAGE, homepageContent);
-  }, [homepageContent]);
 
   // 16. Store Settings
   const [storeSettings, setStoreSettings] = useState(() =>
     storage.get(STORAGE_KEYS.SETTINGS, initialStoreSettings)
   );
   useEffect(() => {
-    storage.set(STORAGE_KEYS.SETTINGS, storeSettings);
+    storage.setDebounced(STORAGE_KEYS.SETTINGS, storeSettings);
   }, [storeSettings]);
 
   // 17. Audit Logs
@@ -443,6 +452,10 @@ export const AdminProvider = ({ children }) => {
     }
     return { headers, token, isStaff, adminUser };
   };
+
+  // Resources whose last load attempt failed (network error or non-OK response)
+  const failedAdminLoadsRef = useRef(new Set());
+  const markAdminLoadFailed = (key) => failedAdminLoadsRef.current.add(key);
 
   const adminApiFetch = async (url, options = {}) => {
     const { headers: authHeaders, token: initialToken, adminUser: initialAdminUser } = getAdminAuth();
@@ -513,7 +526,9 @@ export const AdminProvider = ({ children }) => {
         storage.set(STORAGE_KEYS.ORDERS, backendOrders);
         return backendOrders;
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("orders");
+    }
   };
 
   const fetchAdminProducts = async () => {
@@ -525,7 +540,9 @@ export const AdminProvider = ({ children }) => {
         storage.set(STORAGE_KEYS.PRODUCTS, formatted);
         return formatted;
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("products");
+    }
   };
 
   const fetchAdminCategories = async () => {
@@ -536,6 +553,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("categories");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -543,7 +561,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.CATEGORIES, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("categories");
+    }
   };
 
   const fetchAdminBrands = async () => {
@@ -554,6 +574,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("brands");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -561,7 +582,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.BRANDS, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("brands");
+    }
   };
 
   const fetchAdminCollections = async () => {
@@ -572,6 +595,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("collections");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -579,12 +603,15 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.COLLECTIONS, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("collections");
+    }
   };
 
   const fetchAdminIngredients = async () => {
     try {
       const res = await fetch("/api/v1/ingredients");
+      if (!res.ok) markAdminLoadFailed("ingredients");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -592,7 +619,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.INGREDIENTS, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("ingredients");
+    }
   };
 
   const fetchAdminCoupons = async () => {
@@ -603,6 +632,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("coupons");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -610,7 +640,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.COUPONS, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("coupons");
+    }
   };
 
   const fetchAdminBlogPosts = async () => {
@@ -621,6 +653,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("blog");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -647,7 +680,9 @@ export const AdminProvider = ({ children }) => {
                     backendPosts = [saveJson.data, ...backendPosts];
                   }
                 }
-              } catch (_) {}
+              } catch (_) {
+      markAdminLoadFailed("blog");
+    }
             }
           }
 
@@ -669,6 +704,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("reviews");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -677,7 +713,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.REVIEWS, formatted);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("reviews");
+    }
   };
 
   const fetchAdminCustomers = async () => {
@@ -688,6 +726,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("customers");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -695,7 +734,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.CUSTOMERS, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("customers");
+    }
   };
 
   const fetchAdminEnquiries = async () => {
@@ -706,6 +747,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("enquiries");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -713,7 +755,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.ENQUIRIES, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("enquiries");
+    }
   };
 
   const fetchAdminSupportTickets = async () => {
@@ -724,6 +768,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("supportTickets");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -731,7 +776,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.SUPPORT, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("supportTickets");
+    }
   };
 
   const fetchAdminSubscribers = async () => {
@@ -742,6 +789,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("subscribers");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -749,7 +797,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.SUBSCRIBERS, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("subscribers");
+    }
   };
 
   const fetchAdminUsers = async () => {
@@ -760,6 +810,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("users");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -767,7 +818,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.ADMIN_USERS, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("users");
+    }
   };
 
   const fetchAdminAuditLogs = async () => {
@@ -778,31 +831,16 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("auditLogs");
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setAuditLogs(json.data);
         }
       }
-    } catch (_) {}
-  };
-
-  const fetchAdminHomepage = async () => {
-    try {
-      const { headers, isStaff } = getAdminAuth();
-      if (!isStaff) return;
-      const res = await fetch("/api/v1/admin/homepage", {
-        headers,
-        credentials: "include",
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          setHomepageContent(json.data);
-          storage.set(STORAGE_KEYS.HOMEPAGE, json.data);
-        }
-      }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("auditLogs");
+    }
   };
 
   const fetchAdminSettings = async () => {
@@ -813,6 +851,7 @@ export const AdminProvider = ({ children }) => {
         headers,
         credentials: "include",
       });
+      if (!res.ok) markAdminLoadFailed("settings");
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -820,7 +859,9 @@ export const AdminProvider = ({ children }) => {
           storage.set(STORAGE_KEYS.SETTINGS, json.data);
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("settings");
+    }
   };
 
   const fetchAdminReturns = async () => {
@@ -829,7 +870,9 @@ export const AdminProvider = ({ children }) => {
       if (!isStaff) return;
       const json = await adminApiFetch("/api/v1/admin/returns");
       if (json?.success && Array.isArray(json.data)) setReturns(json.data);
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("returns");
+    }
   };
 
   // One call per workflow step; the server returns the updated request, which replaces the row in place.
@@ -863,7 +906,9 @@ export const AdminProvider = ({ children }) => {
       ]);
       if (overview?.data) setReferralsData(overview.data);
       if (settings?.data) setReferralSettings(settings.data);
-    } catch (_) {}
+    } catch (_) {
+      markAdminLoadFailed("referrals");
+    }
   };
 
   // Saved to the database; throws on failure so the page never reports a save that didn't happen
@@ -898,30 +943,80 @@ export const AdminProvider = ({ children }) => {
     URL.revokeObjectURL(url);
   };
 
-  useEffect(() => {
-    // Trigger background admin fetches if user is logged in as staff/admin
-    const { isStaff } = getAdminAuth();
-    if (isStaff) {
-      fetchAdminOrders();
-      fetchAdminProducts();
-      fetchAdminCategories();
-      fetchAdminBrands();
-      fetchAdminCollections();
-      fetchAdminIngredients();
-      fetchAdminCoupons();
-      fetchAdminReviews();
-      fetchAdminCustomers();
-      fetchAdminEnquiries();
-      fetchAdminSupportTickets();
-      fetchAdminSubscribers();
-      fetchAdminUsers();
-      fetchAdminAuditLogs();
-      fetchAdminHomepage();
-      fetchAdminSettings();
-      fetchAdminReturns();
-      fetchAdminReferrals();
-      fetchAdminBlogPosts();
+  // Admin data is loaded on demand: the storefront only needs store settings and orders for a
+  // signed-in staff member, and AdminLayout calls loadAdminData() for everything else.
+  // Each resource is requested once per sign-in; adminStatus tracks that first load only, so later
+  // refreshes never turn a populated table back into a skeleton.
+  const fetchersRef = useRef({});
+  fetchersRef.current = {
+    settings: fetchAdminSettings,
+    orders: fetchAdminOrders,
+    products: fetchAdminProducts,
+    categories: fetchAdminCategories,
+    brands: fetchAdminBrands,
+    collections: fetchAdminCollections,
+    ingredients: fetchAdminIngredients,
+    coupons: fetchAdminCoupons,
+    reviews: fetchAdminReviews,
+    customers: fetchAdminCustomers,
+    enquiries: fetchAdminEnquiries,
+    supportTickets: fetchAdminSupportTickets,
+    subscribers: fetchAdminSubscribers,
+    users: fetchAdminUsers,
+    auditLogs: fetchAdminAuditLogs,
+    returns: fetchAdminReturns,
+    referrals: fetchAdminReferrals,
+    blog: fetchAdminBlogPosts,
+  };
+  const startedRef = useRef({ token: null, keys: new Set() });
+  const [adminStatus, setAdminStatus] = useState({});
+
+  const loadAdminData = useCallback((only) => {
+    const { isStaff, token } = getAdminAuth();
+    if (!isStaff) return;
+    const started = startedRef.current;
+    if (started.token !== token) {
+      started.token = token;
+      started.keys = new Set();
     }
+    for (const [key, fetcher] of Object.entries(fetchersRef.current)) {
+      if (only && !only.includes(key)) continue;
+      if (started.keys.has(key)) continue;
+      started.keys.add(key);
+      failedAdminLoadsRef.current.delete(key);
+      setAdminStatus((prev) => ({ ...prev, [key]: "loading" }));
+      Promise.resolve()
+        .then(fetcher)
+        .catch(() => markAdminLoadFailed(key))
+        .finally(() =>
+          setAdminStatus((prev) => ({
+            ...prev,
+            [key]: failedAdminLoadsRef.current.has(key) ? "error" : "ready",
+          }))
+        );
+    }
+  }, []);
+
+  // True until a resource's first request has settled (also before it has been requested at all)
+  const isAdminLoading = (key) => adminStatus[key] === undefined || adminStatus[key] === "loading";
+
+  // True when the first load failed; cleared by retryAdminLoad
+  const hasAdminLoadError = (key) => adminStatus[key] === "error";
+
+  const retryAdminLoad = (key) => {
+    startedRef.current.keys.delete(key);
+    loadAdminData([key]);
+  };
+
+  // Everything a list page needs to render loading / error states for a resource while `list` is empty
+  const adminTableState = (key, list) => ({
+    isLoading: isAdminLoading(key) && (list || []).length === 0,
+    error: hasAdminLoadError(key) && (list || []).length === 0,
+    onRetry: () => retryAdminLoad(key),
+  });
+
+  useEffect(() => {
+    loadAdminData(["settings", "orders"]);
 
     const handleOrderCreated = (e) => {
       if (e.detail) {
@@ -954,17 +1049,9 @@ export const AdminProvider = ({ children }) => {
     };
   }, []);
 
-  const logAction = (action, module, details) => {
-    const newLog = {
-      id: `log-${Date.now()}`,
-      action,
-      module,
-      performedBy: "Divyam Store Administrator",
-      timestamp: new Date().toISOString(),
-      details,
-    };
-    setAuditLogs((prev) => [newLog, ...prev.slice(0, 99)]);
-  };
+  // The audit trail is written by the server (who, what, when, from where) for every admin change and
+  // read back from /admin/audit-logs, so nothing is recorded in the browser.
+  const logAction = () => {};
 
   // ================= PRODUCTS CRUD =================
   const addProduct = async (productData) => {
@@ -1554,25 +1641,6 @@ export const AdminProvider = ({ children }) => {
     logAction("Deleted Coupon", "Sales", `Removed coupon: ${id}`);
   };
 
-  // ================= HOMEPAGE & CONTENT BUILDER =================
-  const updateHomepageBuilder = (newContent) => {
-    const updated = { ...homepageContent, ...newContent };
-    setHomepageContent(updated);
-    logAction("Updated Homepage Builder", "Storefront", "Updated hero and section display parameters.");
-
-    try {
-      const { headers, isStaff } = getAdminAuth();
-      if (isStaff) {
-        fetch("/api/v1/admin/homepage", {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify(updated),
-          credentials: "include",
-        }).catch((err) => console.warn("Admin update homepage backend sync warning:", err));
-      }
-    } catch (_) {}
-  };
-
   const addBlogPost = async (postData) => {
     const json = await adminApiFetch("/api/v1/admin/blog", {
       method: "POST",
@@ -1654,30 +1722,6 @@ export const AdminProvider = ({ children }) => {
   };
 
   // ================= SETTINGS =================
-  const updateSettings = (section, values) => {
-    const updated = {
-      ...storeSettings,
-      [section]: {
-        ...storeSettings[section],
-        ...values,
-      },
-    };
-    setStoreSettings(updated);
-    logAction("Updated Settings", "Configuration", `Modified ${section} parameters.`);
-
-    try {
-      const { headers, isStaff } = getAdminAuth();
-      if (isStaff) {
-        fetch("/api/v1/admin/settings", {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify(updated),
-          credentials: "include",
-        }).catch((err) => console.warn("Admin update settings backend sync warning:", err));
-      }
-    } catch (_) {}
-  };
-
   // ================= RESET / CLEAN LOCAL STORAGE =================
   const resetDemoData = () => {
     setProducts([]);
@@ -1730,7 +1774,6 @@ export const AdminProvider = ({ children }) => {
       fetchAdminSubscribers();
       fetchAdminUsers();
       fetchAdminAuditLogs();
-      fetchAdminHomepage();
       fetchAdminSettings();
       fetchAdminBlogPosts();
     }
@@ -1878,14 +1921,17 @@ export const AdminProvider = ({ children }) => {
     }
   };
 
-  const saveStoreSettings = (newSettings) => {
-    setStoreSettings(newSettings);
-    logAction("Updated Settings", "Configuration", "Updated global store configuration.");
-  };
-
-  const saveHomepageContent = (newContent) => {
-    setHomepageContent(newContent);
-    logAction("Updated Homepage", "Storefront", "Updated storefront layout and hero parameters.");
+  // Saved to the database. Resolves with the settings as the server stored them; throws the server's
+  // message if it rejects a value, so the page never reports a save that didn't happen.
+  const saveStoreSettings = async (patch) => {
+    const json = await adminApiFetch("/api/v1/admin/settings", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    setStoreSettings(json.data);
+    storage.set(STORAGE_KEYS.SETTINGS, json.data);
+    refreshStoreSettings(); // storefront pages show the change right away
+    return json.data;
   };
 
   const deleteSubscriber = (id) => {
@@ -1912,7 +1958,6 @@ export const AdminProvider = ({ children }) => {
         subscribers,
         adminUsers,
         roles: ROLE_DEFINITIONS,
-        homepageContent,
         storeSettings,
         auditLogs,
         returns,
@@ -1993,8 +2038,12 @@ export const AdminProvider = ({ children }) => {
         fetchAdminSubscribers,
         fetchAdminUsers,
         fetchAdminAuditLogs,
-        fetchAdminHomepage,
         fetchAdminSettings,
+        loadAdminData,
+        isAdminLoading,
+        hasAdminLoadError,
+        retryAdminLoad,
+        adminTableState,
 
         updateOrderStatus,
         updatePaymentStatus,
@@ -2021,8 +2070,6 @@ export const AdminProvider = ({ children }) => {
         toggleCouponStatus,
         deleteCoupon,
 
-        updateHomepageBuilder,
-        saveHomepageContent,
         fetchAdminBlogPosts,
         addBlogPost,
         updateBlogPost,
@@ -2038,7 +2085,6 @@ export const AdminProvider = ({ children }) => {
         saveAdminUser,
         deleteAdminUser,
 
-        updateSettings,
         saveStoreSettings,
         resetDemoData,
         logAction,

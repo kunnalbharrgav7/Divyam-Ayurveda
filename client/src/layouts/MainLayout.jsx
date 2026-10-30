@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AnnouncementBar } from "../components/layout/AnnouncementBar";
 import { Header } from "../components/layout/Header";
@@ -6,6 +6,7 @@ import { CategoryNav } from "../components/layout/CategoryNav";
 import { Footer } from "../components/layout/Footer";
 import { ReferralBanner } from "../components/referrals/ReferralBanner";
 import { useHeroNav } from "../context/HeroNavContext";
+import { PageSkeleton } from "../components/common/Skeleton";
 
 export const MainLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -27,7 +28,9 @@ export const MainLayout = () => {
           onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
         />
         <main className="flex-1">
-          <Outlet />
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
         <ReferralBanner />
         <Footer />
@@ -78,7 +81,9 @@ export const MainLayout = () => {
 
       {/* Page Content */}
       <main className="flex-1">
-        <Outlet />
+        <Suspense fallback={<PageSkeleton />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* Floating Referral Attributed Banner */}

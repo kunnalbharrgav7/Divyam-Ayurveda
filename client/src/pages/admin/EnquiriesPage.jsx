@@ -7,7 +7,7 @@ import { AdminModal } from "../../components/admin/common/AdminModal";
 import { formatDate } from "../../utils/formatters";
 
 export const EnquiriesPage = () => {
-  const { enquiries, updateEnquiryStatus } = useAdmin();
+  const { adminTableState, enquiries, updateEnquiryStatus } = useAdmin();
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
   const [replyText, setReplyText] = useState("");
   const [replyModalOpen, setReplyModalOpen] = useState(false);
@@ -102,6 +102,7 @@ export const EnquiriesPage = () => {
 
       <AdminCard noPadding={true}>
         <AdminTable
+          {...adminTableState("enquiries", enquiries)}
           columns={columns}
           data={enquiries}
           keyField="id"

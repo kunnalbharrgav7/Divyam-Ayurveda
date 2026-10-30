@@ -38,7 +38,7 @@ export const AboutPage = () => {
             </div>
 
             <div className="absolute right-0 bottom-0 top-0 w-1/2 opacity-20 pointer-events-none hidden sm:block">
-              <img
+              <img loading="lazy" decoding="async"
                 src="https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=1200&q=80"
                 alt="Ayurvedic herbs"
                 className="w-full h-full object-cover"

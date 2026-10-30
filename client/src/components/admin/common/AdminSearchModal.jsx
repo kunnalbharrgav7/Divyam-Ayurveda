@@ -123,7 +123,7 @@ export const AdminSearchModal = ({ isOpen, onClose }) => {
                   className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-emerald-50/60 cursor-pointer text-stone-800 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
-                    <img
+                    <img width={36} height={36} loading="lazy" decoding="async"
                       src={p.image || (Array.isArray(p.images) ? p.images[0] : "") || "/images/ProductImages/Ashuwaganda.png"}
                       alt={p.title || p.name || "Product"}
                       className="w-9 h-9 rounded object-cover border border-stone-200"

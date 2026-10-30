@@ -5,6 +5,7 @@
 
 import { storage } from "../utils/storage";
 import { apiUrl } from "../config/api";
+import { cached } from "./requestCache";
 
 export const normalizeProductImages = (p) => {
   if (!p) return p;
@@ -17,6 +18,23 @@ export const normalizeProductImages = (p) => {
   const image = fixUrl(p.image) || images[0] || "/images/ProductImages/Ashuwaganda.png";
   return { ...p, image, images };
 };
+
+// Read-only list endpoints that several components request at once share a single cached call
+const cachedList = (key, url, fallback) =>
+  cached(key, async () => {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          return { value: normalizeProductImages(json.data), cacheable: true };
+        }
+      }
+    } catch (e) {
+      console.warn(`Could not fetch ${url} from backend:`, e.message);
+    }
+    return { value: fallback(), cacheable: false };
+  });
 
 const PRODUCTS_KEY = "divyam_ayurveda_products";
 const CATEGORIES_KEY = "divyam_ayurveda_categories";
@@ -188,6 +206,8 @@ export const productService = {
       page,
       totalPages: Math.ceil(total / limit),
       hasMore: startIndex + limit < total,
+      // The API gave no usable answer, so this is the offline fallback (lets pages tell "failed" from "no results")
+      backendUnavailable: true,
     };
   },
 
@@ -195,21 +215,33 @@ export const productService = {
    * Get single product by slug
    */
   async getProductBySlug(slug) {
-    if (!slug) return null;
+    return (await productService.lookupProductBySlug(slug)).product;
+  },
+
+  /**
+   * Like getProductBySlug, but also reports whether the API failed to answer, so a page can show
+   * "couldn't load" instead of "not found". `backendUnavailable` is true when the product (if any)
+   * came from the offline fallback or the request failed.
+   */
+  async lookupProductBySlug(slug) {
+    if (!slug) return { product: null, backendUnavailable: false };
+    let backendUnavailable = true;
     try {
       const res = await fetch(`/api/v1/products/${encodeURIComponent(slug)}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
-          return normalizeProductImages(json.data);
+          return { product: normalizeProductImages(json.data), backendUnavailable: false };
         }
       }
+      // A 404 is a real answer ("no such product"), not an outage
+      if (res.status === 404) backendUnavailable = false;
     } catch (e) {
       console.warn("Could not fetch product by slug from backend:", e.message);
     }
     const list = getLiveProducts();
     const product = list.find((p) => p.slug === slug);
-    return product || null;
+    return { product: product || null, backendUnavailable };
   },
 
   /**
@@ -334,19 +366,8 @@ export const productService = {
 };
 
 export const categoryService = {
-  async getCategories() {
-    try {
-      const res = await fetch("/api/v1/categories");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          return normalizeProductImages(json.data);
-        }
-      }
-    } catch (e) {
-      console.warn("Could not fetch categories from backend:", e.message);
-    }
-    return getLiveCategories();
+  getCategories() {
+    return cachedList("categories", "/api/v1/categories", getLiveCategories);
   },
   async getCategoryBySlug(slug) {
     if (!slug) return null;
@@ -382,19 +403,8 @@ export const categoryService = {
 };
 
 export const collectionService = {
-  async getCollections() {
-    try {
-      const res = await fetch("/api/v1/collections");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          return normalizeProductImages(json.data);
-        }
-      }
-    } catch (e) {
-      console.warn("Could not fetch collections from backend:", e.message);
-    }
-    return getLiveCollections();
+  getCollections() {
+    return cachedList("collections", "/api/v1/collections", getLiveCollections);
   },
 };
 
@@ -449,18 +459,20 @@ export const reviewService = {
   },
 };
 
+export const settingsService = {
+  /** Public store settings as saved in Admin -> Settings. Throws if the API can't be reached. */
+  async getPublic() {
+    const res = await fetch("/api/v1/store/settings/public");
+    if (!res.ok) throw new Error(`Could not load store settings (${res.status})`);
+    const json = await res.json();
+    if (!json.success || !json.data) throw new Error("Could not load store settings");
+    return json.data;
+  },
+};
+
 export const contentService = {
-  async getTestimonials() {
-    try {
-      const res = await fetch("/api/v1/testimonials");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          return normalizeProductImages(json.data);
-        }
-      }
-    } catch (_) {}
-    return [];
+  getTestimonials() {
+    return cachedList("testimonials", "/api/v1/testimonials", () => []);
   },
   normalizeBlogPost(post) {
     if (!post) return null;
@@ -507,29 +519,23 @@ export const contentService = {
     const local = getLiveBlogPosts().find((b) => b.slug === slug);
     return local ? contentService.normalizeBlogPost(local) : null;
   },
-  async getIngredients() {
-    try {
-      const res = await fetch("/api/v1/ingredients");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          return normalizeProductImages(json.data);
-        }
-      }
-    } catch (_) {}
-    return getLiveIngredients();
+  getIngredients() {
+    return cachedList("ingredients", "/api/v1/ingredients", getLiveIngredients);
   },
-  async getFaqs() {
-    try {
-      const res = await fetch("/api/v1/faqs");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          return normalizeProductImages(json.data);
-        }
-      }
-    } catch (_) {}
-    return [];
+  /**
+   * A storefront policy page (privacy, terms, shipping, returns) as saved by the admin.
+   * Returns null when there is no such page; throws when the API can't be reached, so the page can
+   * show a retry instead of stale or invented text.
+   */
+  async getContentPage(slug) {
+    const res = await fetch(`/api/v1/content-pages/${encodeURIComponent(slug)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Could not load page "${slug}" (${res.status})`);
+    const json = await res.json();
+    return json.success ? json.data : null;
+  },
+  getFaqs() {
+    return cachedList("faqs", "/api/v1/faqs", () => []);
   },
 };
 

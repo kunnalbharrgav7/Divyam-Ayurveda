@@ -1,14 +1,22 @@
-import React, { useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useAdmin } from "../context/AdminContext";
 import { AdminSidebar } from "../components/admin/layout/AdminSidebar";
 import { AdminHeader } from "../components/admin/layout/AdminHeader";
+import { PageSkeleton } from "../components/common/Skeleton";
 
 export const AdminLayout = () => {
   const { isAdmin, adminUser } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
+  const { loadAdminData } = useAdmin();
+
+  // Admin data is fetched only once the admin area is opened (idempotent per sign-in)
+  useEffect(() => {
+    if (isAdmin) loadAdminData();
+  }, [isAdmin, loadAdminData]);
 
   // If not logged in as admin, redirect to unified login
   if (!isAdmin || !adminUser) {
@@ -38,7 +46,9 @@ export const AdminLayout = () => {
         }`}
       >
         <div className="max-w-7xl mx-auto space-y-6">
-          <Outlet />
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>

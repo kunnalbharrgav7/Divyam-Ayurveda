@@ -7,8 +7,74 @@ import { ContactEnquiry } from "../models/ContactEnquiry.js";
 import { SupportTicket } from "../models/SupportTicket.js";
 import { Subscriber } from "../models/Subscriber.js";
 import { ApiError } from "../utils/apiError.js";
+import { settingsService } from "./settings.service.js";
+import { ContentPage } from "../models/ContentPage.js";
+import { CONTENT_PAGE_DEFAULTS, POLICY_SLUGS } from "../constants/contentPageDefaults.js";
+
+const clean = (value, max) => String(value ?? "").trim().slice(0, max);
+
+// Keeps only the fields the pages render, with sane limits, so a malformed request can't store junk
+const sanitizeSections = (sections) => {
+  if (!Array.isArray(sections)) throw ApiError.badRequest("Sections must be a list.");
+  if (sections.length > 40) throw ApiError.badRequest("A page can have at most 40 sections.");
+  return sections.map((section, index) => {
+    const heading = clean(section?.heading, 200);
+    if (!heading) throw ApiError.badRequest(`Section ${index + 1} needs a heading.`);
+    const cards = Array.isArray(section?.cards) ? section.cards.slice(0, 12) : [];
+    return {
+      heading,
+      body: String(section?.body ?? "").slice(0, 20000),
+      cards: cards
+        .map((card) => ({ title: clean(card?.title, 120), text: String(card?.text ?? "").slice(0, 2000) }))
+        .filter((card) => card.title || card.text),
+    };
+  });
+};
 
 export class ContentService {
+  /** Creates any missing policy page from the built-in defaults, so the storefront and admin always have content. */
+  async ensurePolicyPages() {
+    const existing = await ContentPage.find({ slug: { $in: POLICY_SLUGS } }).select("slug");
+    const have = new Set(existing.map((page) => page.slug));
+    for (const slug of POLICY_SLUGS) {
+      if (!have.has(slug)) {
+        await ContentPage.updateOne(
+          { slug },
+          { $setOnInsert: { slug, status: "published", ...CONTENT_PAGE_DEFAULTS[slug] } },
+          { upsert: true }
+        );
+      }
+    }
+  }
+
+  async getContentPage(slug) {
+    if (!POLICY_SLUGS.includes(slug)) throw ApiError.notFound("Page not found");
+    await this.ensurePolicyPages();
+    const page = await ContentPage.findOne({ slug, status: "published" });
+    if (!page) throw ApiError.notFound("Page not found");
+    return page;
+  }
+
+  async listContentPages() {
+    await this.ensurePolicyPages();
+    const pages = await ContentPage.find({ slug: { $in: POLICY_SLUGS } });
+    return POLICY_SLUGS.map((slug) => pages.find((page) => page.slug === slug)).filter(Boolean);
+  }
+
+  async saveContentPage(slug, body = {}) {
+    if (!POLICY_SLUGS.includes(slug)) throw ApiError.notFound("Page not found");
+    await this.ensurePolicyPages();
+    const title = clean(body.title, 200);
+    if (!title) throw ApiError.badRequest("The page title is required.");
+    const update = {
+      title,
+      eyebrow: clean(body.eyebrow, 120),
+      updatedLabel: clean(body.updatedLabel, 120),
+      sections: sanitizeSections(body.sections),
+    };
+    return ContentPage.findOneAndUpdate({ slug }, update, { new: true, runValidators: true });
+  }
+
   async getHomepageConfig() {
     let config = await HomepageConfig.findOne();
     if (!config) {
@@ -18,27 +84,7 @@ export class ContentService {
   }
 
   async getPublicStoreSettings() {
-    let settings = await StoreSettings.findOne();
-    if (!settings) {
-      settings = await StoreSettings.create({});
-    }
-    const json = settings.toJSON();
-    // Return only public elements (strip sensitive credentials/alerts)
-    return {
-      general: json.general,
-      store: {
-        enableCashOnDelivery: json.store?.enableCashOnDelivery,
-        maxCodLimit: json.store?.maxCodLimit,
-        enableGuestCheckout: json.store?.enableGuestCheckout,
-      },
-      shipping: json.shipping,
-      tax: {
-        originState: json.tax?.originState,
-        taxIncludedInPrice: json.tax?.taxIncludedInPrice,
-        standardGstRate: json.tax?.standardGstRate,
-      },
-      appearance: json.appearance,
-    };
+    return settingsService.getPublic();
   }
 
   async getBlogPosts() {

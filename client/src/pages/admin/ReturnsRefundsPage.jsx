@@ -114,7 +114,7 @@ const ReturnDetail = ({ ret, onChange }) => {
         <div className="flex flex-wrap gap-2">
           {ret.evidenceImages.map((src, i) => (
             <a key={i} href={src} target="_blank" rel="noreferrer">
-              <img src={src} alt="Evidence" className="w-24 h-24 object-cover rounded-xl border" />
+              <img width={96} height={96} loading="lazy" decoding="async" src={src} alt="Evidence" className="w-24 h-24 object-cover rounded-xl border" />
             </a>
           ))}
         </div>
@@ -194,7 +194,7 @@ const ReturnDetail = ({ ret, onChange }) => {
 };
 
 export const ReturnsRefundsPage = () => {
-  const { returns, fetchAdminReturns } = useAdmin();
+  const { adminTableState, returns, fetchAdminReturns } = useAdmin();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [openId, setOpenId] = useState(null);
@@ -293,7 +293,7 @@ export const ReturnsRefundsPage = () => {
           </select>
         </div>
 
-        <AdminTable columns={columns} data={filtered} keyField="id" emptyMessage="No return or refund requests found." />
+        <AdminTable {...adminTableState("returns", filtered)} columns={columns} data={filtered} keyField="id" emptyMessage="No return or refund requests found." />
       </AdminCard>
 
       <AdminModal isOpen={!!open} onClose={() => setOpenId(null)} title="Return request" maxWidth="max-w-3xl">

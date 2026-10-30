@@ -3,6 +3,8 @@ import { Plus, Edit, Trash2, Ticket, Check, Copy, Search, Zap, Package } from "l
 import { useAdmin } from "../../context/AdminContext";
 import { AdminModal, ConfirmDialog } from "../../components/admin/common/AdminModal";
 import { formatCurrency, formatDate } from "../../utils/formatters";
+import { AdminCardGridSkeleton } from "../../components/common/Skeleton";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
 const OCCASIONS = [
   "Diwali",
@@ -27,7 +29,7 @@ const productName = (p) => p.title || p.name || "Untitled product";
 const productImage = (p) => p.image || (Array.isArray(p.images) ? p.images[0] : "") || "";
 
 export const CouponsPage = () => {
-  const { coupons, products, saveCoupon, deleteCoupon } = useAdmin();
+  const { isAdminLoading, hasAdminLoadError, retryAdminLoad, coupons, products, saveCoupon, deleteCoupon } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
@@ -224,7 +226,7 @@ export const CouponsPage = () => {
         </button>
       </div>
 
-      {coupons.length === 0 && (
+      {!isAdminLoading("coupons") && !hasAdminLoadError("coupons") && coupons.length === 0 && (
         <div className="p-10 rounded-2xl border border-dashed border-stone-300 bg-white text-center text-sm text-stone-500">
           <Ticket className="w-8 h-8 mx-auto mb-2 text-stone-300" />
           No offers yet. Create a coupon code, or an automatic festive offer.
@@ -233,6 +235,10 @@ export const CouponsPage = () => {
 
       {/* Offers Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {hasAdminLoadError("coupons") && coupons.length === 0 && (
+          <AdminLoadError className="col-span-full" what="offers" onRetry={() => retryAdminLoad("coupons")} />
+        )}
+        {isAdminLoading("coupons") && coupons.length === 0 && <AdminCardGridSkeleton label="Loading offers" />}
         {coupons.map((coupon) => (
           <div
             key={coupon.id}
@@ -591,7 +597,7 @@ export const CouponsPage = () => {
                           className="w-4 h-4 rounded border-stone-300 text-[#173D2A] focus:ring-[#173D2A]"
                         />
                         {productImage(p) && (
-                          <img src={productImage(p)} alt="" className="w-8 h-8 rounded-md object-cover border border-stone-200" />
+                          <img width={32} height={32} loading="lazy" decoding="async" src={productImage(p)} alt="" className="w-8 h-8 rounded-md object-cover border border-stone-200" />
                         )}
                         <span className="flex-1 min-w-0">
                           <span className="block text-xs font-semibold text-stone-900 truncate">{productName(p)}</span>

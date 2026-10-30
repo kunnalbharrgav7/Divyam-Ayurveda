@@ -1,7 +1,8 @@
 import { ProductVariant } from "../models/ProductVariant.js";
 import { toPublicImages } from "../utils/productImages.js";
 import { Product } from "../models/Product.js";
-import { StoreSettings } from "../models/StoreSettings.js";
+import { settingsService } from "./settings.service.js";
+import { computeShipping, computeTax } from "../utils/shippingRules.js";
 import { Quote } from "../models/Quote.js";
 import { couponService } from "./coupon.service.js";
 import { referralService } from "./referral.service.js";
@@ -9,76 +10,20 @@ import { ApiError } from "../utils/apiError.js";
 import { toRupees } from "../utils/currency.js";
 
 export class QuoteService {
-  /**
-   * Determine shipping fee and zone based on destination state and subtotal
-   */
+  /** Shipping from the zones saved in Admin -> Settings (see utils/shippingRules.js). */
   getShippingDetails(destinationState, subtotalPaise, deliveryMethod, settings) {
-    const originState = (settings?.shipping?.originState || "Karnataka").toLowerCase();
-    const dest = (destinationState || "").toLowerCase();
-    const isLocal = dest === originState;
-
-    // Check free shipping threshold
-    const freeThresholdPaise = (settings?.shipping?.freeShippingThreshold || 499) * 100;
-    const isFreeEligible = subtotalPaise >= freeThresholdPaise;
-
-    let baseFeePaise = (settings?.shipping?.standardShippingFee || 40) * 100;
-    let zoneName = "Standard National Delivery";
-
-    if (isLocal) {
-      baseFeePaise = 4000; // ₹40
-      zoneName = "Zone 1 (Local / Intra-State Karnataka)";
-    } else {
-      baseFeePaise = 6500; // ₹65
-      zoneName = "Zone 2 (Regional / Inter-State)";
-    }
-
-    let shippingFeePaise = isFreeEligible ? 0 : baseFeePaise;
-
-    // Express delivery adds express fee
-    if (deliveryMethod === "express") {
-      const expressExtraPaise = (settings?.shipping?.expressShippingFee || 99) * 100;
-      shippingFeePaise += expressExtraPaise;
-      zoneName += " [Express Air]";
-    }
-
-    return {
-      shippingFeePaise,
-      zoneName,
-      isFreeEligible,
-    };
+    const { shippingPaise, zoneName, isFreeEligible } = computeShipping({
+      settings,
+      destinationState,
+      payablePaise: subtotalPaise,
+      deliveryMethod,
+    });
+    return { shippingFeePaise: shippingPaise, zoneName, isFreeEligible };
   }
 
-  /**
-   * Calculate 12% GST breakdown (CGST/SGST for Karnataka, IGST for other states)
-   * Tax is included in retail MRP price per store settings
-   */
+  /** GST included in the goods value: CGST+SGST inside the dispatch state, IGST elsewhere. */
   calculateTaxBreakdown(taxableBasePaise, destinationState, settings) {
-    const originState = (settings?.tax?.originState || "Karnataka").toLowerCase();
-    const dest = (destinationState || "").toLowerCase();
-    const isIntraState = dest === originState;
-    const gstRate = (settings?.tax?.standardGstRate || 12) / 100;
-
-    // Tax included calculation: Total = Base * (1 + rate) => Tax = Total - (Total / (1 + rate))
-    const totalTaxPaise = Math.round(taxableBasePaise - taxableBasePaise / (1 + gstRate));
-
-    if (isIntraState) {
-      const halfTax = Math.round(totalTaxPaise / 2);
-      return {
-        totalTaxPaise,
-        cgstPaise: halfTax,
-        sgstPaise: totalTaxPaise - halfTax,
-        igstPaise: 0,
-        taxType: "intra_state",
-      };
-    } else {
-      return {
-        totalTaxPaise,
-        cgstPaise: 0,
-        sgstPaise: 0,
-        igstPaise: totalTaxPaise,
-        taxType: "inter_state",
-      };
-    }
+    return computeTax({ settings, destinationState, payablePaise: taxableBasePaise });
   }
 
   /**
@@ -102,10 +47,7 @@ export class QuoteService {
     }
 
     // Load store settings for rules
-    let settings = await StoreSettings.findOne();
-    if (!settings) {
-      settings = await StoreSettings.create({});
-    }
+    const settings = await settingsService.get();
 
     // 1. Reload all variants from database to ensure price & stock integrity
     const variantIds = items.map((it) => it.variantId);

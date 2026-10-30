@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { Mail, Phone, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
+import { useStoreSettings } from "../hooks/useStoreSettings";
 
 export const ContactPage = () => {
+  const { settings } = useStoreSettings();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -63,7 +65,7 @@ export const ContactPage = () => {
                 <div>
                   <h4 className="font-bold text-white">Central Dispensary</h4>
                   <p className="text-stone-300 text-xs mt-0.5 leading-relaxed">
-                    Divyam Ayurveda Herbal Kendra, 108 Botanical Garden Road, Indiranagar, Bengaluru, Karnataka 560038
+                    {settings?.general?.dispensaryAddress}
                   </p>
                 </div>
               </div>
@@ -75,7 +77,7 @@ export const ContactPage = () => {
                 <div>
                   <h4 className="font-bold text-white">Telephone Support</h4>
                   <p className="text-stone-300 text-xs mt-0.5">
-                    +91 (080) 4567-8900 / +91 98765 43210
+                    {settings?.general?.contactPhone}
                   </p>
                 </div>
               </div>
@@ -87,7 +89,7 @@ export const ContactPage = () => {
                 <div>
                   <h4 className="font-bold text-white">Email Inquiries</h4>
                   <p className="text-stone-300 text-xs mt-0.5">
-                    care@divyamayurveda.com
+                    {settings?.general?.contactEmail}
                   </p>
                 </div>
               </div>

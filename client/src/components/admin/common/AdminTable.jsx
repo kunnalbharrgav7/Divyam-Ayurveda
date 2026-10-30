@@ -1,11 +1,15 @@
 import React from "react";
 import { ChevronLeft, ChevronRight, Inbox } from "lucide-react";
+import { TableRowsSkeleton } from "../../common/Skeleton";
+import { AdminLoadError } from "./AdminLoadError";
 
 export const AdminTable = ({
   columns,
   data = [],
   keyField = "id",
   isLoading = false,
+  error = false,
+  onRetry = null,
   emptyMessage = "No records found.",
   selectedIds = [],
   onSelectAll,
@@ -53,15 +57,18 @@ export const AdminTable = ({
           </thead>
           <tbody className="divide-y divide-stone-100">
             {isLoading ? (
+              <>
+                <tr className="sr-only">
+                  <td colSpan={columns.length + (selectable ? 1 : 0)} role="status">
+                    Loading data…
+                  </td>
+                </tr>
+                <TableRowsSkeleton columns={columns.length + (selectable ? 1 : 0)} />
+              </>
+            ) : error ? (
               <tr>
-                <td
-                  colSpan={columns.length + (selectable ? 1 : 0)}
-                  className="px-6 py-12 text-center text-stone-500"
-                >
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="w-6 h-6 border-2 border-[#173D2A] border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs font-medium">Loading data...</span>
-                  </div>
+                <td colSpan={columns.length + (selectable ? 1 : 0)} className="p-4">
+                  <AdminLoadError onRetry={onRetry} />
                 </td>
               </tr>
             ) : data.length === 0 ? (

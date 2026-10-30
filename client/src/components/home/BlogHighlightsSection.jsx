@@ -4,6 +4,7 @@ import { ArrowRight, BookOpen, Clock, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { contentService } from "../../services/api";
 import { ScrollReveal } from "../../animations/useScrollReveal";
+import { Skeleton, SkeletonRegion } from "../common/Skeleton";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -28,13 +29,17 @@ const cardVariants = {
 
 export const BlogHighlightsSection = () => {
   const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // Only the first load shows a placeholder; refreshes triggered by admin edits keep the posts on screen
   const fetchPosts = async () => {
     try {
       const data = await contentService.getBlogPosts();
       setPosts(data);
     } catch (err) {
       console.error("Error loading blog posts:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -52,6 +57,36 @@ export const BlogHighlightsSection = () => {
       window.removeEventListener("storage", handleUpdate);
     };
   }, []);
+
+  if (loading && (!posts || posts.length === 0)) {
+    return (
+      <section className="py-14 bg-[#FBFAF6]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <SkeletonRegion label="Loading articles" className="space-y-8">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-72 max-w-full" />
+              <Skeleton className="h-4 w-96 max-w-full" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[0, 1, 2].map((i) => (
+                <div key={i} aria-hidden="true" className="bg-white rounded-2xl border border-[#E5E7DF] overflow-hidden">
+                  <div className="aspect-16/10 p-3 bg-stone-50">
+                    <Skeleton className="w-full h-full rounded-xl" />
+                  </div>
+                  <div className="p-5 space-y-3">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-5 w-4/5" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SkeletonRegion>
+        </div>
+      </section>
+    );
+  }
 
   if (!posts || posts.length === 0) {
     return null;

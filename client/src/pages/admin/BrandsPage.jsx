@@ -4,9 +4,10 @@ import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { AdminModal, ConfirmDialog } from "../../components/admin/common/AdminModal";
 import { AdminImageUpload } from "../../components/admin/common/AdminImageUpload";
+import { AdminCardGridSkeleton } from "../../components/common/Skeleton";
 
 export const BrandsPage = () => {
-  const { brands, saveBrand, deleteBrand } = useAdmin();
+  const { isAdminLoading, hasAdminLoadError, retryAdminLoad, brands, saveBrand, deleteBrand } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState(null);
@@ -104,6 +105,10 @@ export const BrandsPage = () => {
 
       {/* Brands List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {hasAdminLoadError("brands") && brands.length === 0 && (
+          <AdminLoadError className="col-span-full" what="brands" onRetry={() => retryAdminLoad("brands")} />
+        )}
+        {isAdminLoading("brands") && brands.length === 0 && <AdminCardGridSkeleton label="Loading brands" />}
         {brands.map((brand) => (
           <div
             key={brand.id}
@@ -113,7 +118,7 @@ export const BrandsPage = () => {
               <div className="flex items-start justify-between">
                 <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center overflow-hidden">
                   {brand.logo ? (
-                    <img src={brand.logo} alt={brand.name} className="w-full h-full object-contain p-1" />
+                    <img loading="lazy" decoding="async" src={brand.logo} alt={brand.name} className="w-full h-full object-contain p-1" />
                   ) : (
                     <span className="text-[#173D2A] font-bold text-lg">{brand.name.charAt(0)}</span>
                   )}

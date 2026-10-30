@@ -8,6 +8,9 @@ const shippingZoneSchema = new mongoose.Schema({
   baseFee: { type: Number, default: 40 },
   freeThreshold: { type: Number, default: 499 },
   deliveryDays: { type: String, default: "2–4 Business Days" },
+  // "origin" = the dispatch state, "states" = the listed destination states, "rest" = everywhere else
+  matchType: { type: String, enum: ["origin", "states", "rest"], default: "states" },
+  states: { type: [String], default: [] },
 });
 
 const storeSettingsSchema = new mongoose.Schema(
@@ -26,6 +29,7 @@ const storeSettingsSchema = new mongoose.Schema(
     },
     store: {
       enableCashOnDelivery: { type: Boolean, default: true },
+      enableOnlinePayments: { type: Boolean, default: true },
       maxCodLimit: { type: Number, default: 5000 },
       enableGuestCheckout: { type: Boolean, default: true },
       enableReviewModeration: { type: Boolean, default: true },

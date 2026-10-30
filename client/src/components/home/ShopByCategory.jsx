@@ -74,8 +74,8 @@ export const ShopByCategory = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 sm:gap-6">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="flex flex-col items-center gap-2">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-stone-100 animate-pulse border border-stone-200" />
-                <div className="w-16 h-3 bg-stone-100 rounded-md animate-pulse" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-stone-100 motion-safe:animate-pulse border border-stone-200" />
+                <div className="w-16 h-3 bg-stone-100 rounded-md motion-safe:animate-pulse" />
               </div>
             ))}
           </div>

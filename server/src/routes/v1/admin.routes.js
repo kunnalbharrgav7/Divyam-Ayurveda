@@ -5,11 +5,12 @@ import { authenticate, requireStaff } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { PERMISSIONS } from "../../constants/permissions.js";
 import { requireIdempotency } from "../../middleware/idempotency.js";
+import { auditAdminMutations } from "../../middleware/auditContext.js";
 
 const router = Router();
 
 // Staff authentication guard for all admin routes
-router.use(authenticate, requireStaff);
+router.use(authenticate, requireStaff, auditAdminMutations);
 
 // Dashboard & Analytics
 router.get("/dashboard", requirePermission(PERMISSIONS.REPORTS_VIEW), adminController.getDashboard);
@@ -98,6 +99,12 @@ router.get("/subscribers", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminC
 // Storefront Content & Settings
 router.get("/homepage", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.getHomepageAdmin);
 router.patch("/homepage", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.updateHomepageAdmin);
+router.get("/content-pages", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.listContentPages);
+router.put("/content-pages/:slug", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.updateContentPage);
+router.get("/faqs", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.listAdminFaqs);
+router.post("/faqs", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.createFaq);
+router.patch("/faqs/:id", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.updateFaq);
+router.delete("/faqs/:id", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.deleteFaq);
 router.get("/blog", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.listAdminBlogPosts);
 router.post("/blog", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.createBlogPost);
 router.patch("/blog/:id", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.updateBlogPost);

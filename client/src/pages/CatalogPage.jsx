@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { Filter, X, SlidersHorizontal, ArrowUpDown, Search, RefreshCw } from "lucide-react";
+import { Filter, X, SlidersHorizontal, ArrowUpDown, Search, RefreshCw, WifiOff } from "lucide-react";
 import { ProductCard } from "../components/products/ProductCard";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { EmptyState } from "../components/common/EmptyState";
+import { ProductGridSkeleton } from "../components/common/Skeleton";
 import { productService, categoryService } from "../services/api";
 
 export const CatalogPage = () => {
@@ -28,6 +29,11 @@ export const CatalogPage = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
+  // Bumped whenever the filters change so a slow "Load more" can't append to a newer result set
+  const queryVersionRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -49,8 +55,13 @@ export const CatalogPage = () => {
 
   // Fetch products whenever filters or search query changes
   useEffect(() => {
+    // A newer filter change (or retry) makes this request stale
+    let cancelled = false;
+    queryVersionRef.current += 1;
     const loadProducts = async () => {
       setLoading(true);
+      setLoadError(false);
+      setLoadingMore(false);
       try {
         const result = await productService.getProducts({
           category: categoryParam,
@@ -65,18 +76,24 @@ export const CatalogPage = () => {
           page: 1,
           limit: 12,
         });
+        if (cancelled) return;
         setProducts(result.products);
         setTotalCount(result.total);
         setHasMore(result.hasMore);
         setPage(1);
+        setLoadError(Boolean(result.backendUnavailable) && result.products.length === 0);
       } catch (err) {
         console.error("Error fetching catalog products:", err);
+        if (!cancelled) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadProducts();
+    return () => {
+      cancelled = true;
+    };
   }, [
     categoryParam,
     subcategoryParam,
@@ -87,10 +104,14 @@ export const CatalogPage = () => {
     minRatingParam,
     inStockParam,
     collectionParam,
+    reloadTick,
   ]);
 
   const handleLoadMore = async () => {
+    if (loadingMore) return;
     const nextPage = page + 1;
+    const version = queryVersionRef.current;
+    setLoadingMore(true);
     try {
       const result = await productService.getProducts({
         category: categoryParam,
@@ -105,11 +126,14 @@ export const CatalogPage = () => {
         page: nextPage,
         limit: 12,
       });
+      if (version !== queryVersionRef.current) return;
       setProducts((prev) => [...prev, ...result.products]);
       setHasMore(result.hasMore);
       setPage(nextPage);
     } catch (err) {
       console.error("Error loading more products:", err);
+    } finally {
+      if (version === queryVersionRef.current) setLoadingMore(false);
     }
   };
 
@@ -517,11 +541,15 @@ export const CatalogPage = () => {
 
             {/* Products Grid */}
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <div key={n} className="h-80 bg-stone-100 rounded-2xl animate-pulse" />
-                ))}
-              </div>
+              <ProductGridSkeleton count={6} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" />
+            ) : loadError ? (
+              <EmptyState
+                icon={WifiOff}
+                title="We couldn't load products"
+                description="The store didn't respond. Check your connection and try again."
+                actionText="Try again"
+                onAction={() => setReloadTick((n) => n + 1)}
+              />
             ) : products.length === 0 ? (
               <EmptyState
                 icon={Search}
@@ -538,8 +566,16 @@ export const CatalogPage = () => {
                   ))}
                 </div>
 
+                {loadingMore && (
+                  <ProductGridSkeleton
+                    count={3}
+                    label="Loading more products"
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6"
+                  />
+                )}
+
                 {/* Load More Button */}
-                {hasMore && (
+                {hasMore && !loadingMore && (
                   <div className="text-center pt-8">
                     <button
                       onClick={handleLoadMore}

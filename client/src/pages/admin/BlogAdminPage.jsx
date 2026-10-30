@@ -6,9 +6,11 @@ import { AdminCard } from "../../components/admin/common/AdminCard";
 import { AdminModal, ConfirmDialog } from "../../components/admin/common/AdminModal";
 import { AdminImageUpload } from "../../components/admin/common/AdminImageUpload";
 import { formatDate } from "../../utils/formatters";
+import { AdminCardGridSkeleton } from "../../components/common/Skeleton";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
 export const BlogAdminPage = () => {
-  const { blogPosts, saveBlogPost, deleteBlogPost } = useAdmin();
+  const { isAdminLoading, hasAdminLoadError, retryAdminLoad, blogPosts, saveBlogPost, deleteBlogPost } = useAdmin();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -128,6 +130,10 @@ export const BlogAdminPage = () => {
 
       {/* Blog Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {hasAdminLoadError("blog") && blogPosts.length === 0 && (
+          <AdminLoadError className="col-span-full" what="articles" onRetry={() => retryAdminLoad("blog")} />
+        )}
+        {isAdminLoading("blog") && blogPosts.length === 0 && <AdminCardGridSkeleton label="Loading articles" />}
         {blogPosts.map((post) => (
           <div
             key={post.id || post._id || post.slug}
@@ -135,7 +141,7 @@ export const BlogAdminPage = () => {
           >
             <div>
               <div className="relative h-44 bg-stone-50 overflow-hidden flex items-center justify-center p-2 border-b border-stone-100">
-                <img
+                <img loading="lazy" decoding="async"
                   src={post.image || "/images/ProductImages/Himalya.png"}
                   alt={post.title}
                   className="w-full h-full object-contain"

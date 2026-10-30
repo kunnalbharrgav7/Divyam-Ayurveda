@@ -375,7 +375,7 @@ export const CustomerReviewsPage = () => {
                 {/* Footer with Customer Info and Helpful Button */}
                 <div className="relative z-10 flex items-center justify-between pt-4 border-t border-[#E5E7DF]/80">
                   <div className="flex items-center gap-3">
-                    <img
+                    <img width={40} height={40}
                       src={item.avatar}
                       alt={item.name}
                       loading="lazy"

@@ -5,9 +5,11 @@ import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { AdminModal, ConfirmDialog } from "../../components/admin/common/AdminModal";
 import { AdminImageUpload } from "../../components/admin/common/AdminImageUpload";
+import { AdminCardGridSkeleton } from "../../components/common/Skeleton";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
 export const CategoriesPage = () => {
-  const { categories, products, saveCategory, deleteCategory } = useAdmin();
+  const { isAdminLoading, hasAdminLoadError, retryAdminLoad, categories, products, saveCategory, deleteCategory } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -205,6 +207,10 @@ export const CategoriesPage = () => {
 
       {/* Categories Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {hasAdminLoadError("categories") && categories.length === 0 && (
+          <AdminLoadError className="col-span-full" what="categories" onRetry={() => retryAdminLoad("categories")} />
+        )}
+        {isAdminLoading("categories") && categories.length === 0 && <AdminCardGridSkeleton label="Loading categories" />}
         {categories.map((cat) => {
           const count = getProductCount(cat.name, cat.id);
           return (
@@ -214,7 +220,7 @@ export const CategoriesPage = () => {
             >
               <div>
                 <div className="relative h-40 bg-stone-100 overflow-hidden">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={cat.image}
                     alt={cat.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

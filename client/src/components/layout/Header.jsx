@@ -43,7 +43,7 @@ export const Header = ({ onToggleMobileMenu, isSticky = true }) => {
               <img
                 src="/images/Logo/Logo.png"
                 alt="Divyam Ayurveda"
-                className="h-10 sm:h-12 w-auto object-contain transition-transform duration-300 ease-out group-hover:scale-105"
+                className="h-8 min-[360px]:h-10 sm:h-12 w-auto object-contain transition-transform duration-300 ease-out group-hover:scale-105"
               />
             </Link>
           </div>
@@ -82,9 +82,10 @@ export const Header = ({ onToggleMobileMenu, isSticky = true }) => {
                   to="/admin/dashboard"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-[#173D2A] hover:bg-[#0B2416] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all duration-200 active:scale-95 hover:shadow-md ring-1 ring-[#386B40]/30"
                   title="Go to Admin Dashboard"
+                  aria-label="Admin Dashboard"
                 >
                   <Shield size={15} className="text-[#A9D18E]" />
-                  <span>Admin Dashboard</span>
+                  <span className="hidden min-[400px]:inline">Admin Dashboard</span>
                 </Link>
                 <button
                   type="button"
@@ -129,7 +130,7 @@ export const Header = ({ onToggleMobileMenu, isSticky = true }) => {
               <div className="flex items-center gap-1 sm:gap-2">
                 <Link
                   to="/login"
-                  className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-stone-700 hover:text-[#173D2A] hover:bg-stone-100 rounded-xl transition-all duration-200 active:scale-95"
+                  className="hidden min-[400px]:inline-flex px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-stone-700 hover:text-[#173D2A] hover:bg-stone-100 rounded-xl transition-all duration-200 active:scale-95"
                 >
                   Login
                 </Link>

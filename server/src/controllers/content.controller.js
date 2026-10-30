@@ -22,6 +22,11 @@ export const getBlogPostBySlug = asyncHandler(async (req, res) => {
   return sendSuccess(res, post);
 });
 
+export const getContentPage = asyncHandler(async (req, res) => {
+  const page = await contentService.getContentPage(req.params.slug);
+  return sendSuccess(res, page);
+});
+
 export const getFaqs = asyncHandler(async (req, res) => {
   const faqs = await contentService.getFaqs();
   return sendSuccess(res, faqs);

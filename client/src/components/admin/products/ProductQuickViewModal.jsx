@@ -153,7 +153,7 @@ export const ProductQuickViewModal = ({
           <div className="w-full md:w-56 shrink-0 space-y-3">
             {/* Active Image Preview */}
             <div className="relative aspect-square rounded-xl overflow-hidden bg-white border border-stone-200 shadow-xs flex items-center justify-center p-2">
-              <img
+              <img loading="lazy" decoding="async"
                 src={activeImage}
                 alt={product.title || product.name}
                 className="w-full h-full object-contain"
@@ -183,7 +183,7 @@ export const ProductQuickViewModal = ({
                         : "border-stone-200 hover:border-stone-400"
                     }`}
                   >
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={img}
                       alt={`Thumbnail ${idx + 1}`}
                       className="w-full h-full object-contain"

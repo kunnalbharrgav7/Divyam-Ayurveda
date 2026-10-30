@@ -7,7 +7,7 @@ import { AdminModal } from "../../components/admin/common/AdminModal";
 import { formatDate } from "../../utils/formatters";
 
 export const SupportTicketsPage = () => {
-  const { supportTickets, updateTicketStatus } = useAdmin();
+  const { adminTableState, supportTickets, updateTicketStatus } = useAdmin();
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [replyText, setReplyText] = useState("");
   const [replyModalOpen, setReplyModalOpen] = useState(false);
@@ -119,6 +119,7 @@ export const SupportTicketsPage = () => {
 
       <AdminCard noPadding={true}>
         <AdminTable
+          {...adminTableState("supportTickets", supportTickets)}
           columns={columns}
           data={supportTickets}
           keyField="id"

@@ -18,7 +18,21 @@ describe("Revenue reporting", () => {
 
   const report = async (query = "days=all&months=1") => (await request(app).get(`/api/v1/admin/reports/revenue?${query}`).set(adminAuth)).body.data;
 
+  const extraProducts = [];
+  // The server prices an order from the catalogue, so each price needs a real product at that price
+  const productAt = async (price) => {
+    const slug = `rev-p${price}-${stamp}`;
+    let p = await Product.findOne({ slug });
+    if (!p) {
+      p = await Product.create({ name: `Rev P${price} ${stamp}`, slug, sku: `REV-P${price}-${stamp}`, categoryId: "wellness-essentials", description: "x", status: "active", basePricePaise: price * 100 });
+      await ProductVariant.create({ productId: p._id, sku: `REV-P${price}-${stamp}-S`, label: "Standard", pricePaise: price * 100, stockOnHand: 50, isActive: true });
+      extraProducts.push(p._id);
+    }
+    return p;
+  };
+
   const place = async (price) => {
+    const product = await productAt(price);
     const res = await request(app).post("/api/v1/orders").set(custAuth).send({
       customer: { name: "Rev Customer", email, phone: "7000000000" },
       shippingAddress: { street: "1 Road", city: "Pune", state: "Maharashtra", pincode: "411001" },
@@ -43,8 +57,8 @@ describe("Revenue reporting", () => {
 
   afterAll(async () => {
     await Order.deleteMany({ "customer.email": email });
-    await ProductVariant.deleteMany({ productId: product._id });
-    await Product.deleteOne({ _id: product._id });
+    await ProductVariant.deleteMany({ productId: { $in: [product._id, ...extraProducts] } });
+    await Product.deleteMany({ _id: { $in: [product._id, ...extraProducts] } });
     await User.deleteMany({ email: { $in: [email, staff.email] } });
     if (createdRole) await Role.deleteOne({ _id: createdRole._id });
   });

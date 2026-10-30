@@ -36,7 +36,7 @@ export class ErrorBoundary extends React.Component {
           <div className="max-w-xl w-full bg-white rounded-3xl border border-stone-200/80 p-8 sm:p-10 shadow-lg text-center">
             {/* Brand Logo / Header */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-semibold text-[#173D2A] mb-6">
-              <span className="w-2 h-2 rounded-full bg-[#386B40] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[#386B40] motion-safe:animate-pulse" />
               Divyam Ayurveda System Recovery
             </div>
 

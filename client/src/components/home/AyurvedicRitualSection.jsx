@@ -155,13 +155,13 @@ export const AyurvedicRitualSection = () => {
                   >
                     <div className="w-20 h-20 rounded-full bg-black/40 border-2 border-[#D4AF37]/50 flex items-center justify-center shadow-xl relative">
                       {activeStepIndex === 0 && (
-                        <div className="w-7 h-7 rounded-full bg-[#1A1813] border-2 border-[#D4AF37] shadow-inner animate-pulse" />
+                        <div className="w-7 h-7 rounded-full bg-[#1A1813] border-2 border-[#D4AF37] shadow-inner motion-safe:animate-pulse" />
                       )}
                       {activeStepIndex === 1 && (
                         <Droplets size={32} className="text-[#A9D18E] animate-bounce" />
                       )}
                       {activeStepIndex === 2 && (
-                        <Zap size={34} className="text-[#D4AF37] animate-pulse" />
+                        <Zap size={34} className="text-[#D4AF37] motion-safe:animate-pulse" />
                       )}
                     </div>
 

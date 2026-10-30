@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring } from "framer-motion";
 import { Heart, ShoppingBag, Check, Eye } from "lucide-react";
 import { RatingStars } from "../common/RatingStars";
 import { formatINR, getDiscountPercentage } from "../../utils/formatters";
@@ -11,13 +11,20 @@ import { ProductQuickViewModal } from "./ProductQuickViewModal";
 // Out-of-stock products keep a disabled "Out of Stock" button at the bottom, but can still be
 // added to the cart with the cart icon next to the wishlist heart (the cart blocks checkout
 // until they are available again).
-export const ProductCard = ({ product }) => {
+const glowBackground = (x, y) =>
+  `radial-gradient(circle 240px at ${x}% ${y}%, rgba(212, 175, 55, 0.12), transparent 70%)`;
+
+const ProductCardImpl = ({ product }) => {
   const { addToCart, isInCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   const cardRef = useRef(null);
-  const [rotate, setRotate] = useState({ x: 0, y: 0 });
-  const [glowPos, setGlowPos] = useState({ x: 50, y: 50 });
+  // Hover tilt/glow are driven by motion values and a ref, so moving the mouse never re-renders the card
+  const glowRef = useRef(null);
+  const tiltX = useMotionValue(0);
+  const tiltY = useMotionValue(0);
+  const springX = useSpring(tiltX, { stiffness: 280, damping: 24 });
+  const springY = useSpring(tiltY, { stiffness: 280, damping: 24 });
   const [isAdded, setIsAdded] = useState(false);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [showInCartNotice, setShowInCartNotice] = useState(false);
@@ -41,15 +48,19 @@ export const ProductCard = ({ product }) => {
     const centerY = rect.height / 2;
     const rotateX = ((y - centerY) / centerY) * -5.5;
     const rotateY = ((x - centerX) / centerX) * 5.5;
-    setRotate({ x: rotateX, y: rotateY });
-    setGlowPos({
-      x: Math.round((x / rect.width) * 100),
-      y: Math.round((y / rect.height) * 100),
-    });
+    tiltX.set(rotateX);
+    tiltY.set(rotateY);
+    if (glowRef.current) {
+      glowRef.current.style.background = glowBackground(
+        Math.round((x / rect.width) * 100),
+        Math.round((y / rect.height) * 100),
+      );
+    }
   };
 
   const handleMouseLeave = () => {
-    setRotate({ x: 0, y: 0 });
+    tiltX.set(0);
+    tiltY.set(0);
   };
 
   const handleAddToCart = (e) => {
@@ -81,11 +92,6 @@ export const ProductCard = ({ product }) => {
         initial={{ opacity: 0, y: 15 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-30px" }}
-        animate={{
-          rotateX: rotate.x,
-          rotateY: rotate.y,
-          transformPerspective: 1000,
-        }}
         whileHover={{ y: -6 }}
         transition={{
           type: "spring",
@@ -93,14 +99,13 @@ export const ProductCard = ({ product }) => {
           damping: 24,
         }}
         className="group relative flex flex-col bg-white rounded-2xl border border-[#E5E7DF] overflow-hidden transition-shadow duration-300 ease-out hover:shadow-2xl hover:border-[#A9D18E]/90"
-        style={{ transformStyle: "preserve-3d" }}
+        style={{ rotateX: springX, rotateY: springY, transformPerspective: 1000, transformStyle: "preserve-3d" }}
       >
         {/* Dynamic Specular Light Flare Following Cursor */}
         <div
+          ref={glowRef}
           className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20"
-          style={{
-            background: `radial-gradient(circle 240px at ${glowPos.x}% ${glowPos.y}%, rgba(212, 175, 55, 0.12), transparent 70%)`,
-          }}
+          style={{ background: glowBackground(50, 50) }}
         />
 
         {/* Top Badges & Wishlist Action */}
@@ -210,7 +215,7 @@ export const ProductCard = ({ product }) => {
               e.stopPropagation();
               setIsQuickViewOpen(true);
             }}
-            className="absolute bottom-3 inset-x-4 z-10 py-2 px-3 rounded-xl bg-white/95 backdrop-blur-md text-[#173D2A] hover:bg-[#173D2A] hover:text-white text-xs font-semibold shadow-md flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-200 cursor-pointer"
+            className="absolute bottom-3 inset-x-4 z-10 py-2 px-3 rounded-xl bg-white/95 backdrop-blur-md text-[#173D2A] hover:bg-[#173D2A] hover:text-white text-xs font-semibold shadow-md flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-coarse:opacity-100 pointer-coarse:translate-y-0 transition-all duration-200 cursor-pointer"
             aria-label="Quick view product details"
           >
             <Eye size={14} />
@@ -296,3 +301,6 @@ export const ProductCard = ({ product }) => {
     </>
   );
 };
+
+// Memoized so grids don't re-render every card when only the parent changes
+export const ProductCard = React.memo(ProductCardImpl);

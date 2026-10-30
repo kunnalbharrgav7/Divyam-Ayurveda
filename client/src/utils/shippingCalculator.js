@@ -104,77 +104,31 @@ export const NEIGHBOR_STATES_MAP = {
   ],
 };
 
-// Default Shipping Zones Matrix
+// Built-in zones, used only until the store's saved zones arrive from the API (or if none are saved).
+// "origin" = the dispatch state, "states" = the listed states, "rest" = every other state.
 export const DEFAULT_SHIPPING_ZONES = [
-  {
-    id: "zone-1",
-    name: "Zone 1 (Local / Intra-State)",
-    tier: "Local",
-    description: "Fast intra-state delivery within dispensary home state",
-    baseFee: 40,
-    freeThreshold: 499,
-    deliveryDays: "1–2 Business Days",
-  },
-  {
-    id: "zone-2",
-    name: "Zone 2 (Regional)",
-    tier: "Regional",
-    description: "Neighboring states & contiguous transit hubs",
-    baseFee: 65,
-    freeThreshold: 699,
-    deliveryDays: "2–4 Business Days",
-  },
-  {
-    id: "zone-3",
-    name: "Zone 3 (National)",
-    tier: "National",
-    description: "Rest of India major cities, metros and towns",
-    baseFee: 90,
-    freeThreshold: 899,
-    deliveryDays: "4–6 Business Days",
-  },
-  {
-    id: "zone-4",
-    name: "Zone 4 (Special / Remote)",
-    tier: "Remote",
-    description: "North-East states, J&K, Ladakh, and Island territories",
-    baseFee: 140,
-    freeThreshold: 1299,
-    deliveryDays: "6–9 Business Days",
-  },
+  { id: "zone-1", name: "Zone 1 (Local / Intra-State)", tier: "Local", description: "Fast intra-state delivery within dispatch home state", baseFee: 40, freeThreshold: 499, deliveryDays: "1–2 Business Days", matchType: "origin", states: [] },
+  { id: "zone-2", name: "Zone 2 (Regional)", tier: "Regional", description: "Neighboring states & contiguous transit hubs", baseFee: 65, freeThreshold: 699, deliveryDays: "2–4 Business Days", matchType: "states", states: NEIGHBOR_STATES_MAP.Karnataka },
+  { id: "zone-3", name: "Zone 3 (National)", tier: "National", description: "Rest of India major cities, metros and towns", baseFee: 90, freeThreshold: 899, deliveryDays: "4–6 Business Days", matchType: "rest", states: [] },
+  { id: "zone-4", name: "Zone 4 (Special / Remote)", tier: "Remote", description: "North-East states, J&K, Ladakh, and Island territories", baseFee: 140, freeThreshold: 1299, deliveryDays: "6–9 Business Days", matchType: "states", states: REMOTE_STATES },
 ];
 
+const norm = (s) => String(s || "").trim().toLowerCase();
+
 /**
- * Determine shipping zone for a given destination state and store origin state
+ * Zone for a destination state, from the zones saved in Admin -> Settings: the dispatch-state zone,
+ * then a zone that lists the state, then the "all other states" zone. (Same rule the server applies.)
  */
-export const resolveShippingZone = (destinationState, originState = "Karnataka") => {
-  if (!destinationState) {
-    return DEFAULT_SHIPPING_ZONES[1]; // default to regional
+export const resolveShippingZone = (destinationState, originState = "Karnataka", zones = DEFAULT_SHIPPING_ZONES) => {
+  const list = Array.isArray(zones) && zones.length > 0 ? zones : DEFAULT_SHIPPING_ZONES;
+  const dest = norm(destinationState);
+  if (dest && dest === norm(originState)) {
+    const origin = list.find((z) => z.matchType === "origin");
+    if (origin) return origin;
   }
-
-  const cleanDest = destinationState.trim().toLowerCase();
-  const cleanOrigin = (originState || "Karnataka").trim().toLowerCase();
-
-  // Zone 1: Same State (Intra-state)
-  if (cleanDest === cleanOrigin) {
-    return DEFAULT_SHIPPING_ZONES[0];
-  }
-
-  // Zone 4: Remote / Hill / Island
-  const isRemote = REMOTE_STATES.some((s) => s.toLowerCase() === cleanDest);
-  if (isRemote) {
-    return DEFAULT_SHIPPING_ZONES[3];
-  }
-
-  // Zone 2: Regional Neighbors
-  const originNeighbors = NEIGHBOR_STATES_MAP[originState] || NEIGHBOR_STATES_MAP["Karnataka"] || [];
-  const isNeighbor = originNeighbors.some((s) => s.toLowerCase() === cleanDest);
-  if (isNeighbor) {
-    return DEFAULT_SHIPPING_ZONES[1];
-  }
-
-  // Zone 3: All other National destinations
-  return DEFAULT_SHIPPING_ZONES[2];
+  const listed = list.find((z) => z.matchType === "states" && (z.states || []).some((st) => norm(st) === dest));
+  if (listed) return listed;
+  return list.find((z) => z.matchType === "rest") || list[list.length - 1];
 };
 
 /**
@@ -193,47 +147,35 @@ export const calculateShippingAndTax = ({
   deliveryMethod = "standard",
   settings = {},
 }) => {
-  const originState = settings?.general?.dispensaryState || settings?.shipping?.originState || "Karnataka";
-  const zones = settings?.shipping?.zones || DEFAULT_SHIPPING_ZONES;
-  const gstRate = Number(settings?.tax?.standardGstRate) || 12;
-  const taxIncluded = settings?.tax?.taxIncludedInPrice !== false;
+  const originState = settings?.shipping?.originState || "Karnataka";
+  const zones = settings?.shipping?.zones;
+  const gstRate = Number(settings?.tax?.standardGstRate ?? 12);
+  const expressFee = Number(settings?.shipping?.expressShippingFee ?? 99);
 
-  // 1. Resolve Zone
-  const matchedZoneRule = resolveShippingZone(destinationState, originState);
-  const activeZone =
-    zones.find((z) => z.id === matchedZoneRule.id) || matchedZoneRule;
+  // 1. Resolve zone from the saved zone rules
+  const activeZone = resolveShippingZone(destinationState, originState, zones);
 
-  const baseFee = Number(activeZone.baseFee) || 50;
-  const freeThreshold = Number(activeZone.freeThreshold) || 499;
+  const baseFee = Number(activeZone.baseFee) || 0;
+  const freeThreshold = Number(activeZone.freeThreshold) || 0;
   const isFreeEligible = subtotal >= freeThreshold;
 
+  // Express adds the flat express fee on top of the zone fee (which is waived above the free-delivery minimum)
   let baseShippingFee = isFreeEligible ? 0 : baseFee;
-  if (deliveryMethod === "express") {
-    // Express adds flat ₹50 to standard zone fee or minimum ₹99
-    baseShippingFee = isFreeEligible ? 60 : baseShippingFee + 50;
-  }
+  if (deliveryMethod === "express") baseShippingFee += expressFee;
 
   const amountNeededForFree = isFreeEligible ? 0 : Math.max(0, freeThreshold - subtotal);
-  const progressPercent = Math.min(100, Math.round((subtotal / freeThreshold) * 100));
+  const progressPercent = freeThreshold > 0 ? Math.min(100, Math.round((subtotal / freeThreshold) * 100)) : 100;
 
   // 2. GST Tax Breakdown
-  const isIntraState =
-    destinationState &&
-    originState &&
-    destinationState.trim().toLowerCase() === originState.trim().toLowerCase();
+  const isIntraState = norm(destinationState) === norm(originState);
 
   let totalTax = 0;
   let cgstAmount = 0;
   let sgstAmount = 0;
   let igstAmount = 0;
 
-  if (taxIncluded) {
-    // Price includes GST: Extract included tax component
-    totalTax = Math.round(subtotal - subtotal / (1 + gstRate / 100));
-  } else {
-    // Tax added on top
-    totalTax = Math.round(subtotal * (gstRate / 100));
-  }
+  // Prices are GST-inclusive: extract the tax component
+  totalTax = Math.round(subtotal - subtotal / (1 + gstRate / 100));
 
   if (isIntraState) {
     const halfRate = gstRate / 2;

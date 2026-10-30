@@ -143,18 +143,18 @@ export const TrackOrderPage = () => {
         </div>
 
         {/* Search Input Box */}
-        <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 shadow-xs mb-8 max-w-xl mx-auto">
+        <div className="bg-white rounded-3xl border border-[#E5E7DF] p-4 sm:p-6 shadow-xs mb-8 max-w-xl mx-auto">
           <form onSubmit={handleFormSubmit} className="flex gap-2">
             <input
               type="text"
               value={orderIdInput}
               onChange={(e) => setOrderIdInput(e.target.value)}
               placeholder="Enter Order ID (e.g. DA-123456-789)"
-              className="flex-1 px-4 py-2.5 text-xs sm:text-sm bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40]"
+              className="flex-1 min-w-0 px-4 py-2.5 text-xs sm:text-sm bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40]"
             />
             <button
               type="submit"
-              className="px-6 py-2.5 bg-[#173D2A] hover:bg-[#0B2416] text-white text-xs sm:text-sm font-semibold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+              className="shrink-0 px-4 sm:px-6 py-2.5 bg-[#173D2A] hover:bg-[#0B2416] text-white text-xs sm:text-sm font-semibold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
             >
               <Search size={15} />
               <span>Track</span>

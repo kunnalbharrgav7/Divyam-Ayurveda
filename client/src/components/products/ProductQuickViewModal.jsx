@@ -157,7 +157,7 @@ export const ProductQuickViewModal = ({ product, isOpen, onClose }) => {
                           : "border-stone-200 opacity-60 hover:opacity-100"
                       }`}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={img}
                         alt={`Thumbnail ${idx + 1}`}
                         className="w-full h-full object-contain"

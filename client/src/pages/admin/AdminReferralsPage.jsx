@@ -3,6 +3,8 @@ import { Gift, Search, Save, Users, ShoppingBag, IndianRupee, AlertTriangle, Ref
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { formatCurrency, formatDate } from "../../utils/formatters";
+import { Skeleton, SkeletonRegion } from "../../components/common/Skeleton";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
 const STATUS = {
   signed_up: { label: "Signed up", cls: "bg-sky-100 text-sky-800" },
@@ -49,7 +51,7 @@ const Field = ({ label, hint, children }) => (
 );
 
 export const AdminReferralsPage = () => {
-  const { referrals, referralMetrics, referralsData, referralSettings, fetchAdminReferrals, saveReferralSettings, approveReferral, voidReferral, downloadReferralsCsv } = useAdmin();
+  const { isAdminLoading, hasAdminLoadError, retryAdminLoad, referrals, referralMetrics, referralsData, referralSettings, fetchAdminReferrals, saveReferralSettings, approveReferral, voidReferral, downloadReferralsCsv } = useAdmin();
   const [form, setForm] = useState(() => formFromSettings(referralSettings));
   const [saved, setSaved] = useState(false);
   const [formError, setFormError] = useState("");
@@ -108,6 +110,7 @@ export const AdminReferralsPage = () => {
       return byStatus && (!q || text.includes(q));
     });
   }, [referrals, searchTerm, statusFilter]);
+  const pending = isAdminLoading("referrals") && rows.length === 0;
 
   const act = async (id, fn) => {
     setBusyId(id);
@@ -155,7 +158,8 @@ export const AdminReferralsPage = () => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        {cards.map(({ label, value, icon: Icon, tone }) => (
+        {pending && Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+        {!pending && cards.map(({ label, value, icon: Icon, tone }) => (
           <div key={label} className="p-4 rounded-2xl border border-stone-200 bg-white">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-semibold text-stone-500">{label}</span>
@@ -270,7 +274,15 @@ export const AdminReferralsPage = () => {
         </div>
         {actionError && <p className="m-4 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-2.5">{actionError}</p>}
 
-        {rows.length === 0 ? (
+        {hasAdminLoadError("referrals") && rows.length === 0 ? (
+          <AdminLoadError className="m-4" what="referrals" onRetry={() => retryAdminLoad("referrals")} />
+        ) : pending ? (
+          <SkeletonRegion label="Loading referrals" className="p-4 space-y-3">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </SkeletonRegion>
+        ) : rows.length === 0 ? (
           <p className="p-8 text-center text-xs text-stone-500">No referral records found.</p>
         ) : (
           <div className="overflow-x-auto">

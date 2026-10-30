@@ -24,7 +24,7 @@ export const OurStoryPage = () => {
           </div>
 
           <div className="rounded-2xl overflow-hidden aspect-16/9 bg-stone-100">
-            <img
+            <img loading="lazy" decoding="async"
               src="https://images.unsplash.com/photo-1509358271058-acd22cc93898?auto=format&fit=crop&w=1200&q=80"
               alt="Himalayan and Indian herbal flora"
               className="w-full h-full object-cover"

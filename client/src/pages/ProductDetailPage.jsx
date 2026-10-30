@@ -18,6 +18,7 @@ import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { RatingStars } from "../components/common/RatingStars";
 import { ProductCard } from "../components/products/ProductCard";
 import { EmptyState } from "../components/common/EmptyState";
+import { Skeleton, SkeletonRegion, ProductGridSkeleton } from "../components/common/Skeleton";
 import { productService, orderService, reviewService } from "../services/api";
 import {
   formatINR,
@@ -35,6 +36,7 @@ import {
   UserCheck,
   MessageSquarePlus,
   PenLine,
+  WifiOff,
 } from "lucide-react";
 
 const RECENTLY_VIEWED_KEY = "divyam_ayurveda_recent";
@@ -46,6 +48,9 @@ export const ProductDetailPage = () => {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   // Gallery state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -90,25 +95,26 @@ export const ProductDetailPage = () => {
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   useEffect(() => {
+    // Navigating to another product (or leaving) makes this request stale
+    let cancelled = false;
     const loadProductData = async () => {
       setLoading(true);
+      setRelatedProducts([]);
+      setRelatedLoading(false);
+      setLoadError(false);
+      let item = null;
       try {
-        const item = await productService.getProductBySlug(slug);
+        const lookup = await productService.lookupProductBySlug(slug);
+        item = lookup.product;
+        if (cancelled) return;
         setProduct(item);
+        setLoadError(!item && lookup.backendUnavailable);
 
         if (item) {
           // Set initial variant
           setSelectedVariant(item.variants?.[0] || null);
           setActiveImageIndex(0);
           setQuantity(1);
-
-          // Fetch related
-          const related = await productService.getRelatedProducts(
-            item.id,
-            item.categoryId,
-            4,
-          );
-          setRelatedProducts(related);
 
           // Track recently viewed
           const recent = storage.get(RECENTLY_VIEWED_KEY, []);
@@ -119,14 +125,31 @@ export const ProductDetailPage = () => {
         }
       } catch (err) {
         console.error("Error loading product detail:", err);
+        if (!cancelled) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
+      }
+
+      // Related products load after the page is already usable, with their own placeholder
+      if (item && !cancelled) {
+        setRelatedLoading(true);
+        try {
+          const related = await productService.getRelatedProducts(item.id, item.categoryId, 4);
+          if (!cancelled) setRelatedProducts(related);
+        } catch (err) {
+          console.error("Error loading related products:", err);
+        } finally {
+          if (!cancelled) setRelatedLoading(false);
+        }
       }
     };
 
     loadProductData();
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [slug]);
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, reloadTick]);
 
   // Customer's own reviews for this product (hooks must run before the early returns below)
   useEffect(() => {
@@ -145,18 +168,55 @@ export const ProductDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-16">
-        <div className="animate-pulse space-y-8">
-          <div className="h-6 bg-stone-200 rounded w-1/4" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            <div className="h-96 bg-stone-200 rounded-2xl" />
-            <div className="space-y-4">
-              <div className="h-8 bg-stone-200 rounded w-3/4" />
-              <div className="h-4 bg-stone-200 rounded w-1/2" />
-              <div className="h-10 bg-stone-200 rounded w-1/3" />
+      <div className="bg-[#FBFAF6] min-h-screen py-6 sm:py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <SkeletonRegion label="Loading product" className="space-y-4">
+            <Skeleton className="h-4 w-64 mt-2" />
+            <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 lg:p-10 shadow-xs mt-4 mb-12">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+                <div className="lg:col-span-5 space-y-4">
+                  <Skeleton className="aspect-square w-full rounded-2xl" />
+                  <div className="flex gap-3">
+                    {[0, 1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-16 w-16 rounded-xl" />
+                    ))}
+                  </div>
+                </div>
+                <div className="lg:col-span-7 space-y-5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-9 w-3/4" />
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-10 w-1/3" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <div className="flex gap-3 pt-2">
+                    {[0, 1, 2].map((i) => (
+                      <Skeleton key={i} className="h-12 w-24 rounded-xl" />
+                    ))}
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Skeleton className="h-12 w-28 rounded-xl" />
+                    <Skeleton className="h-12 flex-1 rounded-xl" />
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </SkeletonRegion>
         </div>
+      </div>
+    );
+  }
+
+  if (!product && loadError) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-16">
+        <EmptyState
+          icon={WifiOff}
+          title="We couldn't load this product"
+          description="The store didn't respond. Check your connection and try again."
+          actionText="Try again"
+          onAction={() => setReloadTick((n) => n + 1)}
+        />
       </div>
     );
   }
@@ -413,7 +473,7 @@ export const ProductDetailPage = () => {
                           : "border-[#E5E7DF] hover:border-stone-400"
                       }`}
                     >
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={img}
                         alt={`${product.name} view ${idx + 1}`}
                         className="w-full h-full object-contain"
@@ -1141,7 +1201,17 @@ export const ProductDetailPage = () => {
         </div>
 
         {/* Related Products Section */}
-        {relatedProducts.length > 0 && (
+        {relatedLoading && (
+          <div className="mb-14">
+            <Skeleton className="h-8 w-64 mb-6" />
+            <ProductGridSkeleton
+              count={4}
+              label="Loading related products"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+            />
+          </div>
+        )}
+        {!relatedLoading && relatedProducts.length > 0 && (
           <div className="mb-14">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">

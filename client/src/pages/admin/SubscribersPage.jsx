@@ -6,7 +6,7 @@ import { AdminTable } from "../../components/admin/common/AdminTable";
 import { formatDate } from "../../utils/formatters";
 
 export const SubscribersPage = () => {
-  const { subscribers, deleteSubscriber } = useAdmin();
+  const { adminTableState, subscribers, deleteSubscriber } = useAdmin();
   const [searchTerm, setSearchTerm] = useState("");
 
   const filtered = subscribers.filter((s) =>
@@ -126,6 +126,7 @@ export const SubscribersPage = () => {
         </div>
 
         <AdminTable
+          {...adminTableState("subscribers", filtered)}
           columns={columns}
           data={filtered}
           keyField="id"

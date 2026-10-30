@@ -32,10 +32,12 @@ import { ReferralStats } from "../components/referrals/ReferralStats";
 import { ReferralHowItWorks } from "../components/referrals/ReferralHowItWorks";
 import { ReferralHistory } from "../components/referrals/ReferralHistory";
 import { WalletLedger } from "../components/referrals/WalletLedger";
+import { ListRowsSkeleton } from "../components/common/Skeleton";
 
 export const AccountPage = () => {
   const { user, isAuthenticated, logout, updateProfile, addresses, addAddress, deleteAddress, setDefaultAddress } = useAuth();
-  const { orders } = useOrders();
+  const { orders, loading: ordersLoading } = useOrders();
+  const ordersPending = ordersLoading && orders.length === 0; // first load of the order list
   const { returns, eligibility, getReturnForOrder, refresh: refreshReturns } = useReturns();
   const [returnOrder, setReturnOrder] = useState(null);
   const navigate = useNavigate();
@@ -178,7 +180,7 @@ export const AccountPage = () => {
           <aside className="lg:col-span-3 bg-white rounded-3xl border border-[#E5E7DF] p-3 shadow-xs space-y-1">
             {[
               { id: "overview", label: "Dashboard Overview", icon: ShieldCheck },
-              { id: "orders", label: `My Orders (${orders.length})`, icon: Package },
+              { id: "orders", label: ordersPending ? "My Orders" : `My Orders (${orders.length})`, icon: Package },
               { id: "returns", label: `Returns & Refunds${returns.length ? ` (${returns.length})` : ""}`, icon: RotateCcw },
               { id: "referrals", label: "Refer & Earn (Rewards)", icon: Gift },
               { id: "addresses", label: `Saved Addresses (${addresses.length})`, icon: MapPin },
@@ -220,7 +222,7 @@ export const AccountPage = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 rounded-2xl bg-[#FBFAF6] border border-[#E5E7DF]">
                     <span className="text-xs text-stone-500 block">Total Orders</span>
-                    <span className="text-2xl font-bold text-[#173D2A]">{orders.length}</span>
+                    <span className="text-2xl font-bold text-[#173D2A]">{ordersPending ? "–" : orders.length}</span>
                   </div>
                   <div className="p-4 rounded-2xl bg-[#FBFAF6] border border-[#E5E7DF]">
                     <span className="text-xs text-stone-500 block">Saved Addresses</span>
@@ -246,7 +248,9 @@ export const AccountPage = () => {
                     </button>
                   </div>
 
-                  {orders.length === 0 ? (
+                  {ordersPending ? (
+                    <ListRowsSkeleton rows={2} label="Loading your orders" />
+                  ) : orders.length === 0 ? (
                     <div className="p-6 text-center bg-stone-50 rounded-2xl text-xs text-stone-500">
                       No orders placed yet. Explore our authentic Ayurvedic catalog!
                     </div>
@@ -367,7 +371,9 @@ export const AccountPage = () => {
                   </p>
                 </div>
 
-                {orders.length === 0 ? (
+                {ordersPending ? (
+                  <ListRowsSkeleton rows={3} label="Loading your orders" />
+                ) : orders.length === 0 ? (
                   <div className="p-10 text-center bg-stone-50 rounded-2xl">
                     <p className="text-sm font-semibold text-[#171A17] mb-2">
                       No order history found
@@ -417,7 +423,7 @@ export const AccountPage = () => {
                         <div className="space-y-2">
                           {ord.items?.map((it, idx) => (
                             <div key={idx} className="flex items-center gap-3 text-xs">
-                              <img
+                              <img width={40} height={40} loading="lazy" decoding="async"
                                 src={it.image}
                                 alt={it.name}
                                 className="w-10 h-10 rounded-lg object-contain bg-[#FBFAF6] border p-1"

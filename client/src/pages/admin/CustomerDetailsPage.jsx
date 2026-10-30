@@ -15,10 +15,12 @@ import {
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard, StatCard } from "../../components/admin/common/AdminCard";
 import { formatCurrency, formatDate } from "../../utils/formatters";
+import { DetailPageSkeleton } from "../../components/common/Skeleton";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
 export const CustomerDetailsPage = () => {
   const { customerId } = useParams();
-  const { customers, orders, saveCustomer, fetchAdminCustomer, addCustomerNote } = useAdmin();
+  const { customers, orders, saveCustomer, fetchAdminCustomer, addCustomerNote, isAdminLoading, hasAdminLoadError, retryAdminLoad } = useAdmin();
 
   const customer = customers.find((c) => c.id === customerId);
 
@@ -46,6 +48,14 @@ export const CustomerDetailsPage = () => {
       isMounted = false;
     };
   }, [customerId]);
+
+  if (!customer && hasAdminLoadError("customers")) {
+    return <AdminLoadError what="this customer" onRetry={() => retryAdminLoad("customers")} />;
+  }
+
+  if (!customer && isAdminLoading("customers")) {
+    return <DetailPageSkeleton label="Loading customer" />;
+  }
 
   if (!customer) {
     return (
@@ -95,20 +105,20 @@ export const CustomerDetailsPage = () => {
     <div className="space-y-6 pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             to="/admin/customers"
             className="p-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-600 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-lg">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-12 h-12 shrink-0 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-lg">
               {(customer.name || "C").charAt(0)}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-stone-900 font-sans tracking-tight">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl break-words font-bold text-stone-900 font-sans tracking-tight">
                   {customer.name || "Valued Customer"}
                 </h1>
                 <span

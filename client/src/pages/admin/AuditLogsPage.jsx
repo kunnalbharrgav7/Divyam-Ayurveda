@@ -1,49 +1,59 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { History, Search, Filter, ShieldCheck, Download } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { AdminTable } from "../../components/admin/common/AdminTable";
-import { formatDate } from "../../utils/formatters";
+import { formatDateTime } from "../../utils/formatters";
 
 export const AuditLogsPage = () => {
-  const { auditLogs } = useAdmin();
+  const { adminTableState, auditLogs, fetchAdminAuditLogs } = useAdmin();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
+  // Always show the latest trail when the page is opened
+  useEffect(() => {
+    fetchAdminAuditLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filteredLogs = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     return auditLogs.filter((log) => {
       const matchSearch =
-        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.user.toLowerCase().includes(searchTerm.toLowerCase());
+        (log.action || "").toLowerCase().includes(term) ||
+        (log.details || "").toLowerCase().includes(term) ||
+        (log.user || "").toLowerCase().includes(term);
 
       const matchCategory =
         categoryFilter === "all" ||
-        log.action.toLowerCase().includes(categoryFilter.toLowerCase());
+        `${log.action || ""} ${log.module || ""}`.toLowerCase().includes(categoryFilter.toLowerCase());
 
       return matchSearch && matchCategory;
     });
   }, [auditLogs, searchTerm, categoryFilter]);
 
   const handleExportCSV = () => {
-    const headers = ["Timestamp", "Action", "Details", "Staff User"];
+    const headers = ["Timestamp (ISO)", "Action", "Details", "Staff User", "Role", "IP Address"];
+    const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const rows = filteredLogs.map((l) => [
-      l.timestamp,
-      `"${l.action}"`,
-      `"${l.details.replace(/"/g, '""')}"`,
-      `"${l.user}"`,
+      l.timestamp ? new Date(l.timestamp).toISOString() : "",
+      q(l.action),
+      q(l.details),
+      q(l.user),
+      q(l.actorRole),
+      q(l.ip),
     ]);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    // A Blob (not a data: URL) so characters like "#" in details don't truncate the file
+    const csv = [headers.join(","), ...rows.map((e) => e.join(","))].join("\r\n");
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", `divyam_audit_trail_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const columns = [
@@ -51,7 +61,7 @@ export const AuditLogsPage = () => {
       header: "Timestamp",
       render: (row) => (
         <span className="font-mono text-xs text-stone-500 whitespace-nowrap">
-          {new Date(row.timestamp).toLocaleString()}
+          {formatDateTime(row.timestamp)}
         </span>
       ),
     },
@@ -69,15 +79,19 @@ export const AuditLogsPage = () => {
       render: (row) => (
         <span className="text-xs text-stone-600 leading-relaxed">
           {row.details}
+          {row.ip && <span className="block text-[11px] text-stone-400 mt-0.5">IP {row.ip}</span>}
         </span>
       ),
     },
     {
       header: "Staff Member",
       render: (row) => (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-stone-100 text-stone-700">
-          <ShieldCheck className="w-3 h-3 text-emerald-800" />
-          <span>{row.user}</span>
+        <span className="inline-flex items-start gap-1.5 text-xs">
+          <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-800" />
+          <span>
+            <span className="block font-medium text-stone-800">{row.user || "System"}</span>
+            {row.actorRole && row.actorRole !== "System" && <span className="block text-[11px] text-stone-400">{row.actorRole}</span>}
+          </span>
         </span>
       ),
     },
@@ -136,6 +150,7 @@ export const AuditLogsPage = () => {
         </div>
 
         <AdminTable
+          {...adminTableState("auditLogs", filteredLogs)}
           columns={columns}
           data={filteredLogs}
           keyField="id"

@@ -4,6 +4,7 @@ import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { AdminModal, ConfirmDialog } from "../../components/admin/common/AdminModal";
 import { AdminImageUpload } from "../../components/admin/common/AdminImageUpload";
+import { AdminCardGridSkeleton } from "../../components/common/Skeleton";
 
 export const IngredientsAdminPage = () => {
   const {
@@ -12,6 +13,7 @@ export const IngredientsAdminPage = () => {
     updateIngredient,
     deleteIngredient,
     fetchAdminIngredients,
+    isAdminLoading, hasAdminLoadError, retryAdminLoad,
   } = useAdmin();
 
   // Load once on open (the context function is re-created on every update, so depending on it loops)
@@ -122,6 +124,10 @@ export const IngredientsAdminPage = () => {
 
       {/* Botanical Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {hasAdminLoadError("ingredients") && filteredHerbs.length === 0 && (
+          <AdminLoadError className="col-span-full" what="botanicals" onRetry={() => retryAdminLoad("ingredients")} />
+        )}
+        {isAdminLoading("ingredients") && filteredHerbs.length === 0 && <AdminCardGridSkeleton label="Loading botanicals" />}
         {filteredHerbs.map((herb) => (
           <div
             key={herb.id}

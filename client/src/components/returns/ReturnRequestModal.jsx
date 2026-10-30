@@ -109,7 +109,7 @@ export const ReturnRequestModal = ({ order, onClose, onSubmitted }) => {
           <div className="flex flex-wrap gap-2 mt-1">
             {images.map((src, i) => (
               <div key={i} className="relative w-16 h-16">
-                <img src={src} alt="" className="w-16 h-16 object-cover rounded-lg border" />
+                <img width={64} height={64} loading="lazy" decoding="async" src={src} alt="" className="w-16 h-16 object-cover rounded-lg border" />
                 <button
                   type="button"
                   onClick={() => setImages((p) => p.filter((_, j) => j !== i))}

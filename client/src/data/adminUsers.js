@@ -17,7 +17,7 @@ export const PERMISSIONS_LIST = [
   { id: "customers.manage", label: "Manage Customer Accounts", module: "Customers" },
   { id: "reviews.moderate", label: "Moderate Reviews & Questions", module: "Customers" },
   { id: "support.manage", label: "Handle Inquiries & Tickets", module: "Customers" },
-  { id: "content.manage", label: "Homepage Builder, Banners & Blog", module: "Storefront" },
+  { id: "content.manage", label: "Content Pages, FAQs & Blog", module: "Storefront" },
   { id: "reports.view", label: "View Analytics & Reports", module: "Analytics" },
   { id: "users.manage", label: "Manage Admin Team Users", module: "Administration" },
   { id: "roles.manage", label: "Manage Roles & Permissions", module: "Administration" },

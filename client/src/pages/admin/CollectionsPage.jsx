@@ -4,9 +4,11 @@ import { Plus, Edit, Trash2, Layers, ExternalLink } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { AdminModal, ConfirmDialog } from "../../components/admin/common/AdminModal";
 import { AdminImageUpload } from "../../components/admin/common/AdminImageUpload";
+import { AdminCardGridSkeleton } from "../../components/common/Skeleton";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
 export const CollectionsPage = () => {
-  const { collections, saveCollection, deleteCollection } = useAdmin();
+  const { isAdminLoading, hasAdminLoadError, retryAdminLoad, collections, saveCollection, deleteCollection } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState(null);
@@ -117,6 +119,10 @@ export const CollectionsPage = () => {
 
       {/* Collections Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {hasAdminLoadError("collections") && collections.length === 0 && (
+          <AdminLoadError className="col-span-full" what="collections" onRetry={() => retryAdminLoad("collections")} />
+        )}
+        {isAdminLoading("collections") && collections.length === 0 && <AdminCardGridSkeleton label="Loading collections" />}
         {collections.map((col) => (
           <div
             key={col.id}
@@ -124,7 +130,7 @@ export const CollectionsPage = () => {
           >
             <div>
               <div className="relative h-44 bg-stone-100 overflow-hidden">
-                <img
+                <img loading="lazy" decoding="async"
                   src={col.image}
                   alt={col.title || col.name}
                   className="w-full h-full object-cover"

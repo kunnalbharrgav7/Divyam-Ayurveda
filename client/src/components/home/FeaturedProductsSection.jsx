@@ -4,6 +4,8 @@ import { ArrowRight, Star } from "lucide-react";
 import { ProductCard } from "../products/ProductCard";
 import { productService } from "../../services/api";
 import { ScrollReveal } from "../../animations/useScrollReveal";
+import { ProductGridSkeleton } from "../common/Skeleton";
+import { useNearViewport } from "../../hooks/useNearViewport";
 
 /**
  * Products flagged "Featured on Homepage" in Admin → Products.
@@ -12,8 +14,10 @@ import { ScrollReveal } from "../../animations/useScrollReveal";
 export const FeaturedProductsSection = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sectionRef, nearViewport] = useNearViewport();
 
   useEffect(() => {
+    if (!nearViewport) return undefined;
     let isMounted = true;
     const fetchFeatured = async () => {
       try {
@@ -29,12 +33,12 @@ export const FeaturedProductsSection = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [nearViewport]);
 
   if (!loading && products.length === 0) return null;
 
   return (
-    <section className="py-12 bg-white">
+    <section ref={sectionRef} className="py-12 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollReveal yOffset={16} duration={500} className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
           <div>
@@ -62,11 +66,7 @@ export const FeaturedProductsSection = () => {
         </ScrollReveal>
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="h-72 bg-stone-100 rounded-2xl animate-pulse" />
-            ))}
-          </div>
+          <ProductGridSkeleton count={4} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {products.map((product, idx) => (

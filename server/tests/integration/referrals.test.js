@@ -28,14 +28,28 @@ describe("Refer & earn", () => {
     return { id: res.body.data.user.id, email, code: res.body.data.user.referralCode, auth: { Authorization: `Bearer ${res.body.data.tokens.accessToken}` }, referral: res.body.data.referral };
   };
 
-  const order = (who, { price = 1000, code, discount = 0, offer = null } = {}) =>
-    request(app).post("/api/v1/orders").set(who.auth).send({
+  const cheapProducts = [];
+  const productAt = async (price) => {
+    if (price === 1000) return product;
+    const slug = `ref-p${price}-${stamp}`;
+    let p = await Product.findOne({ slug });
+    if (!p) {
+      p = await Product.create({ name: `Ref P${price} ${stamp}`, slug, sku: `REF-P${price}-${stamp}`, categoryId: "wellness-essentials", description: "x", status: "active", basePricePaise: price * 100 });
+      await ProductVariant.create({ productId: p._id, sku: `REF-P${price}-${stamp}-S`, label: "Standard", pricePaise: price * 100, stockOnHand: 50, isActive: true });
+      cheapProducts.push(p._id);
+    }
+    return p;
+  };
+  const order = async (who, { price = 1000, code, discount = 0, offer = null } = {}) => {
+    const product = await productAt(price);
+    return request(app).post("/api/v1/orders").set(who.auth).send({
       customer: { name: "Cust", email: who.email, phone: "7000000000" },
       shippingAddress: { street: `${n} Unique Lane ${Math.random()}`, city: "Pune", state: "Maharashtra", pincode: "411001" },
       items: [{ productId: String(product._id), name: product.name, size: "Standard", price, quantity: 1 }],
       pricing: { subtotal: price, total: price - discount, referralDiscount: discount, referralCode: code, couponCode: offer },
       paymentMethod: "Cash on Delivery (COD)",
     });
+  };
   const status = (num, s) => request(app).patch(`/api/v1/admin/orders/${num}/status`).set(adminAuth).send({ status: s });
   const wallet = async (who) => (await User.findById(who.id).lean()).storeCreditPaise || 0;
   const aged = (num, days) => Order.updateOne({ orderNumber: num }, { deliveredAt: new Date(Date.now() - days * 86400000) });
@@ -58,8 +72,8 @@ describe("Refer & earn", () => {
     await Referral.deleteMany({ referrerId: { $in: ids } });
     await WalletTransaction.deleteMany({ userId: { $in: ids } });
     await Order.deleteMany({ userId: { $in: ids } });
-    await ProductVariant.deleteMany({ productId: product._id });
-    await Product.deleteOne({ _id: product._id });
+    await ProductVariant.deleteMany({ productId: { $in: [product._id, ...cheapProducts] } });
+    await Product.deleteMany({ _id: { $in: [product._id, ...cheapProducts] } });
     await User.deleteMany({ _id: { $in: [...ids, staff._id] } });
     if (createdRole) await Role.deleteOne({ _id: createdRole._id });
   });

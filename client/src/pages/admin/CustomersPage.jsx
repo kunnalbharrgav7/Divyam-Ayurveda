@@ -7,7 +7,7 @@ import { AdminTable } from "../../components/admin/common/AdminTable";
 import { formatCurrency, formatDate } from "../../utils/formatters";
 
 export const CustomersPage = () => {
-  const { customers, saveCustomer } = useAdmin();
+  const { adminTableState, customers, saveCustomer } = useAdmin();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -190,6 +190,7 @@ export const CustomersPage = () => {
         </div>
 
         <AdminTable
+          {...adminTableState("customers", paginatedData)}
           columns={columns}
           data={paginatedData}
           keyField="id"

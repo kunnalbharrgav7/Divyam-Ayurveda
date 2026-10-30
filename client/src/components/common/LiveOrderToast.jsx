@@ -125,7 +125,7 @@ export const LiveOrderToast = () => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 25, scale: 0.95 }}
           transition={{ type: "spring", stiffness: 350, damping: 28 }}
-          className="fixed bottom-5 left-5 z-40 max-w-[340px] sm:max-w-[380px] w-[calc(100vw-2.5rem)]"
+          className="fixed bottom-3 left-3 sm:bottom-5 sm:left-5 z-40 max-w-[340px] sm:max-w-[380px] w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2.5rem)]"
         >
           <div className="relative bg-white/95 backdrop-blur-xl rounded-2xl border border-[#E5E7DF] shadow-2xl p-3.5 sm:p-4 overflow-hidden group">
             {/* Top Close Button */}
@@ -154,7 +154,7 @@ export const LiveOrderToast = () => {
               {/* Order Info */}
               <div className="flex-1 min-w-0 pr-3">
                 <div className="flex items-center gap-1.5 text-[11px] text-[#386B40] font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 motion-safe:animate-pulse" />
                   <span className="truncate">
                     {currentOrder.customer} ({currentOrder.city})
                   </span>

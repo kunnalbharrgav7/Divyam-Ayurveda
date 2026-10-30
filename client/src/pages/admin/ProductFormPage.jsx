@@ -18,12 +18,14 @@ import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { formatCurrency } from "../../utils/formatters";
 import { compressImageFile } from "../../utils/imageCompressor";
+import { DetailPageSkeleton } from "../../components/common/Skeleton";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
 export const ProductFormPage = () => {
   const { productId } = useParams();
   const isEdit = Boolean(productId);
   const navigate = useNavigate();
-  const { products, categories, brands, collections, saveProduct } = useAdmin();
+  const { products, categories, brands, collections, saveProduct, isAdminLoading, hasAdminLoadError, retryAdminLoad } = useAdmin();
 
   // Initial state template
   const defaultFormData = {
@@ -430,6 +432,14 @@ export const ProductFormPage = () => {
       c.slug === formData.category
   );
   const currentSubcategories = selectedCategoryObj?.subcategories || [];
+
+  // Editing a product that is not in the list yet: wait for it instead of showing the blank demo form
+  if (isEdit && hasAdminLoadError("products") && !products.some((p) => p.id === productId)) {
+    return <AdminLoadError what="this product" onRetry={() => retryAdminLoad("products")} />;
+  }
+  if (isEdit && isAdminLoading("products") && !products.some((p) => p.id === productId)) {
+    return <DetailPageSkeleton label="Loading product" />;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 pb-12">
@@ -1101,7 +1111,7 @@ export const ProductFormPage = () => {
                           }`}
                         >
                           <div className="aspect-square w-full overflow-hidden flex items-center justify-center p-1 bg-white">
-                            <img
+                            <img loading="lazy" decoding="async"
                               src={imgUrl}
                               alt={`Product upload ${idx + 1}`}
                               className="w-full h-full object-contain"
@@ -1161,7 +1171,7 @@ export const ProductFormPage = () => {
             <div className="p-3 bg-stone-50 rounded-xl border border-stone-200">
               <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-xs">
                 <div className="relative aspect-square overflow-hidden bg-stone-100 flex items-center justify-center p-2">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={
                       formData.image ||
                       formData.images?.[0] ||
@@ -1199,7 +1209,7 @@ export const ProductFormPage = () => {
                             : "border-stone-200 opacity-60"
                         }`}
                       >
-                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        <img loading="lazy" decoding="async" src={img} alt="" className="w-full h-full object-cover" />
                       </div>
                     ))}
                     <span className="text-[10px] text-stone-400 ml-auto whitespace-nowrap">

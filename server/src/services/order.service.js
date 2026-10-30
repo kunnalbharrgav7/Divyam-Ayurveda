@@ -15,6 +15,8 @@ import { couponService } from "./coupon.service.js";
 import { referralService } from "./referral.service.js";
 import { walletService } from "./wallet.service.js";
 import { logAudit } from "./audit.service.js";
+import { settingsService } from "./settings.service.js";
+import { computeShipping, computeTax } from "../utils/shippingRules.js";
 import { ApiError } from "../utils/apiError.js";
 
 export class OrderService {
@@ -28,6 +30,21 @@ export class OrderService {
     const isCOD = canonicalMethod === PAYMENT_METHODS.COD;
     const isOnline = !isCOD;
 
+    // Payment options are controlled from Admin -> Settings; enforce them here, not just in the checkout UI
+    const settings = await settingsService.get();
+    if (isCOD && !settings.store.enableCashOnDelivery) {
+      throw ApiError.badRequest("Cash on Delivery is not available right now. Please choose online payment.");
+    }
+    if (isOnline && !settings.store.enableOnlinePayments) {
+      throw ApiError.badRequest("Online payment is not available right now. Please choose Cash on Delivery.");
+    }
+    const assertCodWithinLimit = (totalPaise) => {
+      const limit = Number(settings.store.maxCodLimit || 0);
+      if (isCOD && limit > 0 && totalPaise > Math.round(limit * 100)) {
+        throw ApiError.badRequest(`Cash on Delivery is available for orders up to ₹${limit}. Please pay online for this order.`);
+      }
+    };
+
     // PATH A: Quote-based order placement (fingerprint verification)
     if (quoteId) {
       const quote = await Quote.findById(quoteId);
@@ -39,6 +56,7 @@ export class OrderService {
         throw ApiError.badRequest("Checkout quote has expired. Please calculate a new quote.");
       }
 
+      assertCodWithinLimit(quote.totalPaise);
       const orderNumber = generateOrderNumber();
 
       // 1. Atomically reserve stock for all items
@@ -235,9 +253,29 @@ export class OrderService {
     }
 
 
+    // Prices come from the database, never from the browser: re-price every line from its pack size.
+    // (The cart sends a price only so the customer sees it; a changed or forged one is simply ignored.)
+    for (const item of mappedItems) {
+      if (!item.productId) {
+        throw ApiError.conflict(`"${item.name}" is no longer available. Please remove it from your cart.`);
+      }
+      const packs = await ProductVariant.find({ productId: item.productId, isActive: true }).sort({ createdAt: 1 }).lean();
+      // A product with no pack sizes is sold at its base price
+      const priced = packs.find((v) => v.label === item.size) || packs[0] || (await Product.findById(item.productId).select("basePricePaise compareAtPricePaise").lean());
+      const unit = priced?.pricePaise ?? priced?.basePricePaise;
+      if (!Number.isFinite(unit) || unit <= 0) throw ApiError.conflict(`"${item.name}" is no longer available. Please remove it from your cart.`);
+      const compareAt = priced.compareAtPricePaise;
+      item.unitPricePaise = unit;
+      item.lineTotalPaise = unit * item.quantity;
+      item.mrpLinePaise = (compareAt > unit ? compareAt : unit) * item.quantity;
+    }
+    const goodsPaise = mappedItems.reduce((sum, it) => sum + it.lineTotalPaise, 0);
+    const mrpPaise = mappedItems.reduce((sum, it) => sum + it.mrpLinePaise, 0);
+
     // The client says which offer it applied and how much it took off; verify that against the database
     // (dates, limits, eligible products) so nobody can invent a discount, then count the redemption.
     let verifiedOfferCode = null;
+    let offerDiscountPaise = 0;
     const claimedOfferCode = String(payload.pricing?.couponCode || "").trim();
     if (claimedOfferCode) {
       const verified = await couponService.validateCoupon(
@@ -252,6 +290,7 @@ export class OrderService {
         throw ApiError.conflict("This offer has changed. Please review your cart and try again.");
       }
       verifiedOfferCode = verified.code;
+      offerDiscountPaise = verified.discountPaise;
     }
 
     // Referral: the server works the discount out itself; the browser's figure must agree with it.
@@ -278,18 +317,30 @@ export class OrderService {
       referralDiscountPaise = referral.discountPaise;
     }
 
-    const subtotalPaise = toPaise(Number(payload.pricing?.subtotal || 0));
-    const couponDiscountPaise = toPaise(Number(payload.pricing?.discount || 0));
-    const shippingPaise = toPaise(Number(payload.pricing?.shipping || 0));
-    const taxPaise = toPaise(Number(payload.pricing?.tax || 0));
-    const cgstPaise = toPaise(Number(payload.pricing?.cgst || 0));
-    const sgstPaise = toPaise(Number(payload.pricing?.sgst || 0));
-    const igstPaise = toPaise(Number(payload.pricing?.igst || 0));
-    const totalPaise = toPaise(Number(payload.pricing?.total || 0));
+    // Shipping, GST and the total are worked out here from the saved settings (zones, rates, GST); the
+    // browser's figures are only what the customer was shown and are not trusted.
+    const deliveryMethod = payload.deliveryMethod === "express" ? "express" : "standard";
+    const payablePaise = Math.max(0, goodsPaise - offerDiscountPaise);
+    const shippingCalc = computeShipping({ settings, destinationState: state, payablePaise, deliveryMethod });
+    const taxCalc = computeTax({ settings, destinationState: state, payablePaise });
+    const subtotalPaise = mrpPaise;
+    const couponDiscountPaise = mrpPaise - goodsPaise + offerDiscountPaise; // product savings + offer
+    const shippingPaise = shippingCalc.shippingPaise;
+    const taxPaise = taxCalc.totalTaxPaise;
+    const cgstPaise = taxCalc.cgstPaise;
+    const sgstPaise = taxCalc.sgstPaise;
+    const igstPaise = taxCalc.igstPaise;
+    const payableTotalPaise = Math.max(0, goodsPaise - offerDiscountPaise - referralDiscountPaise + shippingPaise);
 
     // Store credit (from refunds) used on this order: debited atomically, refunded if the order fails
     let storeCreditPaise = 0;
     const claimedCreditPaise = toPaise(Number(payload.pricing?.storeCredit || 0));
+    // Credit can cover everything except the last rupee, so there is always something to pay
+    if (claimedCreditPaise > Math.max(0, payableTotalPaise - 100)) {
+      throw ApiError.conflict("Your store credit can't cover this order in full. Please review your order and try again.");
+    }
+    const totalPaise = payableTotalPaise - claimedCreditPaise;
+    assertCodWithinLimit(totalPaise);
     if (claimedCreditPaise > 0) {
       if (!user?._id) throw ApiError.badRequest("Please sign in to use store credit.");
       await walletService.debit(user._id, claimedCreditPaise, {
@@ -348,7 +399,7 @@ export class OrderService {
         cgstPaise,
         sgstPaise,
         igstPaise,
-        taxType: payload.pricing?.taxType || "intra_state",
+        taxType: taxCalc.taxType,
         totalPaise,
         appliedCoupon: verifiedOfferCode,
         storeCreditPaise,
@@ -357,7 +408,7 @@ export class OrderService {
       status: initialStatus,
       paymentStatus: initialPaymentStatus,
       paymentMethod: canonicalMethod,
-      deliveryMethod: payload.deliveryMethod || "standard",
+      deliveryMethod,
       timeline: initialTimeline,
       notes,
       });

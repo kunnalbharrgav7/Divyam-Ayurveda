@@ -19,7 +19,7 @@ import { AdminModal } from "../../components/admin/common/AdminModal";
 import { formatCurrency } from "../../utils/formatters";
 
 export const InventoryPage = () => {
-  const { products, updateProductStock, auditLogs, fetchAdminProducts } = useAdmin();
+  const { adminTableState, products, updateProductStock, auditLogs, fetchAdminProducts } = useAdmin();
 
   // Stock changes whenever customers order; load the latest figures once when the page opens
   useEffect(() => {
@@ -124,7 +124,7 @@ export const InventoryPage = () => {
       cellClassName: "min-w-[240px]",
       render: (row) => (
         <div className="flex items-center gap-3">
-          <img
+          <img width={40} height={40} loading="lazy" decoding="async"
             src={row.image || (Array.isArray(row.images) ? row.images[0] : "") || "/images/ProductImages/Ashuwaganda.png"}
             alt={row.title || row.name || "Product"}
             className="w-10 h-10 rounded-lg object-cover border border-stone-200 flex-shrink-0"
@@ -299,6 +299,7 @@ export const InventoryPage = () => {
         </div>
 
         <AdminTable
+          {...adminTableState("products", filteredInventory)}
           columns={columns}
           data={filteredInventory}
           keyField="id"

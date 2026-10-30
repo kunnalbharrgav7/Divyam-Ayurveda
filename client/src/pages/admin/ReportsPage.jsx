@@ -1,6 +1,7 @@
 import React from "react";
 import { Download, TrendingUp, DollarSign, Undo2, Clock, Receipt, Truck, ShoppingBag } from "lucide-react";
 import { AdminCard, StatCard } from "../../components/admin/common/AdminCard";
+import { Skeleton, StatCardSkeleton, TableRowsSkeleton } from "../../components/common/Skeleton";
 import { RevenueFilters } from "../../components/admin/common/RevenueFilters";
 import { useRevenueReport, RANGE_OPTIONS } from "../../hooks/useRevenueReport";
 import { formatCurrency } from "../../utils/formatters";
@@ -12,6 +13,8 @@ const csvCell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 export const ReportsPage = () => {
   const { report, error, loading, days, setDays, basis, setBasis } = useRevenueReport({ months: 12 });
   const s = report?.summary;
+  // First load only: later range/basis changes keep the previous numbers on screen
+  const pending = loading && !report;
   const periodLabel = RANGE_OPTIONS.find((r) => r.value === days)?.label || "";
 
   const handleExportFullReport = () => {
@@ -75,6 +78,10 @@ export const ReportsPage = () => {
       {error && <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-2.5">{error}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {pending ? (
+          Array.from({ length: 8 }, (_, i) => <StatCardSkeleton key={i} />)
+        ) : (
+          <>
         <StatCard
           title="Net Revenue"
           value={formatCurrency(s?.netRevenue ?? 0)}
@@ -108,10 +115,13 @@ export const ReportsPage = () => {
           color="emerald"
         />
         <StatCard title="Cancelled Orders" value={formatCurrency(s?.cancelledValue ?? 0)} subtitle={`${s?.cancelledOrders ?? 0} order(s), never counted`} icon={Undo2} color="stone" />
+          </>
+        )}
       </div>
 
       <AdminCard title="Monthly Revenue" subtitle="Gross received vs refunds, by month the order was placed">
         <div className="space-y-2.5 pt-1">
+          {pending && Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-3 w-full rounded-full" />)}
           {(report?.trend || []).map((t) => (
             <div key={t.month} className="grid grid-cols-[64px_1fr_auto] items-center gap-3 text-xs">
               <span className="font-semibold text-stone-600">{t.label} {t.month.slice(2, 4)}</span>
@@ -131,7 +141,9 @@ export const ReportsPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <AdminCard title="Top Selling Products" subtitle="Ranked by net revenue (refunds deducted) in the selected period" noPadding={true}>
-            {report?.topProducts?.length ? (
+            {pending ? (
+              <table className="w-full"><tbody><TableRowsSkeleton columns={4} rows={5} /></tbody></table>
+            ) : report?.topProducts?.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs text-stone-700">
                   <thead className="bg-stone-50/80 text-[11px] font-semibold uppercase tracking-wider text-stone-500 border-b border-stone-200">
@@ -148,7 +160,7 @@ export const ReportsPage = () => {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
                             <span className="w-5 h-5 rounded-full bg-stone-100 text-stone-600 font-bold flex items-center justify-center text-[10px]">#{idx + 1}</span>
-                            {p.image && <img src={p.image} alt="" className="w-9 h-9 rounded object-cover border border-stone-200" />}
+                            {p.image && <img width={36} height={36} loading="lazy" decoding="async" src={p.image} alt="" className="w-9 h-9 rounded object-cover border border-stone-200" />}
                             <span className="font-semibold text-stone-900 line-clamp-1">{p.name}</span>
                           </div>
                         </td>
@@ -161,7 +173,7 @@ export const ReportsPage = () => {
                 </table>
               </div>
             ) : (
-              <p className="p-8 text-center text-xs text-stone-500">{loading ? "Loading…" : "No paid orders in this period."}</p>
+              <p className="p-8 text-center text-xs text-stone-500">No paid orders in this period.</p>
             )}
           </AdminCard>
         </div>
@@ -180,7 +192,8 @@ export const ReportsPage = () => {
                   </div>
                 </div>
               ))}
-              {!report?.paymentMethods?.length && <p className="text-xs text-stone-500">No paid orders in this period.</p>}
+              {pending && [0, 1, 2].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+              {!pending && !report?.paymentMethods?.length && <p className="text-xs text-stone-500">No paid orders in this period.</p>}
             </div>
           </AdminCard>
 
@@ -197,7 +210,8 @@ export const ReportsPage = () => {
                   </div>
                 </div>
               ))}
-              {!report?.categories?.length && <p className="text-xs text-stone-500">No paid orders in this period.</p>}
+              {pending && [0, 1, 2].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+              {!pending && !report?.categories?.length && <p className="text-xs text-stone-500">No paid orders in this period.</p>}
             </div>
           </AdminCard>
         </div>

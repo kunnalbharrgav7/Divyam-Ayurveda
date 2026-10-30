@@ -22,6 +22,8 @@ import { ContactEnquiry } from "../models/ContactEnquiry.js";
 import { Subscriber } from "../models/Subscriber.js";
 import { StoreSettings } from "../models/StoreSettings.js";
 import { HomepageConfig } from "../models/HomepageConfig.js";
+import { Faq } from "../models/Faq.js";
+import { settingsService } from "../services/settings.service.js";
 import { referralService } from "../services/referral.service.js";
 import { analyticsService } from "../services/analytics.service.js";
 import { ReferralProgram } from "../models/ReferralProgram.js";
@@ -699,26 +701,101 @@ export const listRoles = asyncHandler(async (req, res) => {
 
 // Store Settings & Homepage
 export const getSettings = asyncHandler(async (req, res) => {
-  let settings = await StoreSettings.findOne();
-  if (!settings) settings = await StoreSettings.create({});
-  return sendSuccess(res, settings);
+  return sendSuccess(res, await settingsService.get());
 });
 
 export const updateSettings = asyncHandler(async (req, res) => {
-  let settings = await StoreSettings.findOne();
-  if (!settings) settings = await StoreSettings.create({});
-  Object.assign(settings, req.body);
-  await settings.save();
+  const { settings, changed } = await settingsService.update(req.body || {});
 
   await logAudit({
     actorId: req.user._id,
     actorName: req.user.name,
     action: "settings.manage",
     module: "Configuration",
-    details: "Updated global store configuration settings",
+    details: `Updated store settings: ${changed.join(", ") || "no changes"}`,
   });
 
   return sendSuccess(res, settings);
+});
+
+// Storefront policy pages (privacy, terms, shipping, returns): text stored in the database
+export const listContentPages = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await contentService.listContentPages());
+});
+
+export const updateContentPage = asyncHandler(async (req, res) => {
+  const page = await contentService.saveContentPage(req.params.slug, req.body);
+  await logAudit({
+    actorId: req.user._id,
+    actorName: req.user.name,
+    action: "content.manage",
+    module: "Storefront",
+    details: `Updated the "${page.title}" page`,
+  });
+  return sendSuccess(res, page);
+});
+
+// FAQs shown on /faq
+const toFaqFields = (body = {}) => {
+  const fields = {};
+  if (body.question !== undefined) fields.question = String(body.question).trim().slice(0, 300);
+  if (body.answer !== undefined) fields.answer = String(body.answer).trim().slice(0, 5000);
+  if (body.category !== undefined) fields.category = String(body.category).trim().slice(0, 80) || "General";
+  if (body.displayOrder !== undefined && Number.isFinite(Number(body.displayOrder))) {
+    fields.displayOrder = Number(body.displayOrder);
+  }
+  if (body.isActive !== undefined) fields.isActive = Boolean(body.isActive);
+  return fields;
+};
+
+export const listAdminFaqs = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await Faq.find().sort({ displayOrder: 1, createdAt: 1 }));
+});
+
+export const createFaq = asyncHandler(async (req, res) => {
+  const fields = toFaqFields(req.body);
+  if (!fields.question || !fields.answer) throw ApiError.badRequest("A question and an answer are both required.");
+  if (fields.displayOrder === undefined) {
+    const last = await Faq.findOne().sort({ displayOrder: -1 }).select("displayOrder");
+    fields.displayOrder = (last?.displayOrder ?? 0) + 1;
+  }
+  const faq = await Faq.create(fields);
+  await logAudit({
+    actorId: req.user._id,
+    actorName: req.user.name,
+    action: "content.manage",
+    module: "Storefront",
+    details: `Added FAQ "${faq.question}"`,
+  });
+  return sendSuccess(res, faq, undefined, 201);
+});
+
+export const updateFaq = asyncHandler(async (req, res) => {
+  const fields = toFaqFields(req.body);
+  if (fields.question === "" || fields.answer === "") throw ApiError.badRequest("A question and an answer are both required.");
+  const faq = await Faq.findByIdAndUpdate(req.params.id, fields, { new: true, runValidators: true });
+  if (!faq) throw ApiError.notFound("FAQ not found");
+  await logAudit({
+    actorId: req.user._id,
+    actorName: req.user.name,
+    action: "content.manage",
+    module: "Storefront",
+    details: `Updated FAQ "${faq.question}"`,
+  });
+  return sendSuccess(res, faq);
+});
+
+export const deleteFaq = asyncHandler(async (req, res) => {
+  const faq = await Faq.findByIdAndDelete(req.params.id);
+  if (!faq) throw ApiError.notFound("FAQ not found");
+  await logAudit({
+    actorId: req.user._id,
+    actorName: req.user.name,
+    action: "content.manage",
+    module: "Storefront",
+    details: `Deleted FAQ "${faq.question}"`,
+  });
+  return sendSuccess(res, { message: "FAQ deleted" });
 });
 
 export const getHomepageAdmin = asyncHandler(async (req, res) => {
@@ -745,7 +822,8 @@ export const updateHomepageAdmin = asyncHandler(async (req, res) => {
 });
 
 export const listAuditLogs = asyncHandler(async (req, res) => {
-  const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(100);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+  const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(limit);
   return sendSuccess(res, logs);
 });
 

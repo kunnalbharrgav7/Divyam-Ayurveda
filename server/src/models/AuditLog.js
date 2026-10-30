@@ -62,6 +62,9 @@ const auditLogSchema = new mongoose.Schema(
       virtuals: true,
       transform(doc, ret) {
         ret.id = ret._id.toString();
+        // Fields the admin UI reads: when it happened and who did it
+        ret.timestamp = ret.createdAt;
+        ret.user = ret.actorName;
         delete ret._id;
         delete ret.__v;
         return ret;

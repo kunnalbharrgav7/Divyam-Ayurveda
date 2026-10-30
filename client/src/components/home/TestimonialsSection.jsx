@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Quote, Sparkles } from "lucide-react";
 import { RatingStars } from "../common/RatingStars";
 import { contentService } from "../../services/api";
 import { ScrollReveal } from "../../animations/useScrollReveal";
+import { Skeleton, SkeletonRegion } from "../common/Skeleton";
 import { testimonials as fallbackTestimonials } from "../../data/testimonials";
 
 const TestimonialCard = ({ item }) => {
@@ -43,7 +44,7 @@ const TestimonialCard = ({ item }) => {
       {/* Customer profile footer */}
       <div className="relative z-10 flex items-center justify-between pt-2.5 sm:pt-3 border-t border-[#E5E7DF]/80">
         <div className="flex items-center gap-2.5 sm:gap-3">
-          <img
+          <img width={32} height={32}
             src={item.avatar}
             alt={item.name}
             loading="lazy"
@@ -71,25 +72,31 @@ const TestimonialCard = ({ item }) => {
 };
 
 export const TestimonialsSection = () => {
-  const [reviews, setReviews] = useState(fallbackTestimonials);
+  // null while the first request is in flight; the bundled testimonials are used only if the API has fewer than 6
+  const [reviews, setReviews] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchTestimonials = async () => {
+      let next = fallbackTestimonials;
       try {
         const data = await contentService.getTestimonials();
-        if (data && data.length >= 6) {
-          setReviews(data);
-        }
+        if (data && data.length >= 6) next = data;
       } catch (err) {
         console.error("Error loading testimonials:", err);
       }
+      if (!cancelled) setReviews(next);
     };
     fetchTestimonials();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Split into 6 upper reviews and 6 lower reviews
-  const row1 = reviews.slice(0, 6);
-  const row2 = reviews.length >= 12 ? reviews.slice(6, 12) : reviews.slice(0, 6);
+  const list = reviews || [];
+  const row1 = list.slice(0, 6);
+  const row2 = list.length >= 12 ? list.slice(6, 12) : list.slice(0, 6);
 
   return (
     <section className="py-14 bg-white relative overflow-hidden">
@@ -146,7 +153,26 @@ export const TestimonialsSection = () => {
         </ScrollReveal>
       </div>
 
-      {/* Infinite Marquee Area with Left & Right Gradient Fade Masks */}
+      {reviews === null ? (
+        <SkeletonRegion label="Loading reviews" className="w-full overflow-hidden space-y-6">
+          {[0, 1].map((row) => (
+            <div key={row} className="flex gap-6 px-4 sm:px-6 py-1 overflow-hidden">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  aria-hidden="true"
+                  className="w-[320px] sm:w-[460px] md:w-[520px] lg:w-[560px] shrink-0 bg-white rounded-2xl border border-[#E5E7DF] p-5 space-y-3"
+                >
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-3/5" />
+                  <Skeleton className="h-3.5 w-full" />
+                  <Skeleton className="h-3.5 w-4/5" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </SkeletonRegion>
+      ) : (
       <div className="relative w-full overflow-hidden space-y-6">
         {/* Left and Right Edge Gradient Masks */}
         <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 sm:w-28 bg-gradient-to-r from-white via-white/80 to-transparent z-20" />
@@ -172,6 +198,7 @@ export const TestimonialsSection = () => {
           </div>
         </div>
       </div>
+      )}
     </section>
   );
 };

@@ -19,8 +19,29 @@ const isQuotaError = (error) =>
   error?.code === 22 ||
   error?.code === 1014;
 
+// Writes queued by setDebounced(): key -> { value, timer }. Reads see the queued value, and any
+// direct set()/remove() of the same key replaces it, so a stale queued write can never land later.
+const pendingWrites = new Map();
+
+const flushPendingWrites = () => {
+  for (const [key, entry] of [...pendingWrites]) {
+    clearTimeout(entry.timer);
+    pendingWrites.delete(key);
+    storage.set(key, entry.value);
+  }
+};
+
+if (typeof window !== "undefined") {
+  // Don't lose queued writes when the tab is closed, reloaded or backgrounded
+  window.addEventListener("pagehide", flushPendingWrites);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushPendingWrites();
+  });
+}
+
 export const storage = {
   get: (key, defaultValue = null) => {
+    if (pendingWrites.has(key)) return pendingWrites.get(key).value;
     try {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : defaultValue;
@@ -30,8 +51,27 @@ export const storage = {
     }
   },
 
+  /**
+   * Like set(), but waits until `delayMs` after the last call for this key before serialising and
+   * writing. For large collections that change in bursts (admin lists), so each burst costs one write.
+   */
+  setDebounced: (key, value, delayMs = 400) => {
+    const existing = pendingWrites.get(key);
+    if (existing) clearTimeout(existing.timer);
+    const timer = setTimeout(() => {
+      pendingWrites.delete(key);
+      storage.set(key, value);
+    }, delayMs);
+    pendingWrites.set(key, { value, timer });
+  },
+
   /** Returns true when the value was saved. */
   set: (key, value) => {
+    const queued = pendingWrites.get(key);
+    if (queued) {
+      clearTimeout(queued.timer);
+      pendingWrites.delete(key);
+    }
     let json;
     try {
       json = JSON.stringify(value);
@@ -57,6 +97,11 @@ export const storage = {
   },
 
   remove: (key) => {
+    const queued = pendingWrites.get(key);
+    if (queued) {
+      clearTimeout(queued.timer);
+      pendingWrites.delete(key);
+    }
     try {
       localStorage.removeItem(key);
     } catch (error) {

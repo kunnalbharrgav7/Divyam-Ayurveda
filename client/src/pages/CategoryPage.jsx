@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Layers } from "lucide-react";
+import { Sparkles, Layers, WifiOff } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { ProductCard } from "../components/products/ProductCard";
 import { EmptyState } from "../components/common/EmptyState";
+import { ProductGridSkeleton } from "../components/common/Skeleton";
 import { categoryService, productService } from "../services/api";
 
 export const CategoryPage = () => {
@@ -15,12 +16,18 @@ export const CategoryPage = () => {
   const [category, setCategory] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
+    // A newer request (slug/subcategory changed, or retry) makes this one stale
+    let cancelled = false;
     const loadCategoryData = async () => {
       setLoading(true);
+      setLoadError(false);
       try {
         const cat = await categoryService.getCategoryBySlug(slug);
+        if (cancelled) return;
         setCategory(cat);
 
         const result = await productService.getProducts({
@@ -28,16 +35,22 @@ export const CategoryPage = () => {
           subcategory: selectedSubcategory !== "all" ? selectedSubcategory : undefined,
           limit: 30,
         });
+        if (cancelled) return;
         setProducts(result.products);
+        setLoadError(Boolean(result.backendUnavailable) && result.products.length === 0);
       } catch (err) {
         console.error("Error loading category page:", err);
+        if (!cancelled) setLoadError(true);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadCategoryData();
-  }, [slug, selectedSubcategory]);
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, selectedSubcategory, reloadTick]);
 
   const handleSubcategorySelect = (subSlug) => {
     if (subSlug === "all") {
@@ -52,6 +65,20 @@ export const CategoryPage = () => {
   const currentSubcategoryObj = category?.subcategories?.find(
     (s) => s.slug === selectedSubcategory || s.id === selectedSubcategory
   );
+
+  if (!loading && !category && loadError) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-16">
+        <EmptyState
+          icon={WifiOff}
+          title="We couldn't load this category"
+          description="The store didn't respond. Check your connection and try again."
+          actionText="Try again"
+          onAction={() => setReloadTick((n) => n + 1)}
+        />
+      </div>
+    );
+  }
 
   if (!loading && !category) {
     return (
@@ -171,11 +198,15 @@ export const CategoryPage = () => {
 
         {/* Product Grid with Smooth Transition */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="h-80 bg-stone-100 rounded-2xl animate-pulse" />
-            ))}
-          </div>
+          <ProductGridSkeleton count={8} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" />
+        ) : loadError ? (
+          <EmptyState
+            icon={WifiOff}
+            title="We couldn't load these products"
+            description="The store didn't respond. Check your connection and try again."
+            actionText="Try again"
+            onAction={() => setReloadTick((n) => n + 1)}
+          />
         ) : products.length === 0 ? (
           <EmptyState
             title="No formulations found in this subcategory"

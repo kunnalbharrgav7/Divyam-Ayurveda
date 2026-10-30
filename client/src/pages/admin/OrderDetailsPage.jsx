@@ -24,6 +24,8 @@ import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { formatCurrency, formatDate } from "../../utils/formatters";
 import { getStatusLevel } from "../../utils/orderStatus";
+import { DetailPageSkeleton } from "../../components/common/Skeleton";
+import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
 
 export const OrderDetailsPage = () => {
   const { orderId } = useParams();
@@ -33,6 +35,9 @@ export const OrderDetailsPage = () => {
     updateOrderStatus,
     updatePaymentStatus,
     refreshOrders,
+    isAdminLoading,
+    hasAdminLoadError,
+    retryAdminLoad,
     dispatchShipment,
     advanceShipment,
     updateTrackingInfo,
@@ -81,6 +86,14 @@ export const OrderDetailsPage = () => {
     ]
   );
   const [newNote, setNewNote] = useState("");
+
+  if (!order && hasAdminLoadError("orders")) {
+    return <AdminLoadError what="this order" onRetry={() => retryAdminLoad("orders")} />;
+  }
+
+  if (!order && isAdminLoading("orders")) {
+    return <DetailPageSkeleton label="Loading order" />;
+  }
 
   if (!order) {
     return (
@@ -429,7 +442,7 @@ export const OrderDetailsPage = () => {
                     <tr key={idx} className="hover:bg-stone-50/50">
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
-                          <img
+                          <img width={48} height={48} loading="lazy" decoding="async"
                             src={
                               item.image ||
                               "/images/ProductImages/PureHimalayanShilajit.jpeg"
