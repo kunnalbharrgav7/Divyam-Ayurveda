@@ -10,6 +10,7 @@ import { useHeroNav } from "../../context/HeroNavContext";
 gsap.registerPlugin(ScrollTrigger);
 
 const FRAME_COUNT = 300;
+const START_FRAME = 122; // First frame of the sequence (ezgif-frame-122.jpg)
 const SCROLL_DISTANCE = 2200; // Pinned scroll distance in px
 const CONCURRENT_WORKERS = 4; // Parallel image loaders (kept low so they do not starve API calls)
 const prefersReducedMotion = () =>
@@ -74,7 +75,7 @@ export const ScrollProductHero = () => {
   // Frame Cache & State Refs
   const imagesRef = useRef([]);
   const loadedFramesRef = useRef(new Uint8Array(FRAME_COUNT + 1));
-  const currentFrameRef = useRef(1);
+  const currentFrameRef = useRef(START_FRAME);
 
   const [initialLoaded, setInitialLoaded] = useState(false);
 
@@ -85,7 +86,7 @@ export const ScrollProductHero = () => {
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
-    const clamped = Math.min(FRAME_COUNT, Math.max(1, Math.round(targetFrame)));
+    const clamped = Math.min(FRAME_COUNT, Math.max(START_FRAME, Math.round(targetFrame)));
 
     // Find the requested frame or closest loaded frame
     let imgToDraw = null;
@@ -97,7 +98,7 @@ export const ScrollProductHero = () => {
       imgToDraw = imagesRef.current[clamped];
     } else {
       // Search backwards first
-      for (let i = clamped; i >= 1; i--) {
+      for (let i = clamped; i >= START_FRAME; i--) {
         if (
           loadedFramesRef.current[i] &&
           imagesRef.current[i]?.complete &&
@@ -194,9 +195,9 @@ export const ScrollProductHero = () => {
           loaded[index] = 1;
 
           // If Frame 1 is ready, draw immediately and remove loading state
-          if (index === 1) {
+          if (index === START_FRAME) {
             setInitialLoaded(true);
-            drawFrame(1);
+            drawFrame(START_FRAME);
           }
 
           // If user's current scroll position is at/near this frame, re-draw immediately
@@ -213,13 +214,13 @@ export const ScrollProductHero = () => {
     };
 
     // 1. Immediately load Frame 1 for instant paint
-    loadSingle(1);
+    loadSingle(START_FRAME);
 
     // 2. Everything else waits for the page to finish loading, so it doesn't compete with the
     // API calls and images that make the page usable.
     const coarse = [];
     const remaining = new Set();
-    for (let i = 2; i <= FRAME_COUNT; i++) {
+    for (let i = START_FRAME + 1; i <= FRAME_COUNT; i++) {
       if (i % COARSE_STEP === 0) coarse.push(i);
       else remaining.add(i);
     }
@@ -332,7 +333,7 @@ export const ScrollProductHero = () => {
 
           const frameIndex = Math.min(
             FRAME_COUNT,
-            Math.max(1, Math.round(1 + progress * (FRAME_COUNT - 1)))
+            Math.max(START_FRAME, Math.round(START_FRAME + progress * (FRAME_COUNT - START_FRAME)))
           );
 
           if (frameIndex !== currentFrameRef.current) {
@@ -403,7 +404,8 @@ export const ScrollProductHero = () => {
     if (!trigger) return;
     const hotspot = HOTSPOTS[chapterIndex];
     if (!hotspot) return;
-    const targetProgress = (hotspot.targetFrame - 1) / (FRAME_COUNT - 1);
+    const targetFrame = Math.max(START_FRAME, hotspot.targetFrame);
+    const targetProgress = (targetFrame - START_FRAME) / (FRAME_COUNT - START_FRAME);
     const targetScroll = trigger.start + targetProgress * SCROLL_DISTANCE;
     window.scrollTo({ top: targetScroll, behavior: "smooth" });
   };
