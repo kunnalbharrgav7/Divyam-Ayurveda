@@ -172,7 +172,7 @@ export const ProductQuickViewModal = ({ product, isOpen, onClose }) => {
             <div className="p-6 sm:p-8 flex flex-col justify-between">
               <div>
                 {/* Brand & Category */}
-                <div className="flex items-center justify-between text-xs text-[#386B40] font-semibold tracking-wider uppercase mb-1">
+                <div className="flex items-center justify-between gap-3 pr-12 text-xs text-[#386B40] font-semibold tracking-wider uppercase mb-1">
                   <span>{product.brand || "Divyam Ayurveda"}</span>
                   <span className="text-stone-400 font-normal normal-case">
                     {product.subcategory || product.productForm || "Classical Formulation"}
