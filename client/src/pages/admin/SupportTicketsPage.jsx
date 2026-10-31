@@ -18,10 +18,15 @@ export const SupportTicketsPage = () => {
     setReplyModalOpen(true);
   };
 
-  const handleSendReply = (e) => {
+  const handleSendReply = async (e) => {
     e.preventDefault();
     if (selectedTicket) {
-      updateTicketStatus(selectedTicket.id, "Resolved");
+      try {
+        await updateTicketStatus(selectedTicket.id, "Resolved");
+      } catch (err) {
+        alert(err.message || "The ticket could not be updated. Please try again.");
+        return;
+      }
       alert(`Response sent for Ticket #${selectedTicket.id}!`);
       setReplyModalOpen(false);
     }

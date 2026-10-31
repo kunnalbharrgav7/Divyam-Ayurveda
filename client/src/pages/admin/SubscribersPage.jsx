@@ -13,6 +13,14 @@ export const SubscribersPage = () => {
     s.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleDelete = async (row) => {
+    try {
+      await deleteSubscriber(row.id);
+    } catch (err) {
+      alert(err.message || "The subscriber could not be removed. Please try again.");
+    }
+  };
+
   const handleExportCSV = () => {
     const headers = ["Email", "Subscribed Date", "Source", "Status"];
     const rows = filtered.map((s) => [
@@ -78,7 +86,7 @@ export const SubscribersPage = () => {
       render: (row) => (
         <button
           type="button"
-          onClick={() => deleteSubscriber(row.id)}
+          onClick={() => handleDelete(row)}
           className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg transition-colors"
           title="Remove subscriber"
         >

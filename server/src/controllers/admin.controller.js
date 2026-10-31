@@ -666,6 +666,18 @@ export const listSubscribers = asyncHandler(async (req, res) => {
   return sendSuccess(res, subscribers);
 });
 
+export const updateEnquiry = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await adminService.updateEnquiry(req.params.id, req.body, req.user));
+});
+
+export const updateSupportTicket = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await adminService.updateSupportTicket(req.params.id, req.body, req.user));
+});
+
+export const deleteSubscriber = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await adminService.deleteSubscriber(req.params.id, req.user));
+});
+
 // Customers & Users
 export const listCustomers = asyncHandler(async (req, res) => {
   return sendSuccess(res, await adminService.listCustomers());
@@ -692,6 +704,14 @@ export const listAdminUsers = asyncHandler(async (req, res) => {
 export const createAdminUser = asyncHandler(async (req, res) => {
   const user = await adminService.createAdminUser(req.body, req.user);
   return sendSuccess(res, user, undefined, 201);
+});
+
+export const updateAdminUser = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await adminService.updateAdminUser(req.params.id, req.body, req.user));
+});
+
+export const deleteAdminUser = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await adminService.deleteAdminUser(req.params.id, req.user));
 });
 
 export const listRoles = asyncHandler(async (req, res) => {

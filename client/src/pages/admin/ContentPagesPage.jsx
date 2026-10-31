@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAdminRefreshSignal } from "../../hooks/useAdminRefreshSignal";
 import {
   Save,
   Check,
@@ -394,6 +395,13 @@ const FaqEditor = ({ authFetch, notify }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Header Refresh button: reload the FAQ list
+  const refreshTick = useAdminRefreshSignal();
+  useEffect(() => {
+    if (refreshTick > 0) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTick]);
+
   const categories = useMemo(
     () => [...new Set((faqs || []).map((f) => f.category).filter(Boolean))],
     [faqs],
@@ -580,6 +588,42 @@ export const ContentPagesPage = () => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Header Refresh button: reload the saved policy pages but keep any draft with unsaved edits
+  const refreshTick = useAdminRefreshSignal();
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
+  useEffect(() => {
+    if (refreshTick === 0) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authFetch("/api/v1/admin/content-pages");
+        const json = await res.json();
+        if (cancelled || !res.ok || !Array.isArray(json.data)) return;
+        const snapshots = {};
+        const nextDrafts = {};
+        for (const page of json.data) {
+          const fresh = editable(page);
+          const hasEdits =
+            savedRef.current?.[page.slug] &&
+            draftsRef.current?.[page.slug] &&
+            JSON.stringify(savedRef.current[page.slug]) !== JSON.stringify(draftsRef.current[page.slug]);
+          snapshots[page.slug] = fresh;
+          nextDrafts[page.slug] = hasEdits ? draftsRef.current[page.slug] : editable(page);
+        }
+        setSaved(snapshots);
+        setDrafts(nextDrafts);
+      } catch {
+        // keep what is on screen
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick, authFetch]);
 
   const isDirty = (slug) =>
     saved &&

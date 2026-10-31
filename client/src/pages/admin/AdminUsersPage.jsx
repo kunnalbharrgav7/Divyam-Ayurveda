@@ -42,7 +42,7 @@ export const AdminUsersPage = () => {
     setModalOpen(true);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim()) return;
 
@@ -56,13 +56,21 @@ export const AdminUsersPage = () => {
       createdAt: selectedUser?.createdAt || new Date().toISOString(),
     };
 
-    saveAdminUser(payload);
-    setModalOpen(false);
+    try {
+      await saveAdminUser(payload);
+      setModalOpen(false);
+    } catch (err) {
+      alert(err.message || "The staff account could not be saved. Please try again.");
+    }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (userToDelete) {
-      deleteAdminUser(userToDelete);
+      try {
+        await deleteAdminUser(userToDelete);
+      } catch (err) {
+        alert(err.message || "The staff account could not be deleted.");
+      }
       setUserToDelete(null);
       setDeleteConfirmOpen(false);
     }

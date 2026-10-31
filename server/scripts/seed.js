@@ -35,19 +35,29 @@ import { ingredients as seedIngredients } from "../../client/src/data/ingredient
 import { faqs as seedFaqs } from "../../client/src/data/faqs.js";
 import { testimonials as seedTestimonials } from "../../client/src/data/testimonials.js";
 import { blogPosts as seedBlogPosts } from "../../client/src/data/blogPosts.js";
-import { initialHomepageContent, initialStoreSettings } from "../../client/src/data/storeSettings.js";
+import {
+  initialHomepageContent,
+  initialStoreSettings,
+} from "../../client/src/data/storeSettings.js";
 
 const runSeed = async () => {
-  const isAtlas = (config.MONGODB_URI || "").includes("mongodb+srv") || (config.MONGODB_URI || "").includes(".mongodb.net");
+  const isAtlas =
+    (config.MONGODB_URI || "").includes("mongodb+srv") ||
+    (config.MONGODB_URI || "").includes(".mongodb.net");
   if (isAtlas && process.env.ALLOW_ATLAS_SEED !== "true") {
     logger.warn(
-      "Safety guard: Connected database is MongoDB Atlas. Demo seeding is disabled on Atlas to protect migrated and live data. Set ALLOW_ATLAS_SEED=true if you deliberately intend to seed Atlas."
+      "Safety guard: Connected database is MongoDB Atlas. Demo seeding is disabled on Atlas to protect migrated and live data. Set ALLOW_ATLAS_SEED=true if you deliberately intend to seed Atlas.",
     );
     process.exit(0);
   }
 
-  if (process.env.ALLOW_DEMO_SEED !== "true" && !process.argv.includes("--force")) {
-    logger.warn("Seeding is disabled to protect clean database state. Run with ALLOW_DEMO_SEED=true or --force if you deliberately want to re-populate demo records.");
+  if (
+    process.env.ALLOW_DEMO_SEED !== "true" &&
+    !process.argv.includes("--force")
+  ) {
+    logger.warn(
+      "Seeding is disabled to protect clean database state. Run with ALLOW_DEMO_SEED=true or --force if you deliberately want to re-populate demo records.",
+    );
     process.exit(0);
   }
 
@@ -59,11 +69,13 @@ const runSeed = async () => {
     logger.info("Seeding roles and permission matrix (Super Admin only)...");
     await Role.deleteMany({ name: { $ne: ROLES.SUPER_ADMIN } });
     const roleDocs = {};
-    for (const [roleName, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    for (const [roleName, permissions] of Object.entries(
+      DEFAULT_ROLE_PERMISSIONS,
+    )) {
       const role = await Role.findOneAndUpdate(
         { name: roleName },
         { name: roleName, permissions, isSystem: true },
-        { upsert: true, new: true }
+        { upsert: true, new: true },
       );
       roleDocs[roleName] = role;
     }
@@ -84,7 +96,7 @@ const runSeed = async () => {
         roles: [roleDocs[ROLES.SUPER_ADMIN]._id],
         status: "active",
       },
-      { upsert: true }
+      { upsert: true },
     );
 
     const testCustomer = await User.findOneAndUpdate(
@@ -110,7 +122,7 @@ const runSeed = async () => {
           },
         ],
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     // 3. Categories
@@ -135,7 +147,7 @@ const runSeed = async () => {
           isFeatured: true,
           status: "active",
         },
-        { upsert: true }
+        { upsert: true },
       );
     }
 
@@ -144,8 +156,14 @@ const runSeed = async () => {
     for (const b of initialBrands) {
       await Brand.findOneAndUpdate(
         { slug: b.slug },
-        { name: b.name, slug: b.slug, description: b.description || "", logo: b.logo || "", status: "active" },
-        { upsert: true }
+        {
+          name: b.name,
+          slug: b.slug,
+          description: b.description || "",
+          logo: b.logo || "",
+          status: "active",
+        },
+        { upsert: true },
       );
     }
 
@@ -163,14 +181,19 @@ const runSeed = async () => {
           isFeatured: true,
           status: "active",
         },
-        { upsert: true }
+        { upsert: true },
       );
     }
 
     // 6. Ingredients
     logger.info("Seeding botanical ingredients...");
     for (const ing of seedIngredients) {
-      const slug = ing.slug || ing.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const slug =
+        ing.slug ||
+        ing.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "");
       await Ingredient.findOneAndUpdate(
         { slug },
         {
@@ -179,7 +202,11 @@ const runSeed = async () => {
           botanicalName: ing.botanicalName || "",
           slug,
           description: ing.traditionalUses || ing.description || "",
-          benefits: Array.isArray(ing.benefits) ? ing.benefits : (ing.traditionalUses ? [ing.traditionalUses] : []),
+          benefits: Array.isArray(ing.benefits)
+            ? ing.benefits
+            : ing.traditionalUses
+              ? [ing.traditionalUses]
+              : [],
           doshaEffect: ing.doshaBalance || ing.doshaEffect || "",
           doshaBalance: ing.doshaBalance || ing.doshaEffect || "",
           partUsed: ing.partUsed || "",
@@ -188,12 +215,14 @@ const runSeed = async () => {
           image: ing.image || "",
           status: "active",
         },
-        { upsert: true }
+        { upsert: true },
       );
     }
 
     // 7. Products and Product Variants with Integer Paise
-    logger.info(`Seeding ${seedProducts.length} catalog products with variants in integer paise...`);
+    logger.info(
+      `Seeding ${seedProducts.length} catalog products with variants in integer paise...`,
+    );
     await Product.deleteMany({});
     await ProductVariant.deleteMany({});
     for (const p of seedProducts) {
@@ -205,7 +234,9 @@ const runSeed = async () => {
         {
           name: p.name,
           slug: p.slug,
-          sku: p.sku || `DIV-${(p.id || p.slug).toUpperCase().replace(/[^A-Z0-9]/g, "-")}`,
+          sku:
+            p.sku ||
+            `DIV-${(p.id || p.slug).toUpperCase().replace(/[^A-Z0-9]/g, "-")}`,
           brand: p.brand || "Divyam Ayurveda",
           categoryId: p.categoryId,
           subcategoryId: p.subcategoryId || "",
@@ -230,19 +261,27 @@ const runSeed = async () => {
           isNew: Boolean(p.isNew),
           status: "active",
         },
-        { upsert: true, new: true }
+        { upsert: true, new: true },
       );
 
       // Create variants
-      const rawVariants = Array.isArray(p.variants) && p.variants.length > 0
-        ? p.variants
-        : [{ size: p.packSize || "Standard", price: p.price, originalPrice: p.originalPrice }];
+      const rawVariants =
+        Array.isArray(p.variants) && p.variants.length > 0
+          ? p.variants
+          : [
+              {
+                size: p.packSize || "Standard",
+                price: p.price,
+                originalPrice: p.originalPrice,
+              },
+            ];
 
       for (const v of rawVariants) {
         const vPricePaise = toPaise(Number(v.price));
         const vComparePaise = toPaise(Number(v.originalPrice || 0));
         const vLabel = v.size || v.label || "Standard";
-        const vSku = `${product.sku}-${vLabel.replace(/[^a-zA-Z0-9]/g, "")}`.toUpperCase();
+        const vSku =
+          `${product.sku}-${vLabel.replace(/[^a-zA-Z0-9]/g, "")}`.toUpperCase();
 
         const stockOnHand = p.stockQuantity || 50;
         const variant = await ProductVariant.findOneAndUpdate(
@@ -259,12 +298,15 @@ const runSeed = async () => {
             weightGrams: 250,
             isActive: true,
           },
-          { upsert: true, new: true }
+          { upsert: true, new: true },
         );
 
         // Record initial inventory receipt movement
         await InventoryMovement.findOneAndUpdate(
-          { variantId: variant._id, reason: INVENTORY_REASONS.WAREHOUSE_ADJUSTMENT },
+          {
+            variantId: variant._id,
+            reason: INVENTORY_REASONS.WAREHOUSE_ADJUSTMENT,
+          },
           {
             variantId: variant._id,
             productId: product._id,
@@ -276,7 +318,7 @@ const runSeed = async () => {
             actorId: "seed_script",
             note: "Initial warehouse stocking",
           },
-          { upsert: true }
+          { upsert: true },
         );
       }
     }
@@ -290,12 +332,15 @@ const runSeed = async () => {
           code: c.code.toUpperCase(),
           description: c.description || "",
           type: c.discountType === "fixed" ? "fixed_amount" : "percentage",
-          value: c.discountType === "fixed" ? toPaise(Number(c.discountValue)) : Number(c.discountValue),
+          value:
+            c.discountType === "fixed"
+              ? toPaise(Number(c.discountValue))
+              : Number(c.discountValue),
           minimumOrderPaise: toPaise(Number(c.minOrderValue || 0)),
           maximumDiscountPaise: toPaise(Number(c.maxDiscountValue || 0)),
           isActive: true,
         },
-        { upsert: true }
+        { upsert: true },
       );
     }
 
@@ -311,22 +356,34 @@ const runSeed = async () => {
         maximumDiscountPaise: 50000, // ₹500 cap
         isActive: true,
       },
-      { upsert: true }
+      { upsert: true },
     );
 
     // 9. Faqs & Testimonials & Blog
     logger.info("Seeding FAQs, testimonials and educational blog posts...");
     for (const f of seedFaqs) {
-      await Faq.findOneAndUpdate({ question: f.question }, { ...f, isActive: true }, { upsert: true });
+      await Faq.findOneAndUpdate(
+        { question: f.question },
+        { ...f, isActive: true },
+        { upsert: true },
+      );
     }
     for (const t of seedTestimonials) {
-      await Testimonial.findOneAndUpdate({ name: t.name }, { ...t, isActive: true }, { upsert: true });
+      await Testimonial.findOneAndUpdate(
+        { name: t.name },
+        { ...t, isActive: true },
+        { upsert: true },
+      );
     }
     for (const b of seedBlogPosts) {
       await BlogPost.findOneAndUpdate(
         { slug: b.slug },
-        { ...b, status: "published", publishedAt: new Date(b.date || Date.now()) },
-        { upsert: true }
+        {
+          ...b,
+          status: "published",
+          publishedAt: new Date(b.date || Date.now()),
+        },
+        { upsert: true },
       );
     }
 
@@ -335,12 +392,12 @@ const runSeed = async () => {
     await StoreSettings.findOneAndUpdate(
       {},
       { ...initialStoreSettings },
-      { upsert: true }
+      { upsert: true },
     );
     await HomepageConfig.findOneAndUpdate(
       {},
       { ...initialHomepageContent },
-      { upsert: true }
+      { upsert: true },
     );
     await ReferralProgram.findOneAndUpdate(
       {},
@@ -355,7 +412,7 @@ const runSeed = async () => {
         cookieExpiryDays: 30,
         qualifyingState: "delivered",
       },
-      { upsert: true }
+      { upsert: true },
     );
 
     // 11. Initial Sample Seed Order for Testing
@@ -412,16 +469,30 @@ const runSeed = async () => {
           paymentMethod: "Online Payment",
           deliveryMethod: "standard",
           timeline: [
-            { status: "Order Placed", time: new Date(Date.now() - 3 * 86400000), completed: true },
-            { status: "Dispatched", time: new Date(Date.now() - 2 * 86400000), completed: true },
-            { status: "Delivered", time: new Date(Date.now() - 86400000), completed: true },
+            {
+              status: "Order Placed",
+              time: new Date(Date.now() - 3 * 86400000),
+              completed: true,
+            },
+            {
+              status: "Dispatched",
+              time: new Date(Date.now() - 2 * 86400000),
+              completed: true,
+            },
+            {
+              status: "Delivered",
+              time: new Date(Date.now() - 86400000),
+              completed: true,
+            },
           ],
         },
-        { upsert: true }
+        { upsert: true },
       );
     }
 
-    logger.info("Seed process completed successfully! All data ported to MongoDB.");
+    logger.info(
+      "Seed process completed successfully! All data ported to MongoDB.",
+    );
     await disconnectDB();
     process.exit(0);
   } catch (err) {

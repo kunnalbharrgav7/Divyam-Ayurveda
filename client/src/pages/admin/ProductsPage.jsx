@@ -168,13 +168,17 @@ export const ProductsPage = () => {
     }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (
       window.confirm(
         `Are you sure you want to delete ${selectedIds.length} selected products?`
       )
     ) {
-      deleteBulkProducts(selectedIds);
+      try {
+        await deleteBulkProducts(selectedIds);
+      } catch (err) {
+        window.alert(err.message || "Some products could not be deleted.");
+      }
       setSelectedIds([]);
     }
   };

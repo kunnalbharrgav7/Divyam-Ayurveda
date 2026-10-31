@@ -95,6 +95,9 @@ router.delete("/reviews/:id", requirePermission(PERMISSIONS.REVIEWS_MODERATE), a
 router.get("/enquiries", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.listEnquiries);
 router.get("/support-tickets", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.listSupportTickets);
 router.get("/subscribers", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.listSubscribers);
+router.patch("/enquiries/:id", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.updateEnquiry);
+router.patch("/support-tickets/:id", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.updateSupportTicket);
+router.delete("/subscribers/:id", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.deleteSubscriber);
 
 // Storefront Content & Settings
 router.get("/homepage", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.getHomepageAdmin);
@@ -119,6 +122,8 @@ router.patch("/customers/:id", requirePermission(PERMISSIONS.CUSTOMERS_MANAGE), 
 router.post("/customers/:id/notes", requirePermission(PERMISSIONS.CUSTOMERS_MANAGE), adminController.addCustomerNote);
 router.get("/users", requirePermission(PERMISSIONS.USERS_MANAGE), adminController.listAdminUsers);
 router.post("/users", requirePermission(PERMISSIONS.USERS_MANAGE), adminController.createAdminUser);
+router.patch("/users/:id", requirePermission(PERMISSIONS.USERS_MANAGE), adminController.updateAdminUser);
+router.delete("/users/:id", requirePermission(PERMISSIONS.USERS_MANAGE), adminController.deleteAdminUser);
 router.get("/roles", requirePermission(PERMISSIONS.ROLES_MANAGE), adminController.listRoles);
 router.get("/audit-logs", requirePermission(PERMISSIONS.AUDIT_VIEW), adminController.listAuditLogs);
 

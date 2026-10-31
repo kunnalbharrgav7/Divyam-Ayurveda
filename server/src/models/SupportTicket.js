@@ -22,6 +22,7 @@ const supportTicketSchema = new mongoose.Schema(
     category: { type: String, default: "General" },
     priority: { type: String, enum: ["Low", "Normal", "High", "Urgent"], default: "Normal" },
     status: { type: String, enum: ["Open", "In Progress", "Resolved", "Closed"], default: "Open", index: true },
+    internalNotes: { type: String, default: "" },
     messages: [
       {
         sender: { type: String, required: true },

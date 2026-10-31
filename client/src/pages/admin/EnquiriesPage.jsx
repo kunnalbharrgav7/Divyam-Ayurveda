@@ -18,10 +18,15 @@ export const EnquiriesPage = () => {
     setReplyModalOpen(true);
   };
 
-  const handleSendReply = (e) => {
+  const handleSendReply = async (e) => {
     e.preventDefault();
     if (selectedEnquiry) {
-      updateEnquiryStatus(selectedEnquiry.id, "Resolved");
+      try {
+        await updateEnquiryStatus(selectedEnquiry.id, "Resolved");
+      } catch (err) {
+        alert(err.message || "The enquiry could not be updated. Please try again.");
+        return;
+      }
       alert(`Reply email simulated sent to ${selectedEnquiry.email}!`);
       setReplyModalOpen(false);
     }

@@ -6,11 +6,28 @@ import { ROLE_DEFINITIONS } from "../data/adminUsers";
 import { apiUrl } from "../config/api";
 import { invalidateCache } from "../services/requestCache";
 import { refreshStoreSettings } from "../hooks/useStoreSettings";
+import { ADMIN_REFRESH_EVENT } from "../config/adminRefresh";
 import {
   initialStoreSettings,
 } from "../data/storeSettings";
 
 const AdminContext = createContext();
+
+// The server stores staff with role documents and lowercase status; the admin screens use a role name,
+// "Active"/"Inactive" labels and a readable last-login time.
+const normalizeAdminUser = (u) => {
+  const roleName = u.roles?.[0]?.name || u.roleName || u.role || "Staff";
+  const statusLabels = { active: "Active", suspended: "Inactive", pending: "Pending" };
+  return {
+    ...u,
+    role: roleName,
+    roleName,
+    status: statusLabels[u.status] || u.status || "Active",
+    lastLogin: u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("en-IN") : "Never",
+  };
+};
+
+const adminStatusToServer = (label) => ({ Inactive: "suspended", Pending: "pending" })[label] || "active";
 
 // Drops the storefront's cached copy of a list when an admin changes it. Skips the first run:
 // that is just the initial mount, and invalidating then would discard a request a child component
@@ -814,8 +831,9 @@ export const AdminProvider = ({ children }) => {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          setAdminUsers(json.data);
-          storage.set(STORAGE_KEYS.ADMIN_USERS, json.data);
+          const normalized = json.data.map(normalizeAdminUser);
+          setAdminUsers(normalized);
+          storage.set(STORAGE_KEYS.ADMIN_USERS, normalized);
         }
       }
     } catch (_) {
@@ -970,6 +988,8 @@ export const AdminProvider = ({ children }) => {
   };
   const startedRef = useRef({ token: null, keys: new Set() });
   const [adminStatus, setAdminStatus] = useState({});
+  // Requests currently in flight, by resource key, so a refresh never duplicates a running request
+  const inflightRef = useRef(new Map());
 
   const loadAdminData = useCallback((only) => {
     const { isStaff, token } = getAdminAuth();
@@ -985,16 +1005,49 @@ export const AdminProvider = ({ children }) => {
       started.keys.add(key);
       failedAdminLoadsRef.current.delete(key);
       setAdminStatus((prev) => ({ ...prev, [key]: "loading" }));
-      Promise.resolve()
+      const request = Promise.resolve()
         .then(fetcher)
         .catch(() => markAdminLoadFailed(key))
-        .finally(() =>
+        .finally(() => {
+          inflightRef.current.delete(key);
           setAdminStatus((prev) => ({
             ...prev,
             [key]: failedAdminLoadsRef.current.has(key) ? "error" : "ready",
-          }))
-        );
+          }));
+        });
+      inflightRef.current.set(key, request);
     }
+  }, []);
+
+  // Re-fetches the given resources (all of them when no keys are passed) from the server. Unlike the
+  // first load this never shows a skeleton: tables keep their rows until fresh data replaces them.
+  // Resolves when every request has settled, then notifies pages that hold their own data.
+  const refreshAdminData = useCallback((keys) => {
+    const { isStaff } = getAdminAuth();
+    if (!isStaff) return Promise.resolve();
+    const wanted = keys && keys.length ? keys : Object.keys(fetchersRef.current);
+    const runs = wanted
+      .filter((key) => fetchersRef.current[key])
+      .map((key) => {
+        const running = inflightRef.current.get(key);
+        if (running) return running;
+        failedAdminLoadsRef.current.delete(key);
+        const request = Promise.resolve()
+          .then(fetchersRef.current[key])
+          .catch(() => markAdminLoadFailed(key))
+          .finally(() => {
+            inflightRef.current.delete(key);
+            setAdminStatus((prev) => ({
+              ...prev,
+              [key]: failedAdminLoadsRef.current.has(key) ? "error" : "ready",
+            }));
+          });
+        inflightRef.current.set(key, request);
+        return request;
+      });
+    return Promise.all(runs).then(() => {
+      window.dispatchEvent(new CustomEvent(ADMIN_REFRESH_EVENT));
+    });
   }, []);
 
   // True until a resource's first request has settled (also before it has been requested at all)
@@ -1684,41 +1737,60 @@ export const AdminProvider = ({ children }) => {
   };
 
   // ================= SUPPORT & ENQUIRIES =================
-  const updateEnquiryStatus = (id, status, notes) => {
-    setContactEnquiries((prev) =>
-      prev.map((e) =>
-        e.id === id ? { ...e, status, internalNotes: notes || e.internalNotes } : e
-      )
-    );
+  // Support inbox changes are saved on the server, then the list is re-read so it always matches the database.
+  // These throw on failure so the page can tell the admin the change was not saved.
+  const updateEnquiryStatus = async (id, status, notes) => {
+    await adminApiFetch(`/api/v1/admin/enquiries/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, ...(notes !== undefined && { adminNotes: notes }) }),
+    });
+    await refreshAdminData(["enquiries"]);
   };
 
-  const updateTicketStatus = (id, status, notes) => {
-    setSupportTickets((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, status, internalNotes: notes || t.internalNotes } : t
-      )
-    );
+  const updateTicketStatus = async (id, status, notes) => {
+    await adminApiFetch(`/api/v1/admin/support-tickets/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, ...(notes !== undefined && { internalNotes: notes }) }),
+    });
+    await refreshAdminData(["supportTickets"]);
   };
 
   // ================= ADMIN USERS & ROLES =================
-  const addAdminUser = (userData) => {
-    const newUser = {
-      ...userData,
-      id: `admin-${Date.now().toString().slice(-4)}`,
-      createdAt: new Date().toISOString(),
-      lastLogin: "Never",
-      status: "active",
-    };
-    setAdminUsers((prev) => [...prev, newUser]);
-    logAction("Added Admin User", "Administration", `Created user ${newUser.name} with role ${newUser.role}`);
+  // Staff accounts live in the database. Each change is saved on the server, then the list is re-read.
+  // These throw on failure (duplicate email, last Super Admin, own account...) so the page can show why.
+  const roleNameFor = (userData) => userData.roleName || ROLE_DEFINITIONS[userData.role]?.name || userData.role;
+
+  const addAdminUser = async (userData) => {
+    await adminApiFetch("/api/v1/admin/users", {
+      method: "POST",
+      body: JSON.stringify({
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        role: roleNameFor(userData),
+        ...(userData.password && { password: userData.password }),
+      }),
+    });
+    await refreshAdminData(["users"]);
   };
 
-  const updateAdminUser = (id, data) => {
-    setAdminUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...data } : u)));
+  const updateAdminUser = async (id, data) => {
+    await adminApiFetch(`/api/v1/admin/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: data.name,
+        phone: data.phone,
+        role: roleNameFor(data),
+        status: adminStatusToServer(data.status),
+        ...(data.password && { password: data.password }),
+      }),
+    });
+    await refreshAdminData(["users"]);
   };
 
-  const deleteAdminUser = (id) => {
-    setAdminUsers((prev) => prev.filter((u) => u.id !== id));
+  const deleteAdminUser = async (id) => {
+    await adminApiFetch(`/api/v1/admin/users/${id}`, { method: "DELETE" });
+    await refreshAdminData(["users"]);
   };
 
   // ================= SETTINGS =================
@@ -1873,8 +1945,14 @@ export const AdminProvider = ({ children }) => {
     return stockQuantity;
   };
 
-  const deleteBulkProducts = (ids) => {
-    bulkDeleteProducts(ids);
+  // Deletes on the server first, then re-reads the catalog so the table matches the database even
+  // when some deletions fail.
+  const deleteBulkProducts = async (ids) => {
+    const results = await Promise.allSettled(ids.map((id) => deleteProduct(id)));
+    logAction("Bulk Deleted Products", "Catalog", `Removed ${results.filter((r) => r.status === "fulfilled").length} products`);
+    await refreshAdminData(["products"]);
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed) throw new Error(`${failed} of ${ids.length} products could not be deleted.`);
   };
 
   const saveCategory = (catData) => {
@@ -1914,11 +1992,7 @@ export const AdminProvider = ({ children }) => {
 
   const saveAdminUser = (userData) => {
     const exists = adminUsers.some((u) => u.id === userData.id);
-    if (exists) {
-      updateAdminUser(userData.id, userData);
-    } else {
-      addAdminUser(userData);
-    }
+    return exists ? updateAdminUser(userData.id, userData) : addAdminUser(userData);
   };
 
   // Saved to the database. Resolves with the settings as the server stored them; throws the server's
@@ -1934,8 +2008,9 @@ export const AdminProvider = ({ children }) => {
     return json.data;
   };
 
-  const deleteSubscriber = (id) => {
-    setSubscribers((prev) => prev.filter((s) => s.id !== id && s.email !== id));
+  const deleteSubscriber = async (id) => {
+    await adminApiFetch(`/api/v1/admin/subscribers/${id}`, { method: "DELETE" });
+    await refreshAdminData(["subscribers"]);
   };
 
   return (
@@ -2040,6 +2115,7 @@ export const AdminProvider = ({ children }) => {
         fetchAdminAuditLogs,
         fetchAdminSettings,
         loadAdminData,
+        refreshAdminData,
         isAdminLoading,
         hasAdminLoadError,
         retryAdminLoad,

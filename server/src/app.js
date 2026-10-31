@@ -30,6 +30,9 @@ const allowedOrigins = new Set(
   [
     config.CLIENT_ORIGIN,
     "https://divyam-ayurveda-dgha.onrender.com",
+    // The storefront is reachable with and without "www"; both must be allowed or login from the other one fails
+    "https://divyamayurveda.in",
+    "https://www.divyamayurveda.in",
     ...(process.env.CLIENT_ORIGINS || "").split(","),
   ]
     .map((origin) => origin.trim().replace(/\/+$/, ""))

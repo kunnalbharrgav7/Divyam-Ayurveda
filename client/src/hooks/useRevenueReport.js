@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAdmin } from "../context/AdminContext";
 import { storage } from "../utils/storage";
+import { useAdminRefreshSignal } from "./useAdminRefreshSignal";
 
 const PREF_KEY = "divyam_admin_revenue_prefs";
 
@@ -18,6 +19,7 @@ export const RANGE_OPTIONS = [
  */
 export const useRevenueReport = ({ months = 6 } = {}) => {
   const { fetchRevenueReport, orders } = useAdmin();
+  const refreshTick = useAdminRefreshSignal();
   const fetchRef = useRef(fetchRevenueReport);
   fetchRef.current = fetchRevenueReport;
 
@@ -57,7 +59,7 @@ export const useRevenueReport = ({ months = 6 } = {}) => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [days, basis, months, signature]);
+  }, [days, basis, months, signature, refreshTick]);
 
   return { report, error, loading, days, setDays, basis, setBasis };
 };

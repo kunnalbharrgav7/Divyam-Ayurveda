@@ -22,6 +22,7 @@ import { logAudit } from "./audit.service.js";
 import { ApiError } from "../utils/apiError.js";
 import { toRupees, toPaise } from "../utils/currency.js";
 import { hashPassword } from "../utils/crypto.js";
+import { ROLES } from "../constants/roles.js";
 import { inventoryService } from "./inventory.service.js";
 import { toPublicImages, resolveStoredImages } from "../utils/productImages.js";
 import { compressImages } from "../utils/imageCompression.js";
@@ -554,6 +555,143 @@ export class AdminService {
     });
 
     return user.toJSON();
+  }
+
+  /**
+   * Support inbox: enquiries, tickets and newsletter subscribers
+   */
+  async updateEnquiry(id, data, staffUser) {
+    const enquiry = await ContactEnquiry.findById(id);
+    if (!enquiry) throw ApiError.notFound("Enquiry not found");
+    const before = enquiry.status;
+    if (data.status !== undefined) enquiry.status = data.status;
+    if (data.adminNotes !== undefined) enquiry.adminNotes = String(data.adminNotes);
+    await enquiry.save();
+    await logAudit({
+      actorId: staffUser?._id,
+      actorName: staffUser?.name,
+      actorRole: staffUser?.roles?.[0]?.name || "Staff",
+      action: "support.enquiry.update",
+      module: "Customers",
+      targetId: enquiry.id,
+      details: `Enquiry from ${enquiry.email}: ${before} -> ${enquiry.status}`,
+    });
+    return enquiry.toJSON();
+  }
+
+  async updateSupportTicket(id, data, staffUser) {
+    const ticket = await SupportTicket.findById(id);
+    if (!ticket) throw ApiError.notFound("Support ticket not found");
+    const before = ticket.status;
+    if (data.status !== undefined) ticket.status = data.status;
+    if (data.internalNotes !== undefined) ticket.internalNotes = String(data.internalNotes);
+    await ticket.save();
+    await logAudit({
+      actorId: staffUser?._id,
+      actorName: staffUser?.name,
+      actorRole: staffUser?.roles?.[0]?.name || "Staff",
+      action: "support.ticket.update",
+      module: "Customers",
+      targetId: ticket.id,
+      details: `Ticket ${ticket.ticketNumber}: ${before} -> ${ticket.status}`,
+    });
+    return ticket.toJSON();
+  }
+
+  async deleteSubscriber(id, staffUser) {
+    const subscriber = await Subscriber.findByIdAndDelete(id);
+    if (!subscriber) throw ApiError.notFound("Subscriber not found");
+    await logAudit({
+      actorId: staffUser?._id,
+      actorName: staffUser?.name,
+      actorRole: staffUser?.roles?.[0]?.name || "Staff",
+      action: "support.subscriber.delete",
+      module: "Customers",
+      targetId: subscriber.id,
+      details: `Removed subscriber ${subscriber.email}`,
+    });
+    return { message: "Subscriber removed." };
+  }
+
+  /**
+   * Edit a staff account. Guards: you cannot suspend your own account, and the last active
+   * Super Admin cannot be demoted or suspended (that would lock everyone out of the admin).
+   */
+  async updateAdminUser(id, data, staffUser) {
+    const user = await User.findOne({ _id: id, isStaff: true }).populate("roles");
+    if (!user) throw ApiError.notFound("Staff user not found");
+
+    const isSelf = String(user._id) === String(staffUser?._id);
+    const wasSuperAdmin = user.roles.some((r) => r.name === ROLES.SUPER_ADMIN);
+
+    if (data.status !== undefined && !["active", "suspended", "pending"].includes(data.status)) {
+      throw ApiError.badRequest("Invalid status.");
+    }
+    if (isSelf && data.status && data.status !== "active") {
+      throw ApiError.forbidden("You cannot deactivate your own account.");
+    }
+
+    let newRole = null;
+    if (data.role !== undefined) {
+      newRole = await Role.findOne({ name: data.role });
+      if (!newRole) throw ApiError.badRequest("Unknown role.");
+    }
+
+    const demoted = wasSuperAdmin && newRole && newRole.name !== ROLES.SUPER_ADMIN;
+    const suspended = wasSuperAdmin && data.status && data.status !== "active";
+    if (demoted || suspended) {
+      const otherActive = await this._countOtherActiveSuperAdmins(user._id);
+      if (otherActive === 0) throw ApiError.conflict("At least one active Super Admin is required.");
+    }
+
+    if (data.name !== undefined && String(data.name).trim()) user.name = String(data.name).trim();
+    if (data.phone !== undefined) user.phone = data.phone || undefined;
+    if (newRole) user.roles = [newRole._id];
+    if (data.status !== undefined) {
+      user.status = data.status;
+      if (data.status !== "active") user.refreshTokenHash = undefined; // end any open session
+    }
+    if (data.password) user.passwordHash = await hashPassword(data.password);
+    await user.save();
+
+    await logAudit({
+      actorId: staffUser?._id,
+      actorName: staffUser?.name,
+      actorRole: staffUser?.roles?.[0]?.name || "Staff",
+      action: "users.edit",
+      module: "Administration",
+      targetId: user.id,
+      details: `Updated staff user ${user.name} (${user.email})`,
+    });
+    await user.populate("roles");
+    return user.toJSON();
+  }
+
+  async deleteAdminUser(id, staffUser) {
+    const user = await User.findOne({ _id: id, isStaff: true }).populate("roles");
+    if (!user) throw ApiError.notFound("Staff user not found");
+    if (String(user._id) === String(staffUser?._id)) throw ApiError.forbidden("You cannot delete your own account.");
+    if (user.roles.some((r) => r.name === ROLES.SUPER_ADMIN)) {
+      const otherActive = await this._countOtherActiveSuperAdmins(user._id);
+      if (otherActive === 0) throw ApiError.conflict("At least one active Super Admin is required.");
+    }
+    await User.deleteOne({ _id: user._id });
+    await logAudit({
+      actorId: staffUser?._id,
+      actorName: staffUser?.name,
+      actorRole: staffUser?.roles?.[0]?.name || "Staff",
+      action: "users.delete",
+      module: "Administration",
+      targetId: user.id,
+      details: `Deleted staff user ${user.name} (${user.email})`,
+    });
+    return { message: "Staff user deleted." };
+  }
+
+  async _countOtherActiveSuperAdmins(excludeId) {
+    const role = await Role.findOne({ name: ROLES.SUPER_ADMIN });
+    if (!role) return 0;
+    return User.countDocuments({ _id: { $ne: excludeId }, isStaff: true, status: "active", roles: role._id });
   }
 }
 

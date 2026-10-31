@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAdmin } from "../../../context/AdminContext";
 import { AdminSearchModal } from "../common/AdminSearchModal";
+import { AdminRefreshButton } from "../common/AdminRefreshButton";
 
 export const AdminHeader = ({ isCollapsed, setIsMobileOpen }) => {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -74,6 +75,8 @@ export const AdminHeader = ({ isCollapsed, setIsMobileOpen }) => {
 
         {/* Right side: Global Search, Storefront Link, Notifications, Profile */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <AdminRefreshButton />
+
           {/* Global Search trigger */}
           <button
             type="button"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useAdminRefreshSignal } from "../../hooks/useAdminRefreshSignal";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -36,6 +37,8 @@ export const CustomerDetailsPage = () => {
   const [newNote, setNewNote] = useState("");
   const [actionError, setActionError] = useState("");
 
+  const refreshTick = useAdminRefreshSignal();
+
   // Load the latest profile and the staff notes stored in the database
   useEffect(() => {
     let isMounted = true;
@@ -47,7 +50,7 @@ export const CustomerDetailsPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [customerId]);
+  }, [customerId, refreshTick]);
 
   if (!customer && hasAdminLoadError("customers")) {
     return <AdminLoadError what="this customer" onRetry={() => retryAdminLoad("customers")} />;
