@@ -61,7 +61,7 @@ export const Footer = () => {
                 loading="lazy"
                 decoding="async"
                 src="/images/Logo/Logo.png"
-                alt="Divyam Ayurveda"
+                alt="Divyam Ayurveda" width="669" height="373"
                 className="h-10 sm:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
             </Link>

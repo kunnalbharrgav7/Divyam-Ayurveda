@@ -74,3 +74,15 @@ export const buildProductSchema = (product) => {
   }
   return schema;
 };
+
+export const buildFaqSchema = (faqs) => {
+  const entries = (faqs || [])
+    .filter((f) => f?.question && f?.answer)
+    .map((f) => ({
+      "@type": "Question",
+      name: plain(f.question),
+      acceptedAnswer: { "@type": "Answer", text: plain(f.answer) },
+    }));
+  if (!entries.length) return null;
+  return { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: entries };
+};

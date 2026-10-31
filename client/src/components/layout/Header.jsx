@@ -42,7 +42,7 @@ export const Header = ({ onToggleMobileMenu, isSticky = true }) => {
             <Link to="/" className="flex items-center shrink-0 group" aria-label="Divyam Ayurveda">
               <img
                 src="/images/Logo/Logo.png"
-                alt="Divyam Ayurveda"
+                alt="Divyam Ayurveda" width="669" height="373"
                 className="h-8 min-[360px]:h-10 sm:h-12 w-auto object-contain transition-transform duration-300 ease-out group-hover:scale-105"
               />
             </Link>

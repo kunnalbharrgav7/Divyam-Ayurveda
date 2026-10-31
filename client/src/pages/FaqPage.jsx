@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, ChevronDown, HelpCircle, MessageSquare } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { contentService } from "../services/api";
+import { JsonLd } from "../components/common/JsonLd";
+import { buildFaqSchema } from "../utils/structuredData";
 
 export const FaqPage = () => {
   const [faqsList, setFaqsList] = useState([]);
@@ -62,6 +64,7 @@ export const FaqPage = () => {
 
   return (
     <div className="bg-[#FBFAF6] min-h-screen py-8">
+      <JsonLd data={buildFaqSchema(faqsList)} />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <Breadcrumbs items={[{ label: "Frequently Asked Questions" }]} />
 

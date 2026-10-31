@@ -59,7 +59,7 @@ export const LoginPage = () => {
             <Link to="/" className="inline-block mb-3 hover:opacity-90 transition-opacity" aria-label="Divyam Ayurveda">
               <img
                 src="/images/Logo/Logo.png"
-                alt="Divyam Ayurveda"
+                alt="Divyam Ayurveda" width="669" height="373"
                 className="h-14 sm:h-16 w-auto mx-auto object-contain"
               />
             </Link>

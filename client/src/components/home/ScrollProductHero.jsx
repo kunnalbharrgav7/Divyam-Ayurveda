@@ -432,9 +432,9 @@ export const ScrollProductHero = () => {
         <div className="flex flex-wrap items-center justify-center gap-2.5">
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/45 backdrop-blur-md border border-[#D4AF37]/35 shadow-lg">
             <span className="w-2 h-2 rounded-full bg-[#A9D18E] motion-safe:animate-pulse" />
-            <span className="text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-[#E8D9B5]">
+            <h1 className="text-[11px] sm:text-xs font-semibold tracking-wider uppercase text-[#E8D9B5]">
               Pure Himalayan Shilajit • 100% Gold Grade Resin
-            </span>
+            </h1>
           </div>
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/15 text-stone-300 text-[11px] font-medium">
             <Sparkles size={12} className="text-[#D4AF37]" />
