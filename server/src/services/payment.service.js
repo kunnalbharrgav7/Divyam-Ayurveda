@@ -5,6 +5,8 @@ import { WebhookEvent } from "../models/WebhookEvent.js";
 import { Quote } from "../models/Quote.js";
 import { cashfree } from "../integrations/cashfree/cashfree.adapter.js";
 import { orderService } from "./order.service.js";
+import { shipmentService } from "./shipment.service.js";
+import { Refund } from "../models/Refund.js";
 import { inventoryService } from "./inventory.service.js";
 import { couponService } from "./coupon.service.js";
 import { referralService } from "./referral.service.js";
@@ -13,6 +15,15 @@ import { PAYMENT_STATUS } from "../constants/paymentStatus.js";
 import { sha256 } from "../utils/crypto.js";
 import { ApiError } from "../utils/apiError.js";
 import { logger } from "../config/logger.js";
+
+// A webhook still marked "processing" after this long belongs to a crashed attempt and may be retried
+const STALE_PROCESSING_MS = 60 * 1000;
+
+const SETTLED_PAYMENT_STATUSES = [
+  PAYMENT_STATUS.SUCCEEDED,
+  PAYMENT_STATUS.REFUNDED,
+  PAYMENT_STATUS.PARTIALLY_REFUNDED,
+];
 
 export class PaymentService {
   /**
@@ -38,6 +49,9 @@ export class PaymentService {
           paymentStatus: order.paymentStatus,
         };
       }
+      if (order.status === ORDER_STATUS.CANCELLED) {
+        throw ApiError.badRequest("This order was cancelled, so it can no longer be paid. Please place a new order.");
+      }
     } else if (quoteId) {
       const quote = await Quote.findById(quoteId);
       if (!quote) throw ApiError.badRequest("Invalid or expired checkout quote.");
@@ -61,7 +75,7 @@ export class PaymentService {
       throw ApiError.badRequest("Invalid order total amount.");
     }
 
-    // Call Cashfree adapter
+    // Call Cashfree adapter (it reuses the open session when this order already exists at Cashfree)
     const cfResult = await cashfree.createPaymentSession({
       orderNumber: orderNum,
       amountPaise,
@@ -96,6 +110,153 @@ export class PaymentService {
   }
 
   /**
+   * Mark an order paid exactly once, no matter how many requests race (webhook, status check, retries).
+   * Only the request that actually flips paymentStatus goes on to confirm the order, deduct stock and
+   * count the coupon/referral; every other caller gets `false` and does nothing.
+   */
+  async #markPaid(order, { providerPaymentId, label }) {
+    const won = await Order.findOneAndUpdate(
+      { _id: order._id, paymentStatus: { $ne: PAYMENT_STATUS.SUCCEEDED } },
+      {
+        $set: { paymentStatus: PAYMENT_STATUS.SUCCEEDED },
+        $push: {
+          timeline: { status: label, time: new Date(), note: `Payment ID: ${providerPaymentId}`, completed: true },
+        },
+      },
+      { new: true }
+    );
+    if (!won) return false;
+
+    if (won.status === ORDER_STATUS.CANCELLED) {
+      // The money arrived after the order was cancelled: keep it cancelled and flag it for a refund
+      await Order.updateOne(
+        { _id: won._id },
+        {
+          $push: {
+            timeline: {
+              status: "Payment received after cancellation",
+              time: new Date(),
+              note: "This order was cancelled before the payment arrived. Issue a refund.",
+              completed: false,
+            },
+          },
+        }
+      );
+      logger.warn({ orderNumber: won.orderNumber }, "Cashfree payment received for a cancelled order; refund required");
+      return true;
+    }
+
+    const confirmed = await Order.findOneAndUpdate(
+      { _id: won._id, status: ORDER_STATUS.PENDING_PAYMENT },
+      { $set: { status: ORDER_STATUS.CONFIRMED } },
+      { new: true }
+    );
+    if (!confirmed) return true; // already past pending (e.g. staff moved it on)
+
+    // Stock: the reservation becomes a sale once. stockState is claimed atomically so delivery cannot deduct it again.
+    const claim = await Order.findOneAndUpdate(
+      { _id: confirmed._id, stockState: { $in: ["reserved", "none"] } }, // "none": orders saved before stock states existed
+      { $set: { stockState: "committed" } }
+    );
+    if (claim) {
+      const lines = (confirmed.items || [])
+        .filter((i) => i.variantId)
+        .map((i) => ({ variantId: i.variantId, productId: i.productId, sku: i.sku, quantity: i.quantity }));
+      await inventoryService.commitSoldStock(lines, confirmed.orderNumber, "cashfree_payment_commit");
+    }
+
+    if (confirmed.pricing?.appliedCoupon) {
+      await couponService.recordUsage(confirmed.pricing.appliedCoupon);
+    }
+    if (confirmed.pricing?.referralCode && confirmed.userId) {
+      await referralService.recordOrder(confirmed, { _id: confirmed.userId });
+    }
+
+    // Book the courier in the background; the webhook response must not wait for Shiprocket
+    setImmediate(() => shipmentService.autoCreateForOrder(confirmed.orderNumber));
+    return true;
+  }
+
+  /**
+   * Apply a final Cashfree status to a refund we issued when cancelling a paid order. Safe to call any
+   * number of times (webhook, poller): only a refund that is still pending changes.
+   * Refunds that belong to a return request are finished by the returns flow, not here.
+   */
+  async applyCancelRefundStatus({ refundId, status }) {
+    const cfStatus = String(status || "").toUpperCase();
+    const finalStatus = cfStatus === "SUCCESS" ? "succeeded" : ["FAILED", "CANCELLED"].includes(cfStatus) ? "failed" : null;
+    if (!refundId || !finalStatus) return { updated: false };
+
+    const refund = await Refund.findOneAndUpdate(
+      { refundId, status: "pending", returnRequestId: null },
+      { status: finalStatus, ...(finalStatus === "failed" ? { errorMessage: `Cashfree reported the refund as ${cfStatus}.` } : {}) },
+      { new: true }
+    );
+    if (!refund) return { updated: false };
+
+    if (finalStatus === "succeeded") {
+      await Order.updateOne(
+        { orderNumber: refund.orderNumber },
+        {
+          $set: { paymentStatus: PAYMENT_STATUS.REFUNDED },
+          $push: { timeline: { status: "Refund completed", time: new Date(), note: `₹${refund.amountPaise / 100} reached the original payment method.`, completed: true } },
+        }
+      );
+    } else {
+      await Order.updateOne(
+        { orderNumber: refund.orderNumber },
+        {
+          $inc: { refundedPaise: -refund.amountPaise },
+          $push: {
+            timeline: {
+              status: "Refund failed",
+              time: new Date(),
+              note: `Cashfree could not complete the refund of ₹${refund.amountPaise / 100} (${cfStatus}). Refund this order manually.`,
+              completed: false,
+            },
+          },
+        }
+      );
+      logger.error({ orderNumber: refund.orderNumber, refundId, status: cfStatus }, "Refund for cancelled order failed at Cashfree");
+    }
+    return { updated: true, status: finalStatus };
+  }
+
+  /** Ask Cashfree about cancel-refunds that are still pending (covers a missed refund webhook) */
+  async syncPendingCancelRefunds({ olderThanMs = 5 * 60 * 1000 } = {}) {
+    const pending = await Refund.find({
+      status: "pending",
+      provider: "cashfree",
+      returnRequestId: null,
+      createdAt: { $lt: new Date(Date.now() - olderThanMs) },
+    }).limit(50);
+
+    let updated = 0;
+    for (const refund of pending) {
+      try {
+        const info = await cashfree.getRefund({ orderNumber: refund.orderNumber, refundId: refund.refundId });
+        const result = await this.applyCancelRefundStatus({ refundId: refund.refundId, status: info.status });
+        if (result.updated) updated += 1;
+      } catch (err) {
+        logger.warn({ refundId: refund.refundId, err: err.message }, "Could not check pending refund");
+      }
+    }
+    return { checked: pending.length, updated };
+  }
+
+  /** A failed attempt must never overwrite a payment that already succeeded or was refunded */
+  async #markFailed(order, note) {
+    await Order.updateOne(
+      { _id: order._id, paymentStatus: { $nin: SETTLED_PAYMENT_STATUSES } },
+      {
+        $set: { paymentStatus: PAYMENT_STATUS.FAILED },
+        $push: { timeline: { status: "Payment Failed", time: new Date(), note, completed: false } },
+      }
+    );
+    await Payment.updateOne({ orderNumber: order.orderNumber, status: { $ne: PAYMENT_STATUS.SUCCEEDED } }, { status: PAYMENT_STATUS.FAILED });
+  }
+
+  /**
    * Handle Cashfree Webhook with HMAC signature verification and idempotency deduplication
    */
   async handleCashfreeWebhook({ rawBody, headers, payload }) {
@@ -111,13 +272,14 @@ export class PaymentService {
     const data = payload.data || {};
     const orderData = data.order || {};
     const paymentData = data.payment || {};
+    const refundData = data.refund || {};
 
-    const orderNumber = orderData.order_id || payload.order_id;
-    const providerPaymentId = paymentData.cf_payment_id || String(data.cf_payment_id || Date.now());
-    const eventId = headers["x-webhook-id"] || `${orderNumber}_${providerPaymentId}_${eventType}`;
+    const orderNumber = orderData.order_id || refundData.order_id || payload.order_id;
     const payloadHash = sha256(rawBody);
+    const providerPaymentId = paymentData.cf_payment_id ? String(paymentData.cf_payment_id) : String(data.cf_payment_id || payloadHash.slice(0, 16));
+    const eventId = headers["x-webhook-id"] || `${orderNumber}_${providerPaymentId}_${eventType}`;
 
-    // 3. Idempotency deduplication check in WebhookEvent
+    // 3. Idempotency: a processed event is skipped; a failed or abandoned one is retried in place
     const existingEvent = await WebhookEvent.findOne({
       provider: "cashfree",
       $or: [{ eventId }, { payloadHash }],
@@ -127,15 +289,34 @@ export class PaymentService {
       logger.info({ eventId, orderNumber }, "Duplicate Cashfree webhook event received, skipping.");
       return { status: "duplicate", message: "Event already processed" };
     }
+    if (
+      existingEvent &&
+      existingEvent.status === "processing" &&
+      Date.now() - new Date(existingEvent.updatedAt).getTime() < STALE_PROCESSING_MS
+    ) {
+      return { status: "duplicate", message: "Event is already being processed" };
+    }
 
-    const webhookRecord = await WebhookEvent.create({
-      provider: "cashfree",
-      eventId,
-      eventType,
-      payloadHash,
-      rawPayload: payload,
-      status: "processing",
-    });
+    let webhookRecord = existingEvent;
+    if (webhookRecord) {
+      webhookRecord.status = "processing";
+      webhookRecord.error = null;
+      await webhookRecord.save();
+    } else {
+      try {
+        webhookRecord = await WebhookEvent.create({
+          provider: "cashfree",
+          eventId,
+          eventType,
+          payloadHash,
+          rawPayload: payload,
+          status: "processing",
+        });
+      } catch (err) {
+        if (err.code === 11000) return { status: "duplicate", message: "Event is already being processed" };
+        throw err;
+      }
+    }
 
     try {
       const order = await Order.findOne({ orderNumber });
@@ -147,9 +328,24 @@ export class PaymentService {
         return { status: "ignored" };
       }
 
-      // Check payment status from payload
-      const paymentStatus = paymentData.payment_status || data.payment_status || "SUCCESS";
-      const paymentAmount = paymentData.payment_amount || data.payment_amount;
+      // Refund updates settle the refund we issued on cancellation
+      if (refundData.refund_id || /REFUND/i.test(eventType)) {
+        const outcome = await this.applyCancelRefundStatus({ refundId: refundData.refund_id, status: refundData.refund_status });
+        webhookRecord.status = "processed";
+        webhookRecord.processedAt = new Date();
+        await webhookRecord.save();
+        return { status: "processed", orderNumber, refund: outcome };
+      }
+
+      // Only payment events change an order; settlement and dispute events carry no payment status
+      const paymentStatus = paymentData.payment_status || data.payment_status;
+      if (!paymentStatus) {
+        webhookRecord.status = "processed";
+        webhookRecord.processedAt = new Date();
+        await webhookRecord.save();
+        return { status: "ignored", reason: "not a payment event", eventType };
+      }
+      const paymentAmount = paymentData.payment_amount ?? data.payment_amount;
 
       if (paymentStatus === "SUCCESS") {
         // Verify payment amount matches order total exactly
@@ -165,7 +361,6 @@ export class PaymentService {
           throw ApiError.badRequest("Payment amount mismatch");
         }
 
-        // Mark payment succeeded
         await Payment.findOneAndUpdate(
           { orderNumber },
           {
@@ -177,43 +372,10 @@ export class PaymentService {
           { upsert: true }
         );
 
-        // Transition order to confirmed if not already paid
-        if (order.status === ORDER_STATUS.PENDING_PAYMENT || order.paymentStatus !== PAYMENT_STATUS.SUCCEEDED) {
-          order.status = ORDER_STATUS.CONFIRMED;
-          order.paymentStatus = PAYMENT_STATUS.SUCCEEDED;
-          order.timeline.push({
-            status: "Payment Confirmed via Cashfree",
-            time: new Date(),
-            note: `Payment ID: ${providerPaymentId}`,
-            completed: true,
-          });
-          await order.save();
-
-          // Commit sold inventory
-          await inventoryService.commitSoldStock(
-            order.items,
-            order.orderNumber,
-            "cashfree_webhook_commit"
-          );
-
-          // Apply coupon usage
-          if (order.pricing?.appliedCoupon) {
-            await couponService.recordUsage(order.pricing.appliedCoupon);
-          }
-          if (order.pricing?.referralCode && order.userId) {
-            await referralService.recordOrder(order, { _id: order.userId });
-          }
-        }
+        await this.#markPaid(order, { providerPaymentId, label: "Payment Confirmed via Cashfree" });
       } else {
-        // Payment failed
-        order.paymentStatus = PAYMENT_STATUS.FAILED;
-        order.timeline.push({
-          status: "Payment Failed",
-          time: new Date(),
-          note: `Failure reason: ${paymentData.payment_message || "Declined"}`,
-          completed: false,
-        });
-        await order.save();
+        // FAILED, USER_DROPPED, CANCELLED...: the customer can still retry, and a success later wins
+        await this.#markFailed(order, `Failure reason: ${paymentData.payment_message || paymentStatus}`);
       }
 
       webhookRecord.status = "processed";
@@ -250,10 +412,25 @@ export class PaymentService {
       payments.find((p) => p.payment_status === "SUCCESS") ||
       (Array.isArray(cfStatus.payments) && cfStatus.payments.find((p) => p.payment_status === "SUCCESS"));
 
-    const isPaid = cfStatus.orderStatus === "PAID" || Boolean(successfulPayment);
+    let isPaid = cfStatus.orderStatus === "PAID" || Boolean(successfulPayment);
+
+    // The order and amount Cashfree holds must be the ones we created
+    if (isPaid) {
+      const expectedRupees = (order.pricing?.totalPaise || 0) / 100;
+      const idMismatch = cfStatus.orderId && String(cfStatus.orderId) !== orderNum;
+      const amountMismatch =
+        cfStatus.orderAmount !== undefined && Math.abs(Number(cfStatus.orderAmount) - expectedRupees) > 0.01;
+      if (idMismatch || amountMismatch) {
+        logger.error(
+          { orderNumber: orderNum, cashfreeOrderId: cfStatus.orderId, cashfreeAmount: cfStatus.orderAmount, expected: expectedRupees },
+          "Cashfree order does not match our order; not marking it paid"
+        );
+        isPaid = false;
+      }
+    }
 
     if (isPaid) {
-      const providerPaymentId = successfulPayment?.cf_payment_id || `cf_pay_${Date.now()}`;
+      const providerPaymentId = successfulPayment?.cf_payment_id ? String(successfulPayment.cf_payment_id) : `cf_pay_${Date.now()}`;
 
       await Payment.findOneAndUpdate(
         { orderNumber: orderNum },
@@ -265,44 +442,20 @@ export class PaymentService {
         { upsert: true }
       );
 
-      if (order.status === ORDER_STATUS.PENDING_PAYMENT || order.paymentStatus !== PAYMENT_STATUS.SUCCEEDED) {
-        order.status = ORDER_STATUS.CONFIRMED;
-        order.paymentStatus = PAYMENT_STATUS.SUCCEEDED;
-        order.timeline.push({
-          status: "Payment Verified via Cashfree API",
-          time: new Date(),
-          note: `Transaction ID: ${providerPaymentId}`,
-          completed: true,
-        });
-        await order.save();
-
-        await inventoryService.commitSoldStock(order.items, order.orderNumber, "cashfree_api_commit");
-        if (order.pricing?.appliedCoupon) {
-          await couponService.recordUsage(order.pricing.appliedCoupon);
-        }
-        if (order.pricing?.referralCode && order.userId) {
-          await referralService.recordOrder(order, { _id: order.userId });
-        }
-      }
+      await this.#markPaid(order, { providerPaymentId, label: "Payment Verified via Cashfree API" });
     } else {
       const lastPayment = payments[payments.length - 1];
       if (lastPayment && ["FAILED", "USER_DROPPED", "CANCELLED"].includes(lastPayment.payment_status)) {
-        await Payment.findOneAndUpdate(
-          { orderNumber: orderNum },
-          { status: PAYMENT_STATUS.FAILED },
-          { upsert: true }
-        );
-        if (order.status === ORDER_STATUS.PENDING_PAYMENT) {
-          order.paymentStatus = PAYMENT_STATUS.FAILED;
-          await order.save();
-        }
+        await this.#markFailed(order, `Failure reason: ${lastPayment.payment_message || lastPayment.payment_status}`);
       }
     }
 
+    const fresh = await Order.findById(order._id).select("status paymentStatus");
+
     return {
       orderNumber: orderNum,
-      orderStatus: order.status,
-      paymentStatus: order.paymentStatus,
+      orderStatus: fresh?.status || order.status,
+      paymentStatus: fresh?.paymentStatus || order.paymentStatus,
       cashfreeStatus: cfStatus.orderStatus,
       isPaid,
     };

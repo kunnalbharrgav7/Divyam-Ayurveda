@@ -15,10 +15,11 @@ const shipmentSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // One shipment per order: the unique index is what stops a double-click from creating two Shiprocket orders
     orderNumber: {
       type: String,
       required: true,
-      index: true,
+      unique: true,
     },
     provider: {
       type: String,
@@ -55,6 +56,10 @@ const shipmentSchema = new mongoose.Schema(
       type: String,
       default: "CREATED",
       index: true,
+    },
+    statusUpdatedAt: {
+      type: Date,
+      default: null,
     },
     trackingUrl: {
       type: String,

@@ -539,6 +539,9 @@ export const contentService = {
   },
 };
 
+// The order request currently awaiting a server answer (kept only across network failures)
+let pendingOrderAttempt = null;
+
 export const orderService = {
   /**
    * Save a completed order to backend MongoDB API and persist into browser storage
@@ -548,12 +551,18 @@ export const orderService = {
 
     // 1. Try persisting order to backend MongoDB API
     try {
+      // Same order sent again after a dropped connection must not create a second order: reuse its key
+      const payloadText = JSON.stringify(orderPayload);
+      if (!pendingOrderAttempt || pendingOrderAttempt.payloadText !== payloadText) {
+        pendingOrderAttempt = { payloadText, key: `order-${Date.now()}-${Math.random().toString(36).slice(2, 12)}` };
+      }
       const response = await fetch("/api/v1/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderPayload),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": pendingOrderAttempt.key },
+        body: payloadText,
         credentials: "include",
       });
+      pendingOrderAttempt = null; // the server answered; the next attempt is a new one
 
       if (!response.ok) {
         // Surface the server's reason (e.g. out-of-stock item) instead of a generic failure

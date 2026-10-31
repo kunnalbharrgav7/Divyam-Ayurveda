@@ -2,7 +2,12 @@ import { config } from "../../config/index.js";
 import { logger } from "../../config/logger.js";
 import { verifyHmacSignature, sha256 } from "../../utils/crypto.js";
 import { toRupees } from "../../utils/currency.js";
+import { ApiError } from "../../utils/apiError.js";
 import { CashfreeMock } from "./cashfree.mock.js";
+
+const REQUEST_TIMEOUT_MS = 20000;
+// How long a customer has to pay before the order is cancelled and its stock released
+export const PAYMENT_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 export class CashfreeAdapter {
   constructor() {
@@ -32,8 +37,13 @@ export class CashfreeAdapter {
 
     const rawId = String(customer?.id || customer?._id || customer?.email || "guest").replace(/[^a-zA-Z0-9._-]/g, "_");
     const customerId = rawId.length >= 3 ? rawId.slice(0, 50) : `cust_${rawId}`;
-    const cleanPhone = String(customer?.phone || "").replace(/[^0-9]/g, "").slice(-10);
-    const customerPhone = cleanPhone.length === 10 ? cleanPhone : "9876543210";
+    const customerPhone = String(customer?.phone || "").replace(/[^0-9]/g, "").slice(-10);
+    if (customerPhone.length !== 10) {
+      throw ApiError.badRequest("A valid 10-digit mobile number is required for online payment.");
+    }
+    if (!customer?.email) {
+      throw ApiError.badRequest("An email address is required for online payment.");
+    }
     const webhookUrl =
       config.CASHFREE_WEBHOOK_URL || `${config.API_URL.replace(/\/+$/, "")}/api/v1/webhooks/cashfree`;
 
@@ -43,7 +53,7 @@ export class CashfreeAdapter {
       order_currency: "INR",
       customer_details: {
         customer_id: customerId,
-        customer_email: customer?.email || "customer@divyamayurveda.com",
+        customer_email: customer.email,
         customer_phone: customerPhone,
         customer_name: customer?.name || "Customer",
       },
@@ -53,6 +63,8 @@ export class CashfreeAdapter {
           `${config.CLIENT_ORIGIN.replace(/\/+$/, "")}/order-confirmation/${orderNumber}?order_id={order_id}`,
         notify_url: webhookUrl,
       },
+      // Unpaid orders are cancelled and their stock released after this window (see expireUnpaidOrders)
+      order_expiry_time: new Date(Date.now() + PAYMENT_WINDOW_MS).toISOString(),
     };
 
     try {
@@ -65,10 +77,28 @@ export class CashfreeAdapter {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
 
       const data = await response.json();
       if (!response.ok) {
+        // Paying again (retry, double click, back button) re-uses the order Cashfree already holds
+        if (response.status === 409 || data.code === "order_already_exists") {
+          const existing = await this.getOrderStatus(orderNumber);
+          if (existing.orderStatus === "ACTIVE" && existing.paymentSessionId) {
+            return {
+              paymentSessionId: existing.paymentSessionId,
+              orderId: existing.orderId,
+              cfOrderId: existing.cfOrderId,
+              environment: config.CASHFREE_ENV,
+            };
+          }
+          throw ApiError.conflict(
+            existing.orderStatus === "PAID"
+              ? "This order has already been paid."
+              : "The payment window for this order has closed. Please place a new order."
+          );
+        }
         logger.error({ data, orderNumber }, "Cashfree PG create order returned error");
         throw new Error(data.message || "Failed to initialize Cashfree payment session");
       }
@@ -100,6 +130,7 @@ export class CashfreeAdapter {
           "x-client-secret": this.secretKey,
           "x-api-version": this.apiVersion,
         },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
 
       const data = await response.json();
@@ -109,6 +140,8 @@ export class CashfreeAdapter {
 
       return {
         orderId: data.order_id,
+        cfOrderId: data.cf_order_id,
+        paymentSessionId: data.payment_session_id,
         orderStatus: data.order_status, // PAID, ACTIVE, EXPIRED
         orderAmount: data.order_amount,
         payments: data.payments || [],
@@ -134,6 +167,7 @@ export class CashfreeAdapter {
           "x-client-secret": this.secretKey,
           "x-api-version": this.apiVersion,
         },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
 
       const data = await response.json();

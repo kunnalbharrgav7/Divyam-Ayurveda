@@ -717,25 +717,27 @@ export const OrderDetailsPage = () => {
                   </button>
                 ) : null}
 
-                {/* Simulation Stage Buttons */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleAdvanceCourier("out_for_delivery")}
-                    disabled={isShippingLoading}
-                    className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold rounded-lg text-center transition-colors cursor-pointer"
-                  >
-                    🚚 Out for Delivery
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAdvanceCourier("delivered")}
-                    disabled={isShippingLoading}
-                    className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-semibold rounded-lg text-center transition-colors cursor-pointer"
-                  >
-                    ✅ Mark Delivered
-                  </button>
-                </div>
+                {/* Simulation Stage Buttons: development only; live shipments follow the courier's updates */}
+                {!import.meta.env.PROD && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleAdvanceCourier("out_for_delivery")}
+                      disabled={isShippingLoading}
+                      className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold rounded-lg text-center transition-colors cursor-pointer"
+                    >
+                      🚚 Out for Delivery
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdvanceCourier("delivered")}
+                      disabled={isShippingLoading}
+                      className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-semibold rounded-lg text-center transition-colors cursor-pointer"
+                    >
+                      ✅ Mark Delivered
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Links: Label & Tracking URL */}

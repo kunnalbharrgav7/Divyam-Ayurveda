@@ -2,8 +2,11 @@ import { Router } from "express";
 import * as paymentController from "../../controllers/payment.controller.js";
 import { requireIdempotency } from "../../middleware/idempotency.js";
 import { optionalAuthenticate } from "../../middleware/auth.js";
+import { checkoutLimiter } from "../../middleware/rateLimiter.js";
 
 const router = Router();
+
+router.use(checkoutLimiter);
 
 router.post(
   "/cashfree/session",

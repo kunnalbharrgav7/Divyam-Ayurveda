@@ -29,7 +29,8 @@ describe("Checkout, Pricing Calculation & Concurrency Integration", () => {
       createdParent = parentProd;
     }
 
-    testVariant = await ProductVariant.findOne({ isActive: true, stockOnHand: { $gte: 2 } });
+    // Available stock (on hand minus reserved) must cover the test, or leftovers from other suites make this fail
+    testVariant = await ProductVariant.findOne({ isActive: true, $expr: { $gte: [{ $subtract: ["$stockOnHand", { $ifNull: ["$reservedStock", 0] }] }, 2] } });
     if (!testVariant) {
       testVariant = await ProductVariant.create({
         productId: parentProd._id,

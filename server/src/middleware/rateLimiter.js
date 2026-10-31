@@ -41,3 +41,15 @@ export const referralLimiter = rateLimit({
     error: { code: "TOO_MANY_REQUESTS", message: "Too many referral code checks. Please try again in a few minutes." },
   },
 });
+
+// Checkout, order placement and payment endpoints: generous for real shoppers, tight for scripts
+export const checkoutLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: config.NODE_ENV === "test" ? 5000 : 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: { code: "TOO_MANY_REQUESTS", message: "Too many requests. Please wait a minute and try again." },
+  },
+});

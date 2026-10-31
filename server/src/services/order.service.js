@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import { Order } from "../models/Order.js";
 import { Shipment } from "../models/Shipment.js";
+import { Refund } from "../models/Refund.js";
+import { cashfree } from "../integrations/cashfree/cashfree.adapter.js";
+import { shiprocket } from "../integrations/shiprocket/shiprocket.adapter.js";
+import { shipmentService } from "./shipment.service.js";
 import { Quote } from "../models/Quote.js";
 import { User } from "../models/User.js";
 import { Product } from "../models/Product.js";
@@ -18,6 +22,7 @@ import { logAudit } from "./audit.service.js";
 import { settingsService } from "./settings.service.js";
 import { computeShipping, computeTax } from "../utils/shippingRules.js";
 import { ApiError } from "../utils/apiError.js";
+import { logger } from "../config/logger.js";
 
 export class OrderService {
   /**
@@ -128,6 +133,7 @@ export class OrderService {
           referralCode: quote.appliedReferralCode,
         },
         status: initialStatus,
+        stockState: isCOD ? "committed" : "reserved",
         paymentStatus: initialPaymentStatus,
         paymentMethod: canonicalMethod,
         deliveryMethod: quote.deliveryMethod,
@@ -140,6 +146,8 @@ export class OrderService {
       if (quote.appliedReferralCode && user?._id) {
         await referralService.recordOrder(order, user);
       }
+
+      if (isCOD) setImmediate(() => shipmentService.autoCreateForOrder(order.orderNumber));
 
       let paymentSession = null;
       if (isOnline) {
@@ -179,17 +187,21 @@ export class OrderService {
 
     const customerName =
       payload.customer?.name || payload.shippingAddress?.fullName || user?.name || "Customer";
-    const customerEmail = (
-      payload.customer?.email || user?.email || "customer@divyamayurveda.test"
-    ).toLowerCase();
-    const customerPhone =
-      payload.customer?.phone || payload.shippingAddress?.phone || "9876543210";
+    const customerEmail = String(payload.customer?.email || user?.email || "").trim().toLowerCase();
+    const customerPhone = String(payload.customer?.phone || payload.shippingAddress?.phone || "").trim();
 
-    const street =
-      payload.shippingAddress?.street || payload.shippingAddress?.line1 || "Street Address";
-    const city = payload.shippingAddress?.city || "City";
-    const state = payload.shippingAddress?.state || "Karnataka";
-    const pincode = payload.shippingAddress?.pincode || "560001";
+    const street = String(payload.shippingAddress?.street || payload.shippingAddress?.line1 || "").trim();
+    const city = String(payload.shippingAddress?.city || "").trim();
+    const state = String(payload.shippingAddress?.state || "").trim();
+    const pincode = String(payload.shippingAddress?.pincode || "").trim();
+
+    // Couriers and the payment gateway need real contact and delivery details; never substitute placeholders
+    if (!/@/.test(customerEmail)) throw ApiError.badRequest("A valid email address is required to place an order.");
+    if (customerPhone.replace(/\D/g, "").slice(-10).length !== 10) {
+      throw ApiError.badRequest("A valid 10-digit mobile number is required to place an order.");
+    }
+    if (!street || !city || !state) throw ApiError.badRequest("Please enter your full delivery address.");
+    if (!/^\d{6}$/.test(pincode)) throw ApiError.badRequest("Please enter a valid 6-digit PIN code.");
 
     const mappedItems = await Promise.all(
       (payload.items || []).map(async (item) => {
@@ -362,6 +374,7 @@ export class OrderService {
       if (pack) {
         item.variantId = pack._id;
         item.sku = pack.sku;
+        if (pack.weightGrams) item.weightGrams = pack.weightGrams;
         reservations.push({ variantId: pack._id, productId: item.productId, sku: pack.sku, quantity: item.quantity });
       }
     }
@@ -430,6 +443,8 @@ export class OrderService {
     if (isCOD) {
       if (verifiedOfferCode) await couponService.recordUsage(verifiedOfferCode);
       if (verifiedReferralCode) await referralService.recordOrder(order, user);
+      // Cash on delivery is confirmed on placement, so the courier can be booked right away
+      setImmediate(() => shipmentService.autoCreateForOrder(order.orderNumber));
     }
 
     let paymentSession = null;
@@ -589,6 +604,8 @@ export class OrderService {
     }
 
     const beforeStatus = order.status;
+    const isNewCancellation = normalizedStatus === ORDER_STATUS.CANCELLED && beforeStatus !== ORDER_STATUS.CANCELLED;
+    if (isNewCancellation) await this.cancelCourierShipment(order);
     order.status = normalizedStatus;
 
     // Update fulfillment status based on new order status
@@ -703,13 +720,12 @@ export class OrderService {
     const stockLines = (order.items || [])
       .filter((i) => i.variantId)
       .map((i) => ({ variantId: i.variantId, productId: i.productId, sku: i.sku, quantity: i.quantity }));
-    if (order.stockState === "reserved" && stockLines.length > 0) {
-      if (normalizedStatus === ORDER_STATUS.DELIVERED) {
+    if (stockLines.length > 0) {
+      if (normalizedStatus === ORDER_STATUS.DELIVERED && order.stockState === "reserved") {
         await inventoryService.commitSoldStock(stockLines, order.orderNumber, staffUser?.id || "order_delivered");
         order.stockState = "committed";
       } else if (normalizedStatus === ORDER_STATUS.CANCELLED) {
-        await inventoryService.releaseReservedStock(stockLines, order.orderNumber);
-        order.stockState = "released";
+        await this.settleStockOnCancel(order, stockLines, staffUser?.id);
       }
     }
 
@@ -720,6 +736,7 @@ export class OrderService {
     }
 
     await order.save();
+    if (isNewCancellation) await this.refundCancelledOrder(order, staffUser);
 
     if (staffUser) {
       await logAudit({
@@ -775,6 +792,143 @@ export class OrderService {
   }
 
   /** Gives the store credit a customer spent on an order back to their balance (once). */
+  /**
+   * Cancel the courier booking of an order that is being cancelled, so a cancelled order is never picked up.
+   * If Shiprocket refuses, the cancellation is stopped and the admin sees why.
+   */
+  async cancelCourierShipment(order) {
+    const shipment = await Shipment.findOne({ orderNumber: order.orderNumber });
+    if (!shipment?.awbCode || ["CANCELLED", "CANCELED", "DELIVERED"].includes(String(shipment.status).toUpperCase())) return;
+
+    let result;
+    try {
+      result = await shiprocket.cancelShipment(shipment.awbCode);
+    } catch (err) {
+      throw ApiError.conflict(`The courier shipment could not be cancelled (${err.message}). Cancel it in Shiprocket, then retry.`);
+    }
+    if (!result?.success) {
+      throw ApiError.conflict(
+        `Shiprocket did not cancel the shipment${result?.message ? `: ${result.message}` : ""}. Cancel AWB ${shipment.awbCode} in Shiprocket, then retry.`
+      );
+    }
+    shipment.status = "CANCELLED";
+    shipment.trackingEvents.push({ status: "CANCELLED", activity: "Shipment cancelled with the order", location: "", time: new Date() });
+    await shipment.save();
+  }
+
+  /**
+   * Send the customer's money back when a paid online order is cancelled. One refund per order (the id is
+   * fixed, and Cashfree treats a repeat of it as the same refund). A failure never undoes the cancellation:
+   * it is written on the order so staff can refund manually.
+   */
+  async refundCancelledOrder(order, staffUser = null) {
+    const isOnline = normalizePaymentMethod(order.paymentMethod) === PAYMENT_METHODS.ONLINE;
+    if (!isOnline || order.paymentStatus !== PAYMENT_STATUS.SUCCEEDED || !staffUser?._id) return null;
+
+    const refundablePaise = Math.max(0, (order.pricing?.totalPaise || 0) - (order.refundedPaise || 0));
+    if (refundablePaise <= 0) return null;
+
+    const refundId = `RF-CANCEL-${order.orderNumber}`;
+    const already = await Refund.findOne({ orderNumber: order.orderNumber, refundId });
+    if (already) return already;
+
+    const refund = await Refund.create({
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      amountPaise: refundablePaise,
+      reason: "Order cancelled",
+      provider: "cashfree",
+      method: "original",
+      refundId,
+      status: "pending",
+      staffActorId: staffUser._id,
+    });
+
+    try {
+      const result = await cashfree.createRefund({
+        orderNumber: order.orderNumber,
+        refundId,
+        amountPaise: refundablePaise,
+        note: "Order cancelled",
+      });
+      const status = String(result.status || "").toUpperCase();
+      if (!["SUCCESS", "PENDING", "ONHOLD"].includes(status)) {
+        throw new Error(`Cashfree returned refund status "${status || "UNKNOWN"}".`);
+      }
+      refund.providerRefundId = result.cfRefundId || result.refundId || refundId;
+      refund.status = status === "SUCCESS" ? "succeeded" : "pending";
+      await refund.save();
+
+      order.refundedPaise = (order.refundedPaise || 0) + refundablePaise;
+      if (status === "SUCCESS") order.paymentStatus = PAYMENT_STATUS.REFUNDED;
+      order.timeline.push({
+        status: "Refund issued",
+        time: new Date(),
+        note: `₹${refundablePaise / 100} sent back to the original payment method${status === "SUCCESS" ? "" : " (processing)"}.`,
+        completed: true,
+      });
+      await order.save();
+    } catch (err) {
+      refund.status = "failed";
+      refund.errorMessage = err.message;
+      await refund.save();
+      order.timeline.push({
+        status: "Refund failed",
+        time: new Date(),
+        note: `The automatic refund of ₹${refundablePaise / 100} failed (${err.message}). Refund this order manually.`,
+        completed: false,
+      });
+      await order.save();
+      logger.error({ orderNumber: order.orderNumber, err: err.message }, "Refund for cancelled order failed");
+    }
+    return refund;
+  }
+
+  /**
+   * Put a cancelled order's stock back. Reserved stock is simply un-reserved; stock that was already
+   * sold (paid online, or COD placed through a quote) is added back to the shelf. Runs once per order.
+   */
+  async settleStockOnCancel(order, stockLines, actorId = "cancellation") {
+    if (!stockLines.length) return;
+    if (order.stockState === "reserved") {
+      await inventoryService.releaseReservedStock(stockLines, order.orderNumber);
+      order.stockState = "released";
+    } else if (order.stockState === "committed") {
+      await inventoryService.restockReturned(stockLines, order.orderNumber, actorId || "cancellation");
+      order.stockState = "released";
+    }
+  }
+
+  /**
+   * Cancel online orders nobody paid for within the payment window, so their reserved stock goes back on sale.
+   * Cashfree is asked first: a payment whose webhook was missed is confirmed instead of cancelled.
+   */
+  async expireUnpaidOrders({ olderThanMs = 2 * 60 * 60 * 1000 + 10 * 60 * 1000 } = {}) {
+    const { paymentService } = await import("./payment.service.js");
+    const cutoff = new Date(Date.now() - olderThanMs);
+    const stale = await Order.find({
+      status: ORDER_STATUS.PENDING_PAYMENT,
+      paymentStatus: { $ne: PAYMENT_STATUS.SUCCEEDED },
+      createdAt: { $lt: cutoff },
+    })
+      .select("orderNumber")
+      .limit(50)
+      .lean();
+
+    let cancelled = 0;
+    for (const { orderNumber } of stale) {
+      try {
+        const check = await paymentService.refreshPaymentStatus(orderNumber);
+        if (check.isPaid) continue;
+        await this.cancelOrder(orderNumber, "Payment not completed in time");
+        cancelled += 1;
+      } catch (err) {
+        logger.warn({ orderNumber, err: err.message }, "Could not expire unpaid order");
+      }
+    }
+    return { checked: stale.length, cancelled };
+  }
+
   async restoreStoreCredit(order) {
     const spent = order.pricing?.storeCreditPaise || 0;
     if (spent > 0 && order.userId && !order.storeCreditRestored) {
@@ -805,11 +959,14 @@ export class OrderService {
       throw ApiError.badRequest("This order is already cancelled.");
     }
 
-    if (order.status === ORDER_STATUS.SHIPPED || order.status === ORDER_STATUS.DELIVERED) {
+    if (
+      [ORDER_STATUS.SHIPPED, ORDER_STATUS.OUT_FOR_DELIVERY, ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURN_REQUESTED, ORDER_STATUS.RETURNED].includes(order.status)
+    ) {
       throw ApiError.badRequest("Cannot cancel an order that has already shipped or been delivered.");
     }
 
     const beforeStatus = order.status;
+    await this.cancelCourierShipment(order);
     order.status = ORDER_STATUS.CANCELLED;
     order.timeline.push({
       status: "Order Cancelled",
@@ -824,13 +981,17 @@ export class OrderService {
     await this.restoreStoreCredit(order);
     await referralService.onOrderCancelled(order);
     if (order.isModified("storeCreditRestored")) await order.save();
-    if (order.stockState === "reserved" || order.stockState === "none") {
+    if (order.stockState === "none") {
+      // Older orders that were saved before stock states existed
       await inventoryService.releaseReservedStock(order.items, order.orderNumber);
-      if (order.stockState === "reserved") {
-        order.stockState = "released";
-        await order.save();
-      }
+    } else {
+      const lines = (order.items || [])
+        .filter((i) => i.variantId)
+        .map((i) => ({ variantId: i.variantId, productId: i.productId, sku: i.sku, quantity: i.quantity }));
+      await this.settleStockOnCancel(order, lines, staffUser?.id);
+      if (order.isModified("stockState")) await order.save();
     }
+    await this.refundCancelledOrder(order, staffUser);
 
     if (staffUser) {
       await logAudit({

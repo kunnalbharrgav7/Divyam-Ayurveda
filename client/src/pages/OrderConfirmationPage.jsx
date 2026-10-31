@@ -30,7 +30,7 @@ export const OrderConfirmationPage = () => {
     if (!ordNum) return;
     try {
       setVerifyingPayment(true);
-      const res = await fetch(`/api/v1/payment/cashfree/orders/${encodeURIComponent(ordNum)}/status?_t=${Date.now()}`, {
+      const res = await fetch(`/api/v1/payments/cashfree/orders/${encodeURIComponent(ordNum)}/status?_t=${Date.now()}`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -81,7 +81,7 @@ export const OrderConfirmationPage = () => {
     const ordNum = order.orderNumber || order.id;
     setRetryingPayment(true);
     try {
-      const sessRes = await fetch("/api/v1/payment/cashfree/session", {
+      const sessRes = await fetch("/api/v1/payments/cashfree/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

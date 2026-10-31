@@ -251,7 +251,7 @@ export const CheckoutPage = () => {
         // Fallback: fetch session if not attached
         if (!paymentSessionId) {
           try {
-            const sessRes = await fetch("/api/v1/payment/cashfree/session", {
+            const sessRes = await fetch("/api/v1/payments/cashfree/session", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",

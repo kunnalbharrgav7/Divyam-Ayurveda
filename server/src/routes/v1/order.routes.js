@@ -5,15 +5,17 @@ import { validate } from "../../middleware/validate.js";
 import { orderCreateSchema } from "../../validators/checkout.validator.js";
 import { requireIdempotency } from "../../middleware/idempotency.js";
 import { optionalAuthenticate, authenticate } from "../../middleware/auth.js";
+import { checkoutLimiter } from "../../middleware/rateLimiter.js";
 
 const router = Router();
 
 // Guest and Customer Tracking
-router.get("/track", orderController.trackOrder);
+router.get("/track", checkoutLimiter, orderController.trackOrder);
 
 // Order Creation & Retrieval
 router.post(
   "/",
+  checkoutLimiter,
   optionalAuthenticate,
   requireIdempotency(false),
   validate(orderCreateSchema),

@@ -42,6 +42,8 @@ const envSchema = z.object({
   SHIPROCKET_PASSWORD: z.string().default("TestShiprocketPass123!"),
   SHIPROCKET_WEBHOOK_SECRET: z.string().default("test_shiprocket_webhook_secret_999"),
   SHIPROCKET_PICKUP_LOCATION: z.string().default("Primary Dispensary"),
+  // Book the courier automatically once an order is paid (or placed as COD). Set to "false" to dispatch by hand.
+  AUTO_CREATE_SHIPMENTS: z.string().default("true"),
 
   OBJECT_STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local"),
   S3_BUCKET: z.string().optional(),

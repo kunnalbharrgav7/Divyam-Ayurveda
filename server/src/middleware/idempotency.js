@@ -41,6 +41,11 @@ export const requireIdempotency = (isStrict = false) => async (req, res, next) =
       if (existing.status === "completed") {
         return res.status(existing.statusCode).json(existing.responseBody);
       }
+
+      // The earlier attempt failed (nothing was created): let the same key be used again
+      if (existing.status === "failed") {
+        await IdempotencyKey.deleteOne({ _id: existing._id });
+      }
     }
 
     // Create pending idempotency record (24 hour TTL)
