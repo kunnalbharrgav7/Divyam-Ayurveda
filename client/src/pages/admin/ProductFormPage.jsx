@@ -407,6 +407,10 @@ export const ProductFormPage = () => {
         ...(formData.productInformation || {}),
         certifications: Array.isArray(formData.certifications) ? formData.certifications : [],
       },
+      seo: {
+        metaTitle: formData.seo?.metaTitle || "",
+        metaDescription: formData.seo?.metaDescription || "",
+      },
       updatedAt: new Date().toISOString(),
     };
 
@@ -569,6 +573,34 @@ export const ProductFormPage = () => {
                   value={formData.description}
                   onChange={handleChange}
                   placeholder="Full Ayurvedic medicinal description..."
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  SEO Title <span className="font-normal text-stone-400">(optional, {(formData.seo?.metaTitle || "").length}/60)</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={formData.seo?.metaTitle || ""}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, seo: { ...prev.seo, metaTitle: e.target.value } }))}
+                  placeholder="Defaults to the product name | Divyam Ayurveda"
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  SEO Description <span className="font-normal text-stone-400">(optional, {(formData.seo?.metaDescription || "").length}/155)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  maxLength={320}
+                  value={formData.seo?.metaDescription || ""}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, seo: { ...prev.seo, metaDescription: e.target.value } }))}
+                  placeholder="Defaults to the short description"
                   className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
                 />
               </div>

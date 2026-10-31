@@ -5,6 +5,8 @@ import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { EmptyState } from "../components/common/EmptyState";
 import { ArticleSkeleton } from "../components/common/Skeleton";
 import { contentService } from "../services/api";
+import { Seo } from "../components/common/Seo";
+import { withBrand } from "../config/seoPages";
 import { formatDate } from "../utils/formatters";
 
 export const BlogPostDetailPage = () => {
@@ -44,6 +46,7 @@ export const BlogPostDetailPage = () => {
   if (!post) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16">
+        <Seo title={withBrand("Article Not Found")} noindex />
         <EmptyState
           title="Article Not Found"
           description="The educational article you requested is not available."
@@ -56,6 +59,13 @@ export const BlogPostDetailPage = () => {
 
   return (
     <div className="bg-[#FBFAF6] min-h-screen py-8">
+      <Seo
+        title={post.seo?.metaTitle?.trim() || withBrand(post.title)}
+        description={post.seo?.metaDescription?.trim() || post.excerpt}
+        path={`/blog/${post.slug}`}
+        image={post.image}
+        type="article"
+      />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <Breadcrumbs
           items={[

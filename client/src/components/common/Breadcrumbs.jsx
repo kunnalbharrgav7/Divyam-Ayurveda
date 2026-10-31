@@ -1,10 +1,14 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { JsonLd } from "./JsonLd";
+import { buildBreadcrumbSchema } from "../../utils/structuredData";
 import { ChevronRight, Home } from "lucide-react";
 
 export const Breadcrumbs = ({ items = [] }) => {
+  const { pathname } = useLocation();
   return (
     <nav className="flex items-center text-xs text-[#666B64] py-3 overflow-x-auto whitespace-nowrap" aria-label="Breadcrumb">
+      <JsonLd data={buildBreadcrumbSchema(items, pathname)} />
       <Link
         to="/"
         className="flex items-center hover:text-[#173D2A] transition-colors"

@@ -15,6 +15,10 @@ import {
   Clock,
 } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
+import { Seo } from "../components/common/Seo";
+import { JsonLd } from "../components/common/JsonLd";
+import { buildProductSchema } from "../utils/structuredData";
+import { withBrand } from "../config/seoPages";
 import { RatingStars } from "../components/common/RatingStars";
 import { ProductCard } from "../components/products/ProductCard";
 import { EmptyState } from "../components/common/EmptyState";
@@ -224,6 +228,7 @@ export const ProductDetailPage = () => {
   if (!product) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16">
+        <Seo title={withBrand("Product Not Found")} noindex />
         <EmptyState
           title="Product Formulation Not Found"
           description="The Ayurvedic product formulation you are seeking could not be found or has been moved."
@@ -395,6 +400,14 @@ export const ProductDetailPage = () => {
 
   return (
     <div className="bg-[#FBFAF6] min-h-screen py-6 sm:py-8">
+      <Seo
+        title={product.seo?.metaTitle?.trim() || withBrand(product.name)}
+        description={product.seo?.metaDescription?.trim() || product.shortDescription || product.description}
+        path={`/products/${product.slug}`}
+        image={product.images?.[0]}
+        type="product"
+      />
+      <JsonLd data={buildProductSchema(product)} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumbs */}
         <Breadcrumbs
@@ -433,6 +446,10 @@ export const ProductDetailPage = () => {
                     "/images/ProductImages/Ashuwaganda.png"
                   }
                   alt={product.name}
+                  width="800"
+                  height="800"
+                  fetchPriority="high"
+                  decoding="async"
                   className="w-full h-full object-contain object-center transition-all duration-300 hover:scale-108 animate-in fade-in duration-200"
                 />
 

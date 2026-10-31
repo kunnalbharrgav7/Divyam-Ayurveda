@@ -76,6 +76,7 @@ const AuditLogsPage = lazyPage(() => import("./pages/admin/AuditLogsPage"), "Aud
 const SettingsPage = lazyPage(() => import("./pages/admin/SettingsPage"), "SettingsPage");
 import { SmoothScroll } from "./animations/SmoothScroll";
 import { LiveOrderToast } from "./components/common/LiveOrderToast";
+import { RouteSeo } from "./components/common/RouteSeo";
 
 export const App = () => {
   return (
@@ -90,6 +91,7 @@ export const App = () => {
                   <ReturnProvider>
                   <HeroNavProvider>
                     <SmoothScroll>
+                    <RouteSeo />
                     <Routes>
                   {/* ======================================================== */}
                   {/* ADMIN AUTHENTICATION (Redirects to unified /login) */}

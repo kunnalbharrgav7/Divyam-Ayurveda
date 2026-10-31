@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /cart
+Disallow: /checkout
+Disallow: /account
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /order-confirmation
+Disallow: /track-order
+Disallow: /wishlist
+Disallow: /api/
+
+Sitemap: https://divyam-ayurveda.onrender.com/sitemap.xml

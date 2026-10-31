@@ -204,6 +204,9 @@ const ProductCardImpl = ({ product }) => {
               }
               alt={product.name}
               loading="lazy"
+              decoding="async"
+              width="400"
+              height="400"
               className="w-full h-full object-contain object-center transition-transform duration-700 ease-out group-hover:scale-110 group-hover:-rotate-1 drop-shadow-xs"
             />
           </Link>

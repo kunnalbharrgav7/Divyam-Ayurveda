@@ -313,6 +313,10 @@ export class AdminService {
       isBestSeller: Boolean(data.isBestseller || data.isBestSeller),
       isTrending: Boolean(data.isTrending),
       isNew: Boolean(data.isNewArrival || data.isNew),
+      seo: {
+        metaTitle: String(data.seo?.metaTitle ?? "").trim().slice(0, 120),
+        metaDescription: String(data.seo?.metaDescription ?? "").trim().slice(0, 320),
+      },
       status: (data.status || "active").toLowerCase(),
     });
 

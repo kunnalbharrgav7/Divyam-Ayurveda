@@ -14,6 +14,7 @@ import { requestId } from "./middleware/requestId.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { openApiSpec } from "./docs/openapi.js";
 import v1Routes from "./routes/v1/index.js";
+import sitemapRoutes from "./routes/sitemap.routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientDistPath = path.resolve(__dirname, "../../client/dist");
@@ -112,6 +113,9 @@ app.get("/", (req, res) => {
     readiness: "/ready",
   });
 });
+
+// Sitemap for search engines
+app.use(sitemapRoutes);
 
 // 6. OpenAPI Documentation
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));

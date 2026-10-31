@@ -5,6 +5,8 @@ import { Sparkles, Layers, WifiOff } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { ProductCard } from "../components/products/ProductCard";
 import { EmptyState } from "../components/common/EmptyState";
+import { Seo } from "../components/common/Seo";
+import { withBrand } from "../config/seoPages";
 import { ProductGridSkeleton } from "../components/common/Skeleton";
 import { categoryService, productService } from "../services/api";
 
@@ -83,6 +85,7 @@ export const CategoryPage = () => {
   if (!loading && !category) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16">
+        <Seo title={withBrand("Category Not Found")} noindex />
         <EmptyState
           title="Category Not Found"
           description={`We couldn't locate the category "${slug}". Please browse all available Ayurvedic collections.`}
@@ -107,6 +110,14 @@ export const CategoryPage = () => {
 
   return (
     <div className="bg-[#FBFAF6] min-h-screen pb-16">
+      {category && (
+        <Seo
+          title={category.seo?.metaTitle?.trim() || withBrand(category.name)}
+          description={category.seo?.metaDescription?.trim() || category.description}
+          path={`/category/${category.slug}`}
+          image={category.bannerImage || category.image}
+        />
+      )}
       {/* Category Hero Banner */}
       <div className="relative bg-[#173D2A] text-white py-12 lg:py-16 overflow-hidden">
         <div className="absolute inset-0 opacity-20">
