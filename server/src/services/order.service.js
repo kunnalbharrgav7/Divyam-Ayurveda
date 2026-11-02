@@ -457,7 +457,10 @@ export class OrderService {
           user,
         });
       } catch (pgErr) {
-        if (stockReserved) await inventoryService.releaseReservedStock(reservations, orderNumber);
+        // The payment could not be started: cancel the order properly (frees the stock once, restores store credit)
+        await this.cancelOrder(order.orderNumber, "Payment could not be started").catch((cancelErr) =>
+          logger.error({ orderNumber, err: cancelErr.message }, "Could not cancel order after payment start failed")
+        );
         throw ApiError.badRequest(
           pgErr.message || "Failed to initialize secure Cashfree payment session. Please try again."
         );

@@ -24,6 +24,7 @@ export class CashfreeAdapter {
       throw new Error("Cannot run Cashfree mock payment adapter in production environment. Valid CASHFREE_APP_ID and CASHFREE_SECRET_KEY required.");
     }
     this.mock = new CashfreeMock();
+    logger.info({ mode: this.isMock ? "MOCK (fake payments)" : `LIVE API (${config.CASHFREE_ENV})`, apiVersion: this.apiVersion, webhookUrl: config.CASHFREE_WEBHOOK_URL }, "Cashfree adapter ready");
   }
 
   /**
@@ -35,7 +36,7 @@ export class CashfreeAdapter {
       return this.mock.createPaymentSession({ orderNumber, amountPaise, customer, returnUrl });
     }
 
-    const rawId = String(customer?.id || customer?._id || customer?.email || "guest").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const rawId = String(customer?.id || customer?._id || customer?.email || "guest").replace(/[^a-zA-Z0-9_-]/g, "_");
     const customerId = rawId.length >= 3 ? rawId.slice(0, 50) : `cust_${rawId}`;
     const customerPhone = String(customer?.phone || "").replace(/[^0-9]/g, "").slice(-10);
     if (customerPhone.length !== 10) {

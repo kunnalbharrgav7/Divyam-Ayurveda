@@ -183,11 +183,8 @@ export const normalizeOrder = (o) => {
     paymentStatus = "Refunded";
   } else if (rawPay === "failed" || rawPay.includes("fail")) {
     paymentStatus = "Failed";
-  } else if (isOnline) {
-    paymentStatus = "Paid";
-  } else {
-    paymentStatus = "Pending";
   }
+  // Anything else ("pending", empty) stays Pending. An online order is only Paid once the server says so.
 
   const items = (o.items || []).map((item) => ({
     ...item,
@@ -1413,11 +1410,13 @@ export const AdminProvider = ({ children }) => {
 
     if (freshOrder) {
       setOrders((prev) => {
-        const updated = prev.map((o) =>
-          o.id === orderId || o.orderNumber === orderId || o._id === freshOrder._id
-            ? { ...o, ...freshOrder }
-            : o
-        );
+        // Only a real match counts: the server omits _id, and undefined === undefined would overwrite every row
+        const sameOrder = (o) =>
+          o.id === orderId ||
+          o.orderNumber === orderId ||
+          (freshOrder.orderNumber && o.orderNumber === freshOrder.orderNumber) ||
+          (freshOrder._id && o._id === freshOrder._id);
+        const updated = prev.map((o) => (sameOrder(o) ? { ...o, ...freshOrder } : o));
         storage.set(STORAGE_KEYS.ORDERS, updated);
         storage.set("divyam_ayurveda_orders", updated);
         return updated;
@@ -1550,7 +1549,12 @@ export const AdminProvider = ({ children }) => {
 
     setOrders((prev) => {
       const updated = prev.map((o) => {
-        if (o.id === orderId || o.orderNumber === orderId || (freshOrder && o._id === freshOrder._id)) {
+        if (
+          o.id === orderId ||
+          o.orderNumber === orderId ||
+          (freshOrder?.orderNumber && o.orderNumber === freshOrder.orderNumber) ||
+          (freshOrder?._id && o._id === freshOrder._id)
+        ) {
           if (freshOrder) return { ...o, ...freshOrder };
           return {
             ...o,

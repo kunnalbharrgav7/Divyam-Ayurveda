@@ -200,6 +200,22 @@ export const CouponsPage = () => {
     return "No expiry date";
   };
 
+  // What the customer actually experiences: the on/off switch only matters while the date window is open
+  const couponState = (c) => {
+    const now = Date.now();
+    if (c.validUntil && new Date(c.validUntil).getTime() < now) {
+      return { key: "expired", label: "Expired", cls: "bg-rose-100 text-rose-800", note: "Customers can no longer apply this offer." };
+    }
+    if (c.usageLimitTotal && (c.usedCount ?? c.usageCount ?? 0) >= c.usageLimitTotal) {
+      return { key: "used_up", label: "Fully used", cls: "bg-rose-100 text-rose-800", note: "The redemption limit has been reached." };
+    }
+    if (!c.isActive) return { key: "inactive", label: "Inactive", cls: "bg-stone-200 text-stone-600", note: "" };
+    if (c.validFrom && new Date(c.validFrom).getTime() > now) {
+      return { key: "scheduled", label: "Scheduled", cls: "bg-sky-100 text-sky-800", note: "Starts on " + formatDate(c.validFrom) + "." };
+    }
+    return { key: "active", label: "Active", cls: "bg-emerald-100 text-emerald-800", note: "" };
+  };
+
   const sectionTitle = "text-[11px] font-bold uppercase tracking-wider text-stone-500";
   const inputClass = "w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white";
 
@@ -239,11 +255,13 @@ export const CouponsPage = () => {
           <AdminLoadError className="col-span-full" what="offers" onRetry={() => retryAdminLoad("coupons")} />
         )}
         {isAdminLoading("coupons") && coupons.length === 0 && <AdminCardGridSkeleton label="Loading offers" />}
-        {coupons.map((coupon) => (
+        {coupons.map((coupon) => {
+          const state = couponState(coupon);
+          return (
           <div
             key={coupon.id}
             className={`bg-white rounded-2xl border p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between ${
-              coupon.isActive ? "border-stone-200" : "border-stone-200 opacity-60"
+              state.key === "active" || state.key === "scheduled" ? "border-stone-200" : "border-stone-200 opacity-60"
             }`}
           >
             <div>
@@ -285,11 +303,10 @@ export const CouponsPage = () => {
                 <button
                   type="button"
                   onClick={() => handleToggleActive(coupon)}
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                    coupon.isActive ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-600"
-                  }`}
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${state.cls}`}
+                  title={state.note || (coupon.isActive ? "Click to switch this offer off" : "Click to switch this offer on")}
                 >
-                  {coupon.isActive ? "Active" : "Inactive"}
+                  {state.label}
                 </button>
               </div>
 
@@ -312,6 +329,9 @@ export const CouponsPage = () => {
                   {windowLabel(coupon)}
                   {coupon.isPublic === false && " • Hidden from Offers page"}
                 </div>
+                {(state.key === "expired" || state.key === "used_up") && (
+                  <div className="text-xs font-semibold text-rose-600">{state.note}</div>
+                )}
               </div>
             </div>
 
@@ -341,7 +361,8 @@ export const CouponsPage = () => {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Create / Edit Offer Modal */}
