@@ -17,6 +17,7 @@ import { orderService } from "../../src/services/order.service.js";
 import { shipmentService } from "../../src/services/shipment.service.js";
 import { paymentService } from "../../src/services/payment.service.js";
 import { adminService } from "../../src/services/admin.service.js";
+import { inventoryService } from "../../src/services/inventory.service.js";
 import { cashfree } from "../../src/integrations/cashfree/cashfree.adapter.js";
 import { shiprocket } from "../../src/integrations/shiprocket/shiprocket.adapter.js";
 import { ShiprocketAdapter } from "../../src/integrations/shiprocket/shiprocket.adapter.js";
@@ -616,6 +617,55 @@ describe.sequential("Payment and shipping hardening", () => {
       await expect(orderService.cancelOrder(order.orderNumber, "Too late")).rejects.toThrow(/did not cancel its order/i);
       expect((await Order.findOne({ orderNumber: order.orderNumber })).status).toBe(ORDER_STATUS.DISPATCHED);
     });
+  });
+
+  describe("Stock never goes negative", () => {
+    // Writes around the schema, the way old data got into this state
+    const forceReserved = (variantId, value) => ProductVariant.collection.updateOne({ _id: variantId }, { $set: { reservedStock: value } });
+
+    it("releasing or selling more than is reserved stops at zero instead of going negative", async () => {
+      const { variant } = await makeOrder({ stock: 5, reserved: 1 });
+      const line = [{ variantId: variant._id, productId: product._id, sku: variant.sku, quantity: 3 }];
+      await inventoryService.releaseReservedStock(line, "DA-NEG-1");
+      expect((await ProductVariant.findById(variant._id)).reservedStock).toBe(0);
+
+      await inventoryService.commitSoldStock([{ ...line[0], quantity: 2 }], "DA-NEG-2");
+      const after = await ProductVariant.findById(variant._id);
+      expect(after.reservedStock).toBe(0);
+      expect(after.stockOnHand).toBe(3);
+    });
+
+    // A product of its own with one pack size, so "set to N" is about exactly that pack
+    const withSoloProduct = async (fn) => {
+      const solo = await Product.create({ name: `Solo ${stamp}-${Math.random()}`, slug: `solo-${stamp}-${Math.random().toString(36).slice(2, 8)}`, sku: `SOLO-${stamp}-${Math.random().toString(36).slice(2, 8)}`, categoryId: "ayurvedic-herbs", status: "active", basePricePaise: 10000 });
+      const variant = await ProductVariant.create({ productId: solo._id, sku: `${solo.sku}-V`, label: "Pack", pricePaise: 10000, stockOnHand: 2, reservedStock: 0, isActive: true });
+      try {
+        await fn(solo, variant);
+      } finally {
+        await ProductVariant.deleteMany({ productId: solo._id });
+        await Product.deleteOne({ _id: solo._id });
+      }
+    };
+
+    it("an admin 'set exactly' adjustment works on a variant that already has a negative reservation", () =>
+      withSoloProduct(async (solo, variant) => {
+        await forceReserved(variant._id, -2); // available looks like 4 although only 2 exist
+
+        const result = await inventoryService.adjustProductStock({ productId: solo._id, operation: "set", quantity: 2, reason: "Test" });
+        const fixed = await ProductVariant.findById(variant._id);
+        expect(fixed.reservedStock).toBe(0);
+        expect(fixed.stockOnHand).toBe(2);
+        expect(result.stockQuantity).toBe(2);
+      }));
+
+    it("changing the number on a variant with a negative reservation removes or adds real stock only", () =>
+      withSoloProduct(async (solo, variant) => {
+        await forceReserved(variant._id, -2);
+        await inventoryService.adjustProductStock({ productId: solo._id, operation: "deduct", quantity: 1, reason: "Test" });
+        const after = await ProductVariant.findById(variant._id);
+        expect(after.reservedStock).toBe(0);
+        expect(after.stockOnHand).toBe(1);
+      }));
   });
 
   describe("Stage C: tracking check, manual AWB guard, parcel details", () => {

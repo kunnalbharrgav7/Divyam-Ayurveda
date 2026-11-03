@@ -70,14 +70,17 @@ export class InventoryService {
    */
   async commitSoldStock(items, orderNumber, actorId = "payment_commit") {
     for (const item of items) {
+      // Pipeline update: the reservation is floored at 0, so a double release/commit can never leave a negative number
       const variant = await ProductVariant.findByIdAndUpdate(
         item.variantId,
-        {
-          $inc: {
-            stockOnHand: -item.quantity,
-            reservedStock: -item.quantity,
+        [
+          {
+            $set: {
+              stockOnHand: { $subtract: ["$stockOnHand", item.quantity] },
+              reservedStock: { $max: [0, { $subtract: [{ $ifNull: ["$reservedStock", 0] }, item.quantity] }] },
+            },
           },
-        },
+        ],
         { new: true }
       );
 
@@ -104,9 +107,7 @@ export class InventoryService {
     for (const item of items) {
       const variant = await ProductVariant.findByIdAndUpdate(
         item.variantId,
-        {
-          $inc: { reservedStock: -item.quantity },
-        },
+        [{ $set: { reservedStock: { $max: [0, { $subtract: [{ $ifNull: ["$reservedStock", 0] }, item.quantity] }] } } }],
         { new: true }
       );
 
@@ -250,7 +251,17 @@ export class InventoryService {
       variants = await ProductVariant.find({ productId, isActive: true }).sort({ createdAt: 1 });
     }
 
-    const available = (v) => Math.max(0, (v.stockOnHand || 0) - (v.reservedStock || 0));
+    // A reservation below zero is never valid (it makes stock look higher than it is, and it makes every save of
+    // the variant fail validation). Put it right before adjusting, and say so in the log.
+    for (const v of variants) {
+      if ((v.reservedStock || 0) < 0) {
+        logger.warn({ sku: v.sku, reservedStock: v.reservedStock }, "Repairing a negative reserved-stock value");
+        v.reservedStock = 0;
+        await v.save();
+      }
+    }
+
+    const available = (v) => Math.max(0, (v.stockOnHand || 0) - Math.max(0, v.reservedStock || 0));
     const current = variants.reduce((sum, v) => sum + available(v), 0);
 
     let target;
