@@ -686,6 +686,37 @@ export const ProductFormPage = () => {
             </div>
           </AdminCard>
 
+          {/* Shipping parcel: used when booking the courier */}
+          <AdminCard title="Shipping Parcel" subtitle="Packed weight and box size sent to the courier (leave blank to use the defaults)">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { key: "weightGrams", label: "Packed weight (g)", placeholder: "e.g. 250" },
+                { key: "lengthCm", label: "Length (cm)", placeholder: "e.g. 12" },
+                { key: "breadthCm", label: "Breadth (cm)", placeholder: "e.g. 8" },
+                { key: "heightCm", label: "Height (cm)", placeholder: "e.g. 6" },
+              ].map((field) => (
+                <div key={field.key}>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">{field.label}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={formData.parcel?.[field.key] ?? ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, parcel: { ...(prev.parcel || {}), [field.key]: e.target.value } }))
+                    }
+                    placeholder={field.placeholder}
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-stone-500 mt-3">
+              Per unit, with packaging. Couriers charge by the larger of actual and box-size weight, so accurate sizes avoid
+              surprise charges. Box size is used only when length, breadth and height are all filled in.
+            </p>
+          </AdminCard>
+
           {/* Section 3: Ayurvedic Formulation & Doshas */}
           <AdminCard
             title="3. Ayurvedic Formulation & Dosha Profile"

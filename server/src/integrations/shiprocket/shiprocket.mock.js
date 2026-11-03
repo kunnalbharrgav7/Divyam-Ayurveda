@@ -37,6 +37,9 @@ export class ShiprocketMock {
       labelUrl: `https://shiprocket.co/labels/${shipmentId}.pdf`,
       manifestUrl: `https://shiprocket.co/manifests/${shipmentId}.pdf`,
       status: "AWB_ASSIGNED",
+      pickupRequested: true,
+      pickupError: "",
+      labelError: "",
     };
 
     this.shipments.set(orderNumber, data);
@@ -78,6 +81,18 @@ export class ShiprocketMock {
       ],
       track_url: `https://shiprocket.co/tracking/${awbCode}`,
     };
+  }
+
+  async requestPickup() {
+    return { pickup_status: 1 };
+  }
+
+  async generateLabel(shipmentId) {
+    return `https://shiprocket.co/labels/${shipmentId}.pdf`;
+  }
+
+  async cancelOrder(shiprocketOrderId) {
+    return { success: true, message: `Order ${shiprocketOrderId} cancelled.` };
   }
 
   async cancelShipment(awbCode) {

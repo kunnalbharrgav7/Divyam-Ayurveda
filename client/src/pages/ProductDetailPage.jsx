@@ -261,27 +261,22 @@ export const ProductDetailPage = () => {
     setTimeout(() => setIsAdded(false), 2000);
   };
 
-  const handlePinCheck = (e) => {
+  const handlePinCheck = async (e) => {
     e.preventDefault();
     if (!pinCode || pinCode.length !== 6) return;
 
     setPinChecking(true);
-    setTimeout(() => {
-      const firstDigit = pinCode.charAt(0);
-      if (firstDigit === "0") {
-        setPinResult({
-          serviceable: false,
-          message:
-            "Standard delivery is currently unavailable for this PIN code.",
-        });
-      } else {
-        setPinResult({
-          serviceable: true,
-          message: `Delivery available to PIN ${pinCode}! Estimated in 2-4 business days. Cash on Delivery (COD) eligible.`,
-        });
-      }
+    try {
+      const result = await orderService.checkPinCode(pinCode);
+      setPinResult({
+        serviceable: result.serviceable,
+        message: result.serviceable
+          ? `${result.message}${result.codAvailable ? " Cash on Delivery (COD) eligible." : ""}`
+          : result.message,
+      });
+    } finally {
       setPinChecking(false);
-    }, 400);
+    }
   };
 
   // Reviews come from the database: approved ones for everyone, plus the signed-in customer's own

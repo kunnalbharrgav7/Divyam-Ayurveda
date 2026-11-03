@@ -28,6 +28,20 @@ import { toPublicImages, resolveStoredImages } from "../utils/productImages.js";
 import { compressImages } from "../utils/imageCompression.js";
 
 /** Admin-facing product shape: product doc + variants + aggregated available stock. */
+// Parcel numbers from the admin form: blanks and invalid values become "not set", never zero
+const cleanParcel = (parcel = {}) => {
+  const num = (v) => {
+    const n = Number(v);
+    return v === "" || v === null || v === undefined || !Number.isFinite(n) || n <= 0 ? null : Math.round(n * 100) / 100;
+  };
+  return {
+    weightGrams: num(parcel.weightGrams),
+    lengthCm: num(parcel.lengthCm),
+    breadthCm: num(parcel.breadthCm),
+    heightCm: num(parcel.heightCm),
+  };
+};
+
 export const formatAdminProduct = (product, variants = []) => {
   const json = typeof product.toJSON === "function" ? product.toJSON() : { ...product };
   const vars = variants.map((v) => (typeof v.toJSON === "function" ? v.toJSON() : v));
@@ -314,6 +328,7 @@ export class AdminService {
       isBestSeller: Boolean(data.isBestseller || data.isBestSeller),
       isTrending: Boolean(data.isTrending),
       isNew: Boolean(data.isNewArrival || data.isNew),
+      parcel: cleanParcel(data.parcel || {}),
       seo: {
         metaTitle: String(data.seo?.metaTitle ?? "").trim().slice(0, 120),
         metaDescription: String(data.seo?.metaDescription ?? "").trim().slice(0, 320),
@@ -411,6 +426,9 @@ export class AdminService {
     if (data.seo && typeof data.seo === "object") {
       const currentSeo = product.seo?.toObject?.() || product.seo || {};
       product.seo = { ...currentSeo, ...data.seo };
+    }
+    if (data.parcel && typeof data.parcel === "object") {
+      product.parcel = cleanParcel(data.parcel);
     }
     // The form round-trips images it loaded as image-endpoint URLs; map those back to the stored data
     if (data.images) {

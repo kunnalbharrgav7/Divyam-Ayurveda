@@ -1462,6 +1462,20 @@ export const AdminProvider = ({ children }) => {
     return { order: freshOrder, shipment: shipmentData };
   };
 
+  // Retry a failed courier pickup request or shipping label for an order that already has its AWB
+  const retryFulfilment = async (orderId) => {
+    const res = await adminApiFetch(
+      `/api/v1/admin/orders/${encodeURIComponent(orderId)}/shipments/retry-fulfilment`,
+      { method: "POST" }
+    );
+    const orderData = res.data?.order;
+    if (orderData) {
+      const freshOrder = normalizeOrder(orderData);
+      setOrders((prev) => prev.map((o) => (o.id === orderId || o.orderNumber === orderId ? { ...o, ...freshOrder } : o)));
+    }
+    return { shipment: res.data?.shipment, order: orderData };
+  };
+
   const advanceShipment = async (orderId, nextStage, customNote = "") => {
     const res = await adminApiFetch(
       `/api/v1/admin/orders/${encodeURIComponent(orderId)}/shipments/advance`,
@@ -2130,6 +2144,7 @@ export const AdminProvider = ({ children }) => {
         fetchAdminOrders,
         refreshOrders: fetchAdminOrders,
         dispatchShipment,
+        retryFulfilment,
         advanceShipment,
         updateTrackingInfo,
         getOrderShipment,

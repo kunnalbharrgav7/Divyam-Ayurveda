@@ -16,6 +16,7 @@ import { PAYMENT_STATUS } from "../../src/constants/paymentStatus.js";
 import { orderService } from "../../src/services/order.service.js";
 import { shipmentService } from "../../src/services/shipment.service.js";
 import { paymentService } from "../../src/services/payment.service.js";
+import { adminService } from "../../src/services/admin.service.js";
 import { cashfree } from "../../src/integrations/cashfree/cashfree.adapter.js";
 import { shiprocket } from "../../src/integrations/shiprocket/shiprocket.adapter.js";
 import { ShiprocketAdapter } from "../../src/integrations/shiprocket/shiprocket.adapter.js";
@@ -472,6 +473,293 @@ describe.sequential("Payment and shipping hardening", () => {
       const shipment = await Shipment.findOne({ orderNumber: order.orderNumber });
       expect(shipment.status).toBe("PROCESSING");
       expect(shipment.awbCode).toBeFalsy();
+    });
+  });
+
+  describe("Stage A/B: what customers can see, the webhook alias, delivery checks, pickup and cancel", () => {
+    const staff = () => ({ _id: new mongoose.Types.ObjectId(), name: "Staff", roles: [] });
+
+    const withShipment = async (extra = {}) => {
+      const { order } = await makeOrder({ paymentMethod: "Cash on Delivery (COD)", status: ORDER_STATUS.DISPATCHED, reserved: 1 });
+      const awb = `AWB-S2-${stamp}-${counter}`;
+      await Order.updateOne({ _id: order._id }, { shippingLabelUrl: "https://labels.example/secret-label.pdf", trackingNumber: awb, carrier: "Delhivery" });
+      const shipment = await Shipment.create({
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        awbCode: awb,
+        courierName: "Delhivery",
+        shiprocketOrderId: `SR-ORD-${counter}`,
+        shipmentId: `SR-SHIP-${counter}`,
+        labelUrl: "https://labels.example/secret-label.pdf",
+        status: "SHIPPED",
+        trackingEvents: [{ status: "PICKED_UP", activity: "Picked up", location: "Pune" }],
+        ...extra,
+      });
+      return { order, shipment, awb };
+    };
+
+    it("S2: a signed-out visitor never gets the label or Shiprocket ids", async () => {
+      const { order } = await withShipment();
+      const res = await request(app).get(`/api/v1/orders/${order.orderNumber}`);
+      expect(res.status).toBe(200);
+      const body = JSON.stringify(res.body);
+      expect(body).not.toContain("secret-label");
+      expect(body).not.toContain("SR-ORD-");
+      expect(body).not.toContain("SR-SHIP-");
+      expect(res.body.data.shipment.courierName).toBe("Delhivery");
+      expect(res.body.data.shipment.trackingEvents).toHaveLength(1);
+      expect(res.body.data.shippingAddress.street).toBeUndefined();
+    });
+
+    it("S2: guest tracking by order number and email also hides the label and ids", async () => {
+      const { order, awb } = await withShipment();
+      const res = await request(app).get("/api/v1/orders/track").query({ orderNumber: order.orderNumber, email: "hardening@example.test" });
+      expect(res.status).toBe(200);
+      const body = JSON.stringify(res.body);
+      expect(body).not.toContain("secret-label");
+      expect(body).not.toContain("SR-ORD-");
+      expect(res.body.data.shipment.awbCode).toBe(awb);
+    });
+
+    it("guest tracking by order number and email does not repeat the street address or the full phone number", async () => {
+      const { order } = await withShipment();
+      const res = await request(app).get("/api/v1/orders/track").query({ orderNumber: order.orderNumber, email: "hardening@example.test" });
+      expect(res.status).toBe(200);
+      expect(res.body.data.customer.phone).toBe("******3210");
+      expect(res.body.data.shippingAddress).toEqual({ city: "Bengaluru", state: "Karnataka", pincode: "560001" });
+      expect(JSON.stringify(res.body)).not.toContain("1 Test Street");
+    });
+
+    it("S3: the neutral /webhooks/courier path takes the same tracking events, with the same token check", async () => {
+      const { order, awb } = await withShipment();
+      const bad = await request(app).post("/api/v1/webhooks/courier").set("x-api-key", "wrong").send({ awb, current_status: "DELIVERED" });
+      expect(bad.status).toBe(401);
+      const ok = await request(app)
+        .post("/api/v1/webhooks/courier")
+        .set("x-api-key", srSecret)
+        .send({ awb, current_status: "OUT FOR DELIVERY", current_timestamp: "2026-11-01 10:00:00" });
+      expect(ok.status).toBe(200);
+      expect((await Order.findOne({ orderNumber: order.orderNumber })).status).toBe(ORDER_STATUS.OUT_FOR_DELIVERY);
+    });
+
+    it("S4: refuses an order to a PIN code the courier cannot deliver to, but lets a courier outage through", async () => {
+      vi.spyOn(shiprocket, "checkServiceability").mockResolvedValue({ serviceable: false });
+      await expect(shipmentService.assertDeliverable({ pincode: "999991", cod: false })).rejects.toThrow(/can't deliver to PIN code 999991/);
+
+      vi.restoreAllMocks();
+      vi.spyOn(shiprocket, "checkServiceability").mockRejectedValue(new Error("Shiprocket is down"));
+      await expect(shipmentService.assertDeliverable({ pincode: "999992", cod: false })).resolves.toBeUndefined();
+    });
+
+    it("S4: says so when only Cash on Delivery is unavailable for a PIN code", async () => {
+      vi.spyOn(shiprocket, "checkServiceability").mockImplementation(async ({ cod }) => ({ serviceable: !cod }));
+      await expect(shipmentService.assertDeliverable({ pincode: "999993", cod: true })).rejects.toThrow(/Cash on Delivery is not available/);
+    });
+
+    it("S6: remembers a failed pickup and lets staff retry just the pickup and the label", async () => {
+      const { order, shipment } = await withShipment({ labelUrl: "", pickupStatus: "failed", pickupError: "Pickup address not verified", labelError: "No label yet" });
+      await Order.updateOne({ _id: order._id }, { $unset: { shippingLabelUrl: 1 } });
+      const pickup = vi.spyOn(shiprocket, "requestPickup").mockResolvedValue({});
+      const label = vi.spyOn(shiprocket, "generateLabel").mockResolvedValue("https://labels.example/new.pdf");
+
+      const result = await shipmentService.retryFulfilment(order.orderNumber, staff());
+      expect(pickup).toHaveBeenCalledTimes(1);
+      expect(label).toHaveBeenCalledTimes(1);
+      expect(result.shipment.pickupStatus).toBe("requested");
+      expect(result.shipment.pickupError).toBe("");
+      expect((await Shipment.findById(shipment._id)).labelUrl).toBe("https://labels.example/new.pdf");
+      expect((await Order.findOne({ orderNumber: order.orderNumber })).shippingLabelUrl).toBe("https://labels.example/new.pdf");
+
+      // nothing is asked of Shiprocket twice once both steps are done
+      await shipmentService.retryFulfilment(order.orderNumber);
+      expect(pickup).toHaveBeenCalledTimes(1);
+      expect(label).toHaveBeenCalledTimes(1);
+    });
+
+    it("S6: keeps the reason when the retry fails again, and refuses a shipment with no courier yet", async () => {
+      const { order } = await withShipment({ labelUrl: "", pickupStatus: "failed" });
+      vi.spyOn(shiprocket, "requestPickup").mockRejectedValue(new Error("Still not serviceable"));
+      vi.spyOn(shiprocket, "generateLabel").mockRejectedValue(new Error("Label not ready"));
+      const result = await shipmentService.retryFulfilment(order.orderNumber);
+      expect(result.shipment.pickupStatus).toBe("failed");
+      expect(result.shipment.pickupError).toBe("Still not serviceable");
+      expect(result.shipment.labelError).toBe("Label not ready");
+
+      const { order: noAwb } = await makeOrder({ paymentMethod: "Cash on Delivery (COD)", status: ORDER_STATUS.CONFIRMED });
+      await Shipment.create({ orderId: noAwb._id, orderNumber: noAwb.orderNumber, status: "PROCESSING", shipmentId: "SR-X", shiprocketOrderId: "SR-Y" });
+      await expect(shipmentService.retryFulfilment(noAwb.orderNumber)).rejects.toThrow(/no courier assigned/i);
+    });
+
+    it("S6: the retry route needs a signed-in staff member", async () => {
+      const res = await request(app).post("/api/v1/admin/orders/DA-NOPE/shipments/retry-fulfilment");
+      expect(res.status).toBe(401);
+    });
+
+    it("S7: cancelling also cancels the Shiprocket order, even when no courier was assigned yet", async () => {
+      const { order } = await makeOrder({ paymentMethod: "Cash on Delivery (COD)", status: ORDER_STATUS.CONFIRMED });
+      await Shipment.create({ orderId: order._id, orderNumber: order.orderNumber, status: "PROCESSING", shipmentId: "SR-S", shiprocketOrderId: "SR-ORDER-77" });
+      const cancelAwb = vi.spyOn(shiprocket, "cancelShipment").mockResolvedValue({ success: true });
+      const cancelOrder = vi.spyOn(shiprocket, "cancelOrder").mockResolvedValue({ success: true });
+
+      await orderService.cancelOrder(order.orderNumber, "Customer request", staff());
+
+      expect(cancelAwb).not.toHaveBeenCalled(); // no AWB existed
+      expect(cancelOrder).toHaveBeenCalledWith("SR-ORDER-77");
+      expect((await Shipment.findOne({ orderNumber: order.orderNumber })).status).toBe("CANCELLED");
+      expect((await Order.findOne({ orderNumber: order.orderNumber })).status).toBe(ORDER_STATUS.CANCELLED);
+    });
+
+    it("S7: keeps the order open when Shiprocket will not cancel its order", async () => {
+      const { order } = await withShipment();
+      vi.spyOn(shiprocket, "cancelShipment").mockResolvedValue({ success: true });
+      vi.spyOn(shiprocket, "cancelOrder").mockResolvedValue({ success: false, message: "Order already picked up" });
+      await expect(orderService.cancelOrder(order.orderNumber, "Too late")).rejects.toThrow(/did not cancel its order/i);
+      expect((await Order.findOne({ orderNumber: order.orderNumber })).status).toBe(ORDER_STATUS.DISPATCHED);
+    });
+  });
+
+  describe("Stage C: tracking check, manual AWB guard, parcel details", () => {
+    const live = () => {
+      const original = shiprocket.isMock;
+      shiprocket.isMock = false;
+      return () => {
+        shiprocket.isMock = original;
+      };
+    };
+
+    const makeShipped = async (extra = {}) => {
+      const { order, variant } = await makeOrder({ paymentMethod: "Cash on Delivery (COD)", status: ORDER_STATUS.DISPATCHED, reserved: 1 });
+      const awb = `AWB-C-${stamp}-${counter}`;
+      const shipment = await Shipment.create({
+        orderId: order._id, orderNumber: order.orderNumber, awbCode: awb, courierName: "Delhivery",
+        shipmentId: `SR-C-${counter}`, shiprocketOrderId: `SR-ORD-C-${counter}`, status: "SHIPPED", ...extra,
+      });
+      return { order, variant, shipment, awb };
+    };
+
+    const liveAnswer = (status, date = "2026-11-02 18:00:00") => ({
+      shipment_track: [{ current_status: status }],
+      shipment_track_activities: [{ date, status, activity: `Courier says ${status}`, location: "Pune" }],
+    });
+
+    it("the scheduled check moves an order to delivered (and sells the stock) when the webhook never came", async () => {
+      const restore = live();
+      try {
+        const { order, variant, shipment, awb } = await makeShipped();
+        vi.spyOn(shiprocket, "trackShipment").mockResolvedValue(liveAnswer("Delivered"));
+
+        const result = await shipmentService.syncOpenShipments({ limit: 200 });
+        expect(result.checked).toBeGreaterThanOrEqual(1);
+
+        const fresh = await Order.findOne({ orderNumber: order.orderNumber });
+        expect(fresh.status).toBe(ORDER_STATUS.DELIVERED);
+        expect(fresh.stockState).toBe("committed");
+        expect((await ProductVariant.findById(variant._id)).stockOnHand).toBe(9);
+        const sh = await Shipment.findById(shipment._id);
+        expect(sh.status).toBe("DELIVERED");
+        expect(sh.lastSyncedAt).toBeTruthy();
+        expect(sh.trackingEvents.some((e) => e.activity === "Courier says Delivered")).toBe(true);
+        expect(awb).toBeTruthy();
+      } finally {
+        restore();
+      }
+    });
+
+    it("the scheduled check skips finished and recently-read shipments, and never runs on the mock courier", async () => {
+      const restore = live();
+      try {
+        const spy = vi.spyOn(shiprocket, "trackShipment").mockResolvedValue(liveAnswer("In Transit"));
+        const done = await makeShipped({ status: "DELIVERED" });
+        const fresh = await makeShipped({ lastSyncedAt: new Date() });
+        await shipmentService.syncOpenShipments({ limit: 200 });
+        const asked = spy.mock.calls.map((c) => c[0]);
+        expect(asked).not.toContain(done.awb);
+        expect(asked).not.toContain(fresh.awb);
+      } finally {
+        restore();
+      }
+
+      const mockSpy = vi.spyOn(shiprocket, "trackShipment");
+      expect(await shipmentService.syncOpenShipments()).toMatchObject({ checked: 0 });
+      expect(mockSpy).not.toHaveBeenCalled();
+    });
+
+    it("the scheduled check never moves a delivered order backwards and records scans only once", async () => {
+      const restore = live();
+      try {
+        const { order, shipment } = await makeShipped();
+        const track = vi.spyOn(shiprocket, "trackShipment").mockResolvedValue(liveAnswer("Delivered"));
+        await shipmentService.syncShipment(await Shipment.findById(shipment._id));
+
+        track.mockResolvedValue(liveAnswer("In Transit", "2026-11-02 08:00:00"));
+        await shipmentService.syncShipment(await Shipment.findById(shipment._id));
+        await shipmentService.syncShipment(await Shipment.findById(shipment._id));
+
+        expect((await Order.findOne({ orderNumber: order.orderNumber })).status).toBe(ORDER_STATUS.DELIVERED);
+        const sh = await Shipment.findById(shipment._id);
+        expect(sh.status).toBe("DELIVERED");
+        expect(sh.trackingEvents.filter((e) => e.activity === "Courier says In Transit")).toHaveLength(1);
+      } finally {
+        restore();
+      }
+    });
+
+    it("refuses to change an AWB that Shiprocket assigned, but still lets staff fix the courier name and link", async () => {
+      const { order, awb } = await makeShipped();
+      await expect(shipmentService.updateCustomTracking(order.orderNumber, { trackingNumber: "SOMETHING-ELSE" })).rejects.toThrow(/assigned by Shiprocket/);
+
+      const ok = await shipmentService.updateCustomTracking(order.orderNumber, { carrier: "Delhivery Surface", trackingNumber: awb, trackingUrl: "https://track.example/1" });
+      expect(ok.carrier).toBe("Delhivery Surface");
+      expect((await Shipment.findOne({ orderNumber: order.orderNumber })).awbCode).toBe(awb);
+    });
+
+    it("lets staff edit the AWB of a simulator shipment", async () => {
+      const { order } = await makeShipped({ shiprocketOrderId: `sr_ord_${Date.now()}` });
+      const updated = await shipmentService.updateCustomTracking(order.orderNumber, { trackingNumber: "MANUAL-123" });
+      expect(updated.trackingNumber).toBe("MANUAL-123");
+    });
+
+    it("sends the courier each product's packed weight and box size, stacking units", async () => {
+      const spy = vi.spyOn(shiprocket, "createShipment").mockResolvedValue({
+        shiprocketOrderId: "sr-p", shipmentId: "ship-p", awbCode: `AWB-P-${stamp}`, courierName: "Delhivery", courierId: "5", trackingUrl: "", labelUrl: "", pickupRequested: true,
+      });
+      const original = await Product.findById(product._id).select("parcel").lean();
+      const { order } = await makeOrder({ paymentMethod: "Cash on Delivery (COD)", status: ORDER_STATUS.CONFIRMED });
+      await Order.updateOne({ _id: order._id }, { $set: { "items.0.quantity": 2 } });
+      await Product.updateOne({ _id: product._id }, { $set: { parcel: { weightGrams: 400, lengthCm: 12, breadthCm: 8, heightCm: 6 } } });
+      try {
+        await shipmentService.createShipmentForOrder(order.orderNumber);
+        const sent = spy.mock.calls[0][0];
+        expect(sent.weightGrams).toBe(800); // 400 g x 2 units, instead of the 250 g default
+        expect(sent.dimensions).toEqual({ length: 12, breadth: 8, height: 12 }); // two 6 cm units stacked
+      } finally {
+        await Product.updateOne({ _id: product._id }, { $set: { parcel: original?.parcel || {} } });
+      }
+    });
+
+    it("saves a product's parcel from the admin form, turning blanks and junk into not-set", async () => {
+      const temp = await Product.create({ name: `Parcel ${stamp}`, slug: `parcel-${stamp}`, sku: `PARCEL-${stamp}`, categoryId: "ayurvedic-herbs", status: "active", basePricePaise: 10000 });
+      try {
+        const out = await adminService.updateProduct(String(temp._id), { parcel: { weightGrams: "300", lengthCm: "10.5", breadthCm: "", heightCm: "abc" } }, null);
+        expect(out.parcel).toMatchObject({ weightGrams: 300, lengthCm: 10.5, breadthCm: null, heightCm: null });
+        const saved = await Product.findById(temp._id).lean();
+        expect(saved.parcel.weightGrams).toBe(300);
+        expect(saved.parcel.breadthCm).toBeNull();
+      } finally {
+        await ProductVariant.deleteMany({ productId: temp._id });
+        await Product.deleteOne({ _id: temp._id });
+      }
+    });
+
+    it("keeps the courier's default box when no product has box sizes", async () => {
+      const spy = vi.spyOn(shiprocket, "createShipment").mockResolvedValue({
+        shiprocketOrderId: "sr-q", shipmentId: "ship-q", awbCode: `AWB-Q-${stamp}`, courierName: "Delhivery", courierId: "5", trackingUrl: "", labelUrl: "", pickupRequested: true,
+      });
+      const { order } = await makeOrder({ paymentMethod: "Cash on Delivery (COD)", status: ORDER_STATUS.CONFIRMED });
+      await shipmentService.createShipmentForOrder(order.orderNumber);
+      const sent = spy.mock.calls[0][0];
+      expect(sent.dimensions).toBeUndefined();
+      expect(sent.weightGrams).toBe(250);
     });
   });
 

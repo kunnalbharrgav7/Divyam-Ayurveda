@@ -5,6 +5,7 @@ import { connectDB, disconnectDB } from "./db/connection.js";
 import { referralService } from "./services/referral.service.js";
 import { orderService } from "./services/order.service.js";
 import { paymentService } from "./services/payment.service.js";
+import { shipmentService } from "./services/shipment.service.js";
 import { Shipment } from "./models/Shipment.js";
 
 const startServer = async () => {
@@ -28,6 +29,10 @@ const startServer = async () => {
     if (config.NODE_ENV === "production" || process.env.ENABLE_ORDER_EXPIRY === "true") {
       setInterval(sweepUnpaidOrders, 15 * 60 * 1000).unref();
       sweepUnpaidOrders();
+      // Safety net for the tracking webhook: read the courier's own status for open shipments every 30 minutes
+      const sweepTracking = () => shipmentService.syncOpenShipments().catch((err) => logger.error({ err: err.message }, "Shipment tracking refresh failed"));
+      setInterval(sweepTracking, 30 * 60 * 1000).unref();
+      sweepTracking();
       const sweepRefunds = () => paymentService.syncPendingCancelRefunds().catch((err) => logger.error({ err: err.message }, "Pending refund check failed"));
       setInterval(sweepRefunds, 15 * 60 * 1000).unref();
       sweepRefunds();

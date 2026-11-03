@@ -57,6 +57,29 @@ const shipmentSchema = new mongoose.Schema(
       default: "CREATED",
       index: true,
     },
+    // Pickup is requested once the courier is assigned; a failure is kept so staff can retry it
+    pickupStatus: {
+      type: String,
+      enum: ["none", "requested", "failed"],
+      default: "none",
+    },
+    pickupRequestedAt: {
+      type: Date,
+      default: null,
+    },
+    pickupError: {
+      type: String,
+      default: "",
+    },
+    labelError: {
+      type: String,
+      default: "",
+    },
+    // When the courier's own tracking was last read (webhook or scheduled check)
+    lastSyncedAt: {
+      type: Date,
+      default: null,
+    },
     statusUpdatedAt: {
       type: Date,
       default: null,

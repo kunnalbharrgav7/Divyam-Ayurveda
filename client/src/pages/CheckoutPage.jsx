@@ -17,6 +17,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useReturns } from "../context/ReturnContext";
 import { useOrders } from "../context/OrderContext";
+import { orderService } from "../services/api";
 import { useStoreSettings } from "../hooks/useStoreSettings";
 import { useReferrals } from "../context/ReferralContext";
 import { formatINR } from "../utils/formatters";
@@ -193,6 +194,16 @@ export const CheckoutPage = () => {
     setIsSubmitting(true);
 
     try {
+      // Stop early if the courier cannot deliver here. A failed check (courier API down) never blocks the order;
+      // the server makes the final call when the order is placed.
+      const delivery = await orderService.checkPinCode(formData.pincode, { cod: paymentMethod === "cod" });
+      if (!delivery.serviceable && !delivery.unavailable) {
+        setErrors({ pincode: delivery.message });
+        window.scrollTo({ top: 100, behavior: "smooth" });
+        setIsSubmitting(false);
+        return;
+      }
+
       const orderPayload = {
         customer: {
           name: formData.fullName,

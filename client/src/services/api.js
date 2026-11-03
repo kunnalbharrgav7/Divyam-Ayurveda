@@ -675,20 +675,48 @@ export const orderService = {
   },
 
   /**
-   * Mock PIN code delivery check
+   * Delivery check against the courier (through our server). `cod` asks whether Cash on Delivery works there.
+   * When the check itself cannot be done, `unavailable` is true so callers never block a customer on an outage.
    */
-  async checkPinCode(pincode) {
+  async checkPinCode(pincode, { cod = false } = {}) {
     if (!pincode || pincode.length !== 6 || isNaN(pincode)) {
       return { serviceable: false, message: "Please enter a valid 6-digit Indian PIN code." };
     }
-    const isFastZone = ["11", "40", "56", "70", "60", "50", "38", "41", "30"].includes(
-      pincode.substring(0, 2)
-    );
-    return {
-      serviceable: true,
-      deliveryDays: isFastZone ? "2-3 business days" : "4-5 business days",
-      codAvailable: true,
-      message: `Delivery available in ${isFastZone ? "2-3" : "4-5"} business days. Free delivery above ₹499.`,
-    };
+    try {
+      const response = await fetch(
+        `/api/v1/checkout/shipping/serviceability?deliveryPincode=${encodeURIComponent(pincode)}&cod=${cod ? 1 : 0}`,
+        { credentials: "include" }
+      );
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.success) {
+        return {
+          serviceable: false,
+          unavailable: true,
+          message: json?.error?.message || "We couldn't check delivery for this PIN code right now. Please try again.",
+        };
+      }
+      const data = json.data || {};
+      if (!data.serviceable) {
+        return {
+          serviceable: false,
+          message: cod
+            ? "Cash on Delivery isn't available for this PIN code. Try online payment."
+            : "Sorry, we can't deliver to this PIN code yet.",
+        };
+      }
+      const days = data.etdDays ? `Estimated delivery: ${data.etdDays}.` : "";
+      return {
+        serviceable: true,
+        deliveryDays: data.etdDays || "",
+        codAvailable: Boolean(data.codAvailable),
+        message: `Delivery available to PIN ${pincode}. ${days}`.trim(),
+      };
+    } catch (_) {
+      return {
+        serviceable: false,
+        unavailable: true,
+        message: "We couldn't check delivery for this PIN code right now. Please try again.",
+      };
+    }
   },
 };

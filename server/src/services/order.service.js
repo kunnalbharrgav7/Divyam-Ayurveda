@@ -4,7 +4,7 @@ import { Shipment } from "../models/Shipment.js";
 import { Refund } from "../models/Refund.js";
 import { cashfree } from "../integrations/cashfree/cashfree.adapter.js";
 import { shiprocket } from "../integrations/shiprocket/shiprocket.adapter.js";
-import { shipmentService } from "./shipment.service.js";
+import { shipmentService, toPublicShipment } from "./shipment.service.js";
 import { Quote } from "../models/Quote.js";
 import { User } from "../models/User.js";
 import { Product } from "../models/Product.js";
@@ -62,6 +62,7 @@ export class OrderService {
       }
 
       assertCodWithinLimit(quote.totalPaise);
+      await shipmentService.assertDeliverable({ pincode: quote.shippingAddress?.pincode, cod: isCOD });
       const orderNumber = generateOrderNumber();
 
       // 1. Atomically reserve stock for all items
@@ -202,6 +203,7 @@ export class OrderService {
     }
     if (!street || !city || !state) throw ApiError.badRequest("Please enter your full delivery address.");
     if (!/^\d{6}$/.test(pincode)) throw ApiError.badRequest("Please enter a valid 6-digit PIN code.");
+    await shipmentService.assertDeliverable({ pincode, cod: isCOD });
 
     const mappedItems = await Promise.all(
       (payload.items || []).map(async (item) => {
@@ -512,8 +514,7 @@ export class OrderService {
           trackingNumber: json.trackingNumber,
           carrier: json.carrier,
           trackingUrl: json.trackingUrl,
-          shippingLabelUrl: json.shippingLabelUrl,
-          shipment: shipment || null,
+          shipment: toPublicShipment(shipment),
           shippingAddress: {
             city: json.shippingAddress?.city,
             state: json.shippingAddress?.state,
@@ -527,7 +528,12 @@ export class OrderService {
     }
 
     const fullOrder = order.toJSON();
-    fullOrder.shipment = shipment || null;
+    if (user?.isStaff) {
+      fullOrder.shipment = shipment || null;
+    } else {
+      delete fullOrder.shippingLabelUrl;
+      fullOrder.shipment = toPublicShipment(shipment);
+    }
     return fullOrder;
   }
 
@@ -547,7 +553,8 @@ export class OrderService {
 
     const shipment = await Shipment.findOne({ orderNumber: order.orderNumber }).lean();
     const res = order.toJSON();
-    res.shipment = shipment || null;
+    delete res.shippingLabelUrl;
+    res.shipment = toPublicShipment(shipment);
     return res;
   }
 
@@ -567,7 +574,22 @@ export class OrderService {
 
     const shipment = await Shipment.findOne({ orderNumber: order.orderNumber }).lean();
     const result = order.toJSON();
-    result.shipment = shipment || null;
+    delete result.shippingLabelUrl;
+    result.shipment = toPublicShipment(shipment);
+
+    // Order number + email is a weak proof of ownership (emails are easy to guess), so the street address and the
+    // full phone number are not repeated back; the customer already has them.
+    const phone = String(result.customer?.phone || "").replace(/\D/g, "");
+    result.customer = {
+      name: result.customer?.name,
+      email: result.customer?.email,
+      phone: phone ? `${"*".repeat(Math.max(0, phone.length - 4))}${phone.slice(-4)}` : "",
+    };
+    result.shippingAddress = {
+      city: result.shippingAddress?.city,
+      state: result.shippingAddress?.state,
+      pincode: result.shippingAddress?.pincode,
+    };
     return result;
   }
 
@@ -801,22 +823,47 @@ export class OrderService {
    */
   async cancelCourierShipment(order) {
     const shipment = await Shipment.findOne({ orderNumber: order.orderNumber });
-    if (!shipment?.awbCode || ["CANCELLED", "CANCELED", "DELIVERED"].includes(String(shipment.status).toUpperCase())) return;
+    if (!shipment) return;
+    if (["CANCELLED", "CANCELED", "DELIVERED"].includes(String(shipment.status).toUpperCase())) return;
 
-    let result;
-    try {
-      result = await shiprocket.cancelShipment(shipment.awbCode);
-    } catch (err) {
-      throw ApiError.conflict(`The courier shipment could not be cancelled (${err.message}). Cancel it in Shiprocket, then retry.`);
+    // Shipments created by the development simulator have made-up ids that Shiprocket does not know
+    const simulated = String(shipment.shiprocketOrderId || "").startsWith("sr_ord_") && !shiprocket.isMock;
+    if (simulated) return;
+
+    if (shipment.awbCode) {
+      let result;
+      try {
+        result = await shiprocket.cancelShipment(shipment.awbCode);
+      } catch (err) {
+        throw ApiError.conflict(`The courier shipment could not be cancelled (${err.message}). Cancel it in Shiprocket, then retry.`);
+      }
+      if (!result?.success) {
+        throw ApiError.conflict(
+          `Shiprocket did not cancel the shipment${result?.message ? `: ${result.message}` : ""}. Cancel AWB ${shipment.awbCode} in Shiprocket, then retry.`
+        );
+      }
     }
-    if (!result?.success) {
-      throw ApiError.conflict(
-        `Shiprocket did not cancel the shipment${result?.message ? `: ${result.message}` : ""}. Cancel AWB ${shipment.awbCode} in Shiprocket, then retry.`
-      );
+
+    // The order itself must go too, or it stays open (and assignable) in the Shiprocket panel
+    if (shipment.shiprocketOrderId) {
+      let result;
+      try {
+        result = await shiprocket.cancelOrder(shipment.shiprocketOrderId);
+      } catch (err) {
+        throw ApiError.conflict(`The Shiprocket order could not be cancelled (${err.message}). Cancel order ${shipment.shiprocketOrderId} in Shiprocket, then retry.`);
+      }
+      if (!result?.success) {
+        throw ApiError.conflict(
+          `Shiprocket did not cancel its order${result?.message ? `: ${result.message}` : ""}. Cancel order ${shipment.shiprocketOrderId} in Shiprocket, then retry.`
+        );
+      }
     }
-    shipment.status = "CANCELLED";
-    shipment.trackingEvents.push({ status: "CANCELLED", activity: "Shipment cancelled with the order", location: "", time: new Date() });
-    await shipment.save();
+
+    if (shipment.awbCode || shipment.shiprocketOrderId) {
+      shipment.status = "CANCELLED";
+      shipment.trackingEvents.push({ status: "CANCELLED", activity: "Shipment cancelled with the order", location: "", time: new Date() });
+      await shipment.save();
+    }
   }
 
   /**

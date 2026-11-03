@@ -5,7 +5,7 @@ import { validate } from "../../middleware/validate.js";
 import { orderCreateSchema } from "../../validators/checkout.validator.js";
 import { requireIdempotency } from "../../middleware/idempotency.js";
 import { optionalAuthenticate, authenticate } from "../../middleware/auth.js";
-import { checkoutLimiter } from "../../middleware/rateLimiter.js";
+import { checkoutLimiter, orderLookupLimiter } from "../../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -21,7 +21,7 @@ router.post(
   validate(orderCreateSchema),
   orderController.createOrder
 );
-router.get("/:orderNumber", optionalAuthenticate, orderController.getOrder);
+router.get("/:orderNumber", orderLookupLimiter, optionalAuthenticate, orderController.getOrder);
 
 // Customer Returns
 router.post("/:orderNumber/returns", authenticate, returnController.createReturn);

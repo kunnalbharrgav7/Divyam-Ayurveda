@@ -57,6 +57,7 @@ router.get("/orders/:orderNumber", requirePermission(PERMISSIONS.ORDERS_VIEW), a
 router.patch("/orders/:orderNumber/status", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.updateOrderStatus);
 router.patch("/orders/:orderNumber/payment-status", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.updatePaymentStatus);
 router.post("/orders/:orderNumber/shipments", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.createShipment);
+router.post("/orders/:orderNumber/shipments/retry-fulfilment", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.retryFulfilment);
 router.post("/orders/:orderNumber/shipments/advance", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.advanceShipment);
 router.patch("/orders/:orderNumber/tracking", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.updateOrderTracking);
 router.get("/orders/:orderNumber/shipment", requirePermission(PERMISSIONS.ORDERS_VIEW), adminController.getOrderShipment);

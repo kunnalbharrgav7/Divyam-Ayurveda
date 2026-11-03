@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Order } from "../models/Order.js";
 import { Shipment } from "../models/Shipment.js";
+import { Product } from "../models/Product.js";
 import { WebhookEvent } from "../models/WebhookEvent.js";
 import { shiprocket } from "../integrations/shiprocket/shiprocket.adapter.js";
 import { inventoryService } from "./inventory.service.js";
@@ -12,6 +13,10 @@ import { sha256 } from "../utils/crypto.js";
 import { ApiError } from "../utils/apiError.js";
 import { logger } from "../config/logger.js";
 import { config } from "../config/index.js";
+
+// Courier statuses after which there is nothing left to track
+const FINISHED_STATUSES = ["DELIVERED", "CANCELLED", "CANCELED", "RTO_DELIVERED"];
+const normalizeCourierStatus = (value) => String(value || "").trim().toUpperCase().replace(/[\s-]+/g, "_");
 
 const STANDARD_MILESTONES = [
   "Order Placed",
@@ -100,21 +105,76 @@ const applyShipmentStatusToOrder = (order, shipment, status, activity) => {
   }
 };
 
+/**
+ * What a customer may see of a shipment: courier, AWB, status and the tracking trail. Shiprocket's own ids and the
+ * shipping label (it carries the recipient's address and phone) stay staff-only.
+ */
+export const toPublicShipment = (shipment) =>
+  shipment
+    ? {
+        courierName: shipment.courierName || "",
+        awbCode: shipment.awbCode || "",
+        status: shipment.status || "",
+        trackingUrl: shipment.trackingUrl || "",
+        trackingEvents: (shipment.trackingEvents || []).map((e) => ({
+          status: e.status,
+          activity: e.activity,
+          location: e.location,
+          time: e.time,
+        })),
+      }
+    : null;
+
+// Serviceability answers are cached briefly so checkout does not call the courier API for every order
+const SERVICEABILITY_TTL_MS = 10 * 60 * 1000;
+const serviceabilityCache = new Map();
+
 export class ShipmentService {
   /**
    * Pincode serviceability check
    */
-  async checkServiceability({ deliveryPincode, weightGrams = 250, cod = true }) {
+  async checkServiceability({ deliveryPincode, weightGrams = 250, cod = true, timeoutMs } = {}) {
     if (!deliveryPincode || deliveryPincode.length !== 6 || isNaN(deliveryPincode)) {
       throw ApiError.badRequest("Please provide a valid 6-digit Indian PIN code.");
     }
 
-    return shiprocket.checkServiceability({
+    const key = `${deliveryPincode}:${cod ? 1 : 0}`;
+    const cached = serviceabilityCache.get(key);
+    if (cached && cached.expires > Date.now()) return cached.value;
+
+    const value = await shiprocket.checkServiceability({
       pickupPincode: (await settingsService.get()).shipping.originPincode, // dispatch PIN from Admin -> Settings
       deliveryPincode,
       cod,
       weightGrams,
+      timeoutMs,
     });
+    serviceabilityCache.set(key, { value, expires: Date.now() + SERVICEABILITY_TTL_MS });
+    return value;
+  }
+
+  /**
+   * Refuse an order the courier definitely cannot deliver. When the courier API itself is unreachable the order is
+   * allowed through (and flagged at dispatch): an outage must not stop every sale.
+   */
+  async assertDeliverable({ pincode, cod, weightGrams = 250 }) {
+    let result;
+    try {
+      result = await this.checkServiceability({ deliveryPincode: String(pincode || ""), cod, weightGrams, timeoutMs: 8000 });
+    } catch (err) {
+      if (err.statusCode === 400 || err.status === 400) throw err; // malformed PIN code
+      logger.warn({ pincode, err: err.message }, "Could not verify delivery availability; allowing the order");
+      return;
+    }
+    if (result?.serviceable) return;
+
+    if (cod) {
+      const prepaid = await this.checkServiceability({ deliveryPincode: String(pincode), cod: false, weightGrams, timeoutMs: 8000 }).catch(() => null);
+      if (prepaid?.serviceable) {
+        throw ApiError.badRequest("Cash on Delivery is not available for this PIN code. Please pay online.");
+      }
+    }
+    throw ApiError.badRequest(`Sorry, we can't deliver to PIN code ${pincode} yet.`);
   }
 
   /**
@@ -190,7 +250,7 @@ export class ShipmentService {
           shippingAddress: order.shippingAddress,
           paymentMethod: order.paymentMethod,
           pricing: order.pricing,
-          weightGrams: order.items.reduce((sum, it) => sum + (it.weightGrams || 250) * it.quantity, 0),
+          ...(await this.#parcelFor(order)),
         });
       }
     } catch (err) {
@@ -211,6 +271,14 @@ export class ShipmentService {
         labelUrl: srResult.labelUrl || "",
         manifestUrl: srResult.manifestUrl || "",
         status: hasAwb ? "SHIPPED" : "PROCESSING",
+        ...(hasAwb && srResult.pickupRequested !== undefined
+          ? {
+              pickupStatus: srResult.pickupRequested ? "requested" : "failed",
+              pickupRequestedAt: srResult.pickupRequested ? new Date() : null,
+              pickupError: srResult.pickupError || "",
+              labelError: srResult.labelError || "",
+            }
+          : {}),
         ...(hasAwb ? { awbCode: srResult.awbCode } : {}),
         ...(hasAwb
           ? {
@@ -227,6 +295,12 @@ export class ShipmentService {
       },
       { new: true }
     );
+
+    // A retry that only assigned the courier still needs its pickup and label
+    if (hasAwb && claimed?.shipmentId) {
+      await this.#completeFulfilment(shipment);
+      if (shipment.labelUrl) srResult.labelUrl = shipment.labelUrl;
+    }
 
     if (!hasAwb) {
       order.timeline.push({
@@ -292,6 +366,71 @@ export class ShipmentService {
   }
 
   /**
+   * Request the pickup and fetch the label when they are still missing. Records what happened on the shipment
+   * and never throws, so a Shiprocket hiccup cannot undo a booked courier.
+   */
+  async #completeFulfilment(shipment) {
+    if (!shipment.shipmentId || !shipment.awbCode) return shipment;
+
+    if (shipment.pickupStatus !== "requested") {
+      try {
+        await shiprocket.requestPickup(shipment.shipmentId);
+        shipment.pickupStatus = "requested";
+        shipment.pickupRequestedAt = new Date();
+        shipment.pickupError = "";
+      } catch (err) {
+        shipment.pickupStatus = "failed";
+        shipment.pickupError = err.message;
+      }
+    }
+    if (!shipment.labelUrl) {
+      try {
+        shipment.labelUrl = await shiprocket.generateLabel(shipment.shipmentId);
+        shipment.labelError = "";
+      } catch (err) {
+        shipment.labelError = err.message;
+      }
+    }
+    await shipment.save();
+    return shipment;
+  }
+
+  /**
+   * Admin retry for a shipment whose pickup request or label failed. Safe to repeat: finished steps are skipped.
+   */
+  async retryFulfilment(orderNumber, staffUser = null) {
+    const shipment = await Shipment.findOne({ orderNumber });
+    if (!shipment) throw ApiError.notFound("This order has no shipment yet. Dispatch it first.");
+    if (!shipment.awbCode || !shipment.shipmentId) {
+      throw ApiError.badRequest("This shipment has no courier assigned yet. Click dispatch to finish assigning it.");
+    }
+    if (["CANCELLED", "CANCELED", "DELIVERED"].includes(String(shipment.status).toUpperCase())) {
+      throw ApiError.badRequest(`This shipment is ${String(shipment.status).toLowerCase()}, so pickup and label can't be requested.`);
+    }
+
+    await this.#completeFulfilment(shipment);
+
+    const order = await Order.findOne({ orderNumber });
+    if (order && shipment.labelUrl && order.shippingLabelUrl !== shipment.labelUrl) {
+      order.shippingLabelUrl = shipment.labelUrl;
+      await order.save();
+    }
+
+    if (staffUser) {
+      await logAudit({
+        actorId: staffUser._id,
+        actorName: staffUser.name,
+        actorRole: staffUser.roles?.[0]?.name || "Staff",
+        action: "orders.fulfilment_retry",
+        module: "Logistics",
+        targetId: orderNumber,
+        details: `Retried pickup/label. Pickup: ${shipment.pickupStatus}${shipment.pickupError ? ` (${shipment.pickupError})` : ""}; label: ${shipment.labelUrl ? "ready" : shipment.labelError || "missing"}`,
+      });
+    }
+    return { shipment: shipment.toJSON(), order: order ? order.toJSON() : null };
+  }
+
+  /**
    * Book the courier for an order without waiting for an admin click. Only runs against the live Shiprocket
    * account (never the mock) and can be switched off with AUTO_CREATE_SHIPMENTS=false. It never throws:
    * a failure is written on the order so staff can dispatch it by hand.
@@ -317,6 +456,130 @@ export class ShipmentService {
       ).catch(() => {});
       return null;
     }
+  }
+
+  /**
+   * Apply one courier status to the shipment and its order. Used by the webhook and the scheduled check, so both
+   * behave the same: the newest status wins, an order never moves backwards, and delivery turns reserved stock into a sale.
+   */
+  async #applyCourierStatus(shipment, { status, activity, location = "", time = new Date(), recordEvent = true }) {
+    if (recordEvent) shipment.trackingEvents.push({ status, activity, location, time });
+    // Keep the newest courier status; an older event arriving late does not overwrite it
+    const older = shipment.statusUpdatedAt && time < shipment.statusUpdatedAt;
+    if (!older) {
+      shipment.status = status;
+      shipment.statusUpdatedAt = time;
+    }
+    await shipment.save();
+
+    const order = await Order.findById(shipment.orderId);
+    if (order) {
+      const wasDelivered = order.status === ORDER_STATUS.DELIVERED;
+      applyShipmentStatusToOrder(order, shipment, status, activity);
+      if (!wasDelivered && order.status === ORDER_STATUS.DELIVERED && order.stockState === "reserved") {
+        const lines = (order.items || [])
+          .filter((i) => i.variantId)
+          .map((i) => ({ variantId: i.variantId, productId: i.productId, sku: i.sku, quantity: i.quantity }));
+        await inventoryService.commitSoldStock(lines, order.orderNumber, "shiprocket_delivered");
+        order.stockState = "committed";
+      }
+      await order.save();
+    }
+    return order;
+  }
+
+  /**
+   * Read the courier's own tracking for one shipment: add the scans we have not stored yet and bring the shipment
+   * and order up to the courier's current status. This is the safety net for a missing or misconfigured webhook.
+   */
+  async syncShipment(shipment) {
+    const live = await shiprocket.trackShipment(shipment.awbCode);
+    const scans = Array.isArray(live?.shipment_track_activities) ? live.shipment_track_activities : [];
+
+    const known = new Set((shipment.trackingEvents || []).map((e) => new Date(e.time).getTime()));
+    for (const scan of scans) {
+      const t = new Date(scan.date || scan.time || Date.now()).getTime();
+      if (Number.isNaN(t) || known.has(t)) continue;
+      shipment.trackingEvents.push({
+        status: scan.status || scan.activity || "In Transit",
+        activity: scan.activity || scan.status,
+        location: scan.location || "",
+        time: new Date(t),
+      });
+      known.add(t);
+    }
+
+    // The mock always answers "in transit"; it must never move a real order
+    const current = shiprocket.isMock ? "" : normalizeCourierStatus(live?.shipment_track?.[0]?.current_status);
+    shipment.lastSyncedAt = new Date();
+    if (current && current !== normalizeCourierStatus(shipment.status)) {
+      const latest = scans[0] || {};
+      await this.#applyCourierStatus(shipment, {
+        status: current,
+        activity: latest.activity || live?.shipment_track?.[0]?.current_status || current,
+        location: latest.location || "",
+        time: parseShiprocketTime(latest.date),
+        recordEvent: false,
+      });
+    } else {
+      await shipment.save();
+    }
+    return shipment;
+  }
+
+  /**
+   * Scheduled check: refresh every open shipment that has not been read recently. A failure on one shipment
+   * never stops the others.
+   */
+  async syncOpenShipments({ limit = 30, staleMs = 25 * 60 * 1000 } = {}) {
+    if (shiprocket.isMock) return { checked: 0, skipped: "mock courier" };
+    const open = await Shipment.find({
+      awbCode: { $exists: true, $nin: ["", null] },
+      status: { $nin: FINISHED_STATUSES },
+      createdAt: { $gt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) },
+      $or: [{ lastSyncedAt: null }, { lastSyncedAt: { $lt: new Date(Date.now() - staleMs) } }],
+    })
+      .sort({ lastSyncedAt: 1 })
+      .limit(limit);
+
+    let failed = 0;
+    for (const shipment of open) {
+      try {
+        await this.syncShipment(shipment);
+      } catch (err) {
+        failed += 1;
+        logger.warn({ awb: shipment.awbCode, err: err.message }, "Could not refresh shipment tracking");
+      }
+    }
+    return { checked: open.length, failed };
+  }
+
+  /**
+   * Weight and box size for the courier, from the products' parcel settings. Products without them fall back to
+   * the pack size's weight, and an order with no box sizes at all keeps the courier default.
+   */
+  async #parcelFor(order) {
+    const ids = (order.items || []).map((i) => i.productId).filter(Boolean);
+    const products = ids.length ? await Product.find({ _id: { $in: ids } }).select("parcel").lean() : [];
+    const parcels = new Map(products.map((p) => [String(p._id), p.parcel || {}]));
+
+    let weightGrams = 0;
+    let length = 0;
+    let breadth = 0;
+    let height = 0;
+    let anyBox = false;
+    for (const item of order.items || []) {
+      const parcel = parcels.get(String(item.productId)) || {};
+      const qty = Number(item.quantity) || 1;
+      weightGrams += (Number(parcel.weightGrams) > 0 ? parcel.weightGrams : item.weightGrams || 250) * qty;
+      const hasBox = parcel.lengthCm > 0 && parcel.breadthCm > 0 && parcel.heightCm > 0;
+      if (hasBox) anyBox = true;
+      // Units are stacked: the box is as wide as the widest unit and as tall as all of them together
+      length = Math.max(length, hasBox ? parcel.lengthCm : 10);
+      breadth = Math.max(breadth, hasBox ? parcel.breadthCm : 10);
+      height += (hasBox ? parcel.heightCm : 10) * qty;
+    }
+    return { weightGrams, dimensions: anyBox ? { length, breadth, height } : undefined };
   }
 
   /**
@@ -381,29 +644,8 @@ export class ShipmentService {
       const activity = payload.activity || payload.scans?.[0]?.activity || rawStatus || currentStatus;
       const location = payload.location || payload.scans?.[0]?.location || "";
 
-      shipment.trackingEvents.push({ status: currentStatus, activity, location, time: eventTime });
-      // Keep the newest courier status; an older event arriving late does not overwrite it
-      const newest = shipment.statusUpdatedAt && eventTime < shipment.statusUpdatedAt;
-      if (!newest) {
-        shipment.status = currentStatus;
-        shipment.statusUpdatedAt = eventTime;
-      }
-      await shipment.save();
-
-      const order = await Order.findById(shipment.orderId);
-      if (order) {
-        const wasDelivered = order.status === ORDER_STATUS.DELIVERED;
-        applyShipmentStatusToOrder(order, shipment, currentStatus, activity);
-        // Delivery turns reserved stock into a sale (the admin status change does the same)
-        if (!wasDelivered && order.status === ORDER_STATUS.DELIVERED && order.stockState === "reserved") {
-          const lines = (order.items || [])
-            .filter((i) => i.variantId)
-            .map((i) => ({ variantId: i.variantId, productId: i.productId, sku: i.sku, quantity: i.quantity }));
-          await inventoryService.commitSoldStock(lines, order.orderNumber, "shiprocket_delivered");
-          order.stockState = "committed";
-        }
-        await order.save();
-      }
+      shipment.lastSyncedAt = new Date();
+      await this.#applyCourierStatus(shipment, { status: currentStatus, activity, location, time: eventTime });
 
       webhookRecord.status = "processed";
       webhookRecord.processedAt = new Date();
@@ -578,6 +820,16 @@ export class ShipmentService {
     });
     if (!order) throw ApiError.notFound("Order not found.");
 
+    // An AWB that Shiprocket assigned is what its tracking updates are matched on: changing it by hand would silently
+    // cut this order off from them. (Shipments from the development simulator are free to edit.)
+    const booked = await Shipment.findOne({ orderNumber: order.orderNumber });
+    const bookedAtShiprocket = booked?.shipmentId && !String(booked.shiprocketOrderId || "").startsWith("sr_ord_");
+    if (bookedAtShiprocket && trackingNumber !== undefined && String(trackingNumber).trim() !== (booked.awbCode || "")) {
+      throw ApiError.conflict(
+        "This AWB was assigned by Shiprocket and tracking updates depend on it. To use a different courier or AWB, cancel the order's shipment and dispatch it again."
+      );
+    }
+
     if (carrier !== undefined) order.carrier = String(carrier).trim();
     if (trackingNumber !== undefined) order.trackingNumber = String(trackingNumber).trim();
     if (trackingUrl !== undefined) order.trackingUrl = String(trackingUrl).trim();
@@ -644,28 +896,11 @@ export class ShipmentService {
     }
 
     const liveData = await shiprocket.trackShipment(shipment.awbCode);
-    if (liveData?.shipment_track_activities && Array.isArray(liveData.shipment_track_activities)) {
-      const existingTimestamps = new Set(
-        (shipment.trackingEvents || []).map((e) => new Date(e.time).getTime())
-      );
+    await this.syncShipment(shipment);
 
-      for (const act of liveData.shipment_track_activities) {
-        const actTime = new Date(act.date || act.time || Date.now()).getTime();
-        if (!existingTimestamps.has(actTime)) {
-          shipment.trackingEvents.push({
-            status: act.status || act.activity || "In Transit",
-            activity: act.activity || act.status,
-            location: act.location || "",
-            time: new Date(actTime),
-          });
-          existingTimestamps.add(actTime);
-        }
-      }
-      await shipment.save();
-    }
-
+    const refreshed = await Order.findById(order._id);
     return {
-      order: order.toJSON(),
+      order: (refreshed || order).toJSON(),
       shipment: shipment.toJSON(),
       liveTracking: liveData,
     };

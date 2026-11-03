@@ -149,6 +149,13 @@ const productSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+    // Packed parcel details for the courier (optional). Without them the pack size's weight and a 10 cm cube are used.
+    parcel: {
+      weightGrams: { type: Number, min: 0, default: null },
+      lengthCm: { type: Number, min: 0, default: null },
+      breadthCm: { type: Number, min: 0, default: null },
+      heightCm: { type: Number, min: 0, default: null },
+    },
     status: {
       type: String,
       enum: ["active", "draft", "archived"],

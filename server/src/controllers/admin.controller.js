@@ -398,6 +398,11 @@ export const createShipment = asyncHandler(async (req, res) => {
   return sendSuccess(res, result);
 });
 
+export const retryFulfilment = asyncHandler(async (req, res) => {
+  const result = await shipmentService.retryFulfilment(req.params.orderNumber, req.user);
+  return sendSuccess(res, result);
+});
+
 export const advanceShipment = asyncHandler(async (req, res) => {
   const result = await shipmentService.advanceShipmentStatus(
     req.params.orderNumber,

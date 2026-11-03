@@ -39,6 +39,7 @@ export const OrderDetailsPage = () => {
     hasAdminLoadError,
     retryAdminLoad,
     dispatchShipment,
+    retryFulfilment,
     advanceShipment,
     updateTrackingInfo,
     getOrderShipment,
@@ -144,6 +145,15 @@ export const OrderDetailsPage = () => {
   pincode = typeof pincode === "string" || typeof pincode === "number" ? String(pincode) : "";
 
   const handleStatusChange = async (newStatus) => {
+    if (String(newStatus).toLowerCase() === "cancelled") {
+      const paidOnline = String(order.paymentStatus).toLowerCase() === "paid" && String(order.paymentMethod).toLowerCase().includes("online");
+      const ok = window.confirm(
+        `Cancel order ${order.id}?
+
+This cancels the courier shipment${paidOnline ? " and automatically refunds the customer's online payment" : ""}. It can't be undone.`
+      );
+      if (!ok) return;
+    }
     try {
       await updateOrderStatus(order.id, newStatus);
       setActionNotice(`Order status updated to "${newStatus}" in database.`);
@@ -178,6 +188,12 @@ export const OrderDetailsPage = () => {
   };
 
   const handleDispatchShiprocket = async () => {
+    const ok = window.confirm(
+      `Dispatch order ${order.id} with Shiprocket?
+
+This books a courier and requests a pickup. Make sure the parcel is packed and ready.`
+    );
+    if (!ok) return;
     setIsShippingLoading(true);
     try {
       const res = await dispatchShipment(order.id);
@@ -188,6 +204,21 @@ export const OrderDetailsPage = () => {
       setTimeout(() => setActionNotice(""), 4000);
     } catch (err) {
       alert(`Shiprocket dispatch failed: ${err.message}`);
+    } finally {
+      setIsShippingLoading(false);
+    }
+  };
+
+  const handleRetryFulfilment = async () => {
+    setIsShippingLoading(true);
+    try {
+      const res = await retryFulfilment(order.id);
+      if (res.shipment) setShipment(res.shipment);
+      const stillBroken = res.shipment?.pickupStatus === "failed" || !res.shipment?.labelUrl;
+      setActionNotice(stillBroken ? "Retried, but Shiprocket still reports a problem. See the details below." : "Pickup requested and label ready.");
+      setTimeout(() => setActionNotice(""), 4000);
+    } catch (err) {
+      alert(`Retry failed: ${err.message}`);
     } finally {
       setIsShippingLoading(false);
     }
@@ -716,6 +747,25 @@ export const OrderDetailsPage = () => {
                     <span>{trackingNumber ? "Re-dispatch with Shiprocket" : "Dispatch with Shiprocket (Generate AWB)"}</span>
                   </button>
                 ) : null}
+
+                {/* Pickup / label state: shown only when something still needs attention */}
+                {shipment && shipment.awbCode && (shipment.pickupStatus === "failed" || !shipment.labelUrl) && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1.5">
+                    <div className="font-semibold">Courier pickup or label needs attention</div>
+                    {shipment.pickupStatus === "failed" && (
+                      <div>Pickup not requested{shipment.pickupError ? `: ${shipment.pickupError}` : "."}</div>
+                    )}
+                    {!shipment.labelUrl && <div>Shipping label missing{shipment.labelError ? `: ${shipment.labelError}` : "."}</div>}
+                    <button
+                      type="button"
+                      onClick={handleRetryFulfilment}
+                      disabled={isShippingLoading}
+                      className="mt-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg disabled:opacity-60 cursor-pointer"
+                    >
+                      Retry pickup &amp; label
+                    </button>
+                  </div>
+                )}
 
                 {/* Simulation Stage Buttons: development only; live shipments follow the courier's updates */}
                 {!import.meta.env.PROD && (

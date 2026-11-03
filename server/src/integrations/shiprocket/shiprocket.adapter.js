@@ -84,7 +84,7 @@ export class ShiprocketAdapter {
    * Authenticated request. A 401 means the cached token was revoked or expired early, so log in again
    * and retry once.
    */
-  async #request(path, { method = "GET", body } = {}) {
+  async #request(path, { method = "GET", body, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
     const send = async (token) =>
       fetch(`${this.baseUrl}${path}`, {
         method,
@@ -93,7 +93,7 @@ export class ShiprocketAdapter {
           ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
 
     let response = await send(await this.getAuthToken());
@@ -107,7 +107,7 @@ export class ShiprocketAdapter {
   /**
    * Check delivery serviceability. Failures are reported, never replaced by made-up mock results.
    */
-  async checkServiceability({ pickupPincode, deliveryPincode, cod, weightGrams }) {
+  async checkServiceability({ pickupPincode, deliveryPincode, cod, weightGrams, timeoutMs }) {
     if (this.isMock) {
       return this.mock.checkServiceability({ pickupPincode, deliveryPincode, cod, weightGrams });
     }
@@ -115,7 +115,8 @@ export class ShiprocketAdapter {
     let result;
     try {
       result = await this.#request(
-        `/v1/external/courier/serviceability/?pickup_postcode=${encodeURIComponent(pickupPincode)}&delivery_postcode=${encodeURIComponent(deliveryPincode)}&cod=${cod ? 1 : 0}&weight=${(weightGrams || 250) / 1000}`
+        `/v1/external/courier/serviceability/?pickup_postcode=${encodeURIComponent(pickupPincode)}&delivery_postcode=${encodeURIComponent(deliveryPincode)}&cod=${cod ? 1 : 0}&weight=${(weightGrams || 250) / 1000}`,
+        { timeoutMs }
       );
     } catch (err) {
       logger.error({ err: err.message }, "Shiprocket serviceability request failed");
@@ -232,28 +233,25 @@ export class ShiprocketAdapter {
       }
 
       let pickupRequested = false;
+      let pickupError = "";
       let labelUrl = "";
+      let labelError = "";
       if (data.shipment_id && awbCode) {
-        // Ask the courier to collect the parcel
+        // Ask the courier to collect the parcel, then get the shipping label. Either can fail without losing the
+        // shipment, so the reason is returned and saved for the admin to retry.
         try {
-          const pickup = await this.#request("/v1/external/courier/generate/pickup", {
-            method: "POST",
-            body: { shipment_id: [data.shipment_id] },
-          });
-          pickupRequested = pickup.ok;
-          if (!pickup.ok) logger.warn({ data: pickup.data, shipmentId: data.shipment_id }, "Shiprocket pickup request failed");
+          await this.requestPickup(data.shipment_id);
+          pickupRequested = true;
         } catch (pickupErr) {
-          logger.warn({ err: pickupErr.message }, "Shiprocket pickup request error");
+          pickupError = pickupErr.message;
+          logger.warn({ err: pickupErr.message, shipmentId: data.shipment_id }, "Shiprocket pickup request failed");
         }
 
         try {
-          const label = await this.#request("/v1/external/courier/generate/label", {
-            method: "POST",
-            body: { shipment_id: [data.shipment_id] },
-          });
-          if (label.ok && label.data?.label_url) labelUrl = label.data.label_url;
+          labelUrl = await this.generateLabel(data.shipment_id);
         } catch (labelErr) {
-          logger.warn({ err: labelErr.message }, "Shiprocket label generation error");
+          labelError = labelErr.message;
+          logger.warn({ err: labelErr.message, shipmentId: data.shipment_id }, "Shiprocket label generation failed");
         }
       }
 
@@ -268,12 +266,42 @@ export class ShiprocketAdapter {
         labelUrl,
         manifestUrl: "",
         pickupRequested,
+        pickupError,
+        labelError,
         status: awbCode ? "AWB_ASSIGNED" : "PROCESSING",
       };
     } catch (err) {
       logger.error({ err: err.message }, "Shiprocket create shipment error");
       throw err;
     }
+  }
+
+  /**
+   * Ask the courier to collect the parcel. Throws with Shiprocket's reason when it refuses.
+   */
+  async requestPickup(shipmentId) {
+    if (this.isMock) return this.mock.requestPickup(shipmentId);
+    const result = await this.#request("/v1/external/courier/generate/pickup", {
+      method: "POST",
+      body: { shipment_id: [shipmentId] },
+    });
+    if (!result.ok) throw new Error(result.data?.message || "Shiprocket could not schedule the pickup.");
+    return result.data;
+  }
+
+  /**
+   * Generate the shipping label and return its URL. Throws when Shiprocket gives none.
+   */
+  async generateLabel(shipmentId) {
+    if (this.isMock) return this.mock.generateLabel(shipmentId);
+    const result = await this.#request("/v1/external/courier/generate/label", {
+      method: "POST",
+      body: { shipment_id: [shipmentId] },
+    });
+    if (!result.ok || !result.data?.label_url) {
+      throw new Error(result.data?.message || "Shiprocket did not return a shipping label.");
+    }
+    return result.data.label_url;
   }
 
   /**
@@ -326,6 +354,19 @@ export class ShiprocketAdapter {
     const result = await this.#request("/v1/external/orders/cancel/shipment/awbs", {
       method: "POST",
       body: { awbs: [awbCode] },
+    });
+    return { success: result.ok, ...result.data };
+  }
+
+  /**
+   * Cancel the Shiprocket order itself (after its AWB is cancelled), so nothing stays open in your Shiprocket panel
+   */
+  async cancelOrder(shiprocketOrderId) {
+    if (this.isMock) return this.mock.cancelOrder(shiprocketOrderId);
+    if (!shiprocketOrderId) return { success: false, message: "Shiprocket order id is required" };
+    const result = await this.#request("/v1/external/orders/cancel", {
+      method: "POST",
+      body: { ids: [Number(shiprocketOrderId) || shiprocketOrderId] },
     });
     return { success: result.ok, ...result.data };
   }
