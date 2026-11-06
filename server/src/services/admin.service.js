@@ -14,14 +14,13 @@ import { analyticsService } from "./analytics.service.js";
 import { Refund } from "../models/Refund.js";
 import { SupportTicket } from "../models/SupportTicket.js";
 import { ContactEnquiry } from "../models/ContactEnquiry.js";
-import { Subscriber } from "../models/Subscriber.js";
 import { StoreSettings } from "../models/StoreSettings.js";
 import { HomepageConfig } from "../models/HomepageConfig.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { logAudit } from "./audit.service.js";
 import { ApiError } from "../utils/apiError.js";
 import { toRupees, toPaise } from "../utils/currency.js";
-import { hashPassword } from "../utils/crypto.js";
+import { hashPassword, generateTemporaryPassword } from "../utils/crypto.js";
 import { ROLES } from "../constants/roles.js";
 import { inventoryService } from "./inventory.service.js";
 import { toPublicImages, resolveStoredImages } from "../utils/productImages.js";
@@ -541,26 +540,46 @@ export class AdminService {
    * Admin Users Management
    */
   async createAdminUser(data, staffUser) {
-    const existing = await User.findOne({ email: data.email.toLowerCase() });
-    if (existing) throw ApiError.conflict("User with this email already exists.");
+    const name = String(data.name || "").trim();
+    const email = String(data.email || "").trim().toLowerCase();
+    const phone = String(data.phone || "").trim();
+    if (name.length < 2) throw ApiError.badRequest("Enter the staff member's full name.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw ApiError.badRequest("Enter a valid email address.");
+    if (phone && phone.replace(/\D/g, "").length < 10) throw ApiError.badRequest("Enter a valid phone number, or leave it blank.");
 
-    const passwordHash = await hashPassword(data.password || "DivyamAdmin!2026");
+    if (await User.exists({ email })) throw ApiError.conflict("An account with this email address already exists.");
+    if (phone && (await User.exists({ phone }))) throw ApiError.conflict("This phone number is already used by another account.");
 
-    let roleIds = [];
-    if (data.role) {
-      const role = await Role.findOne({ name: data.role });
-      if (role) roleIds.push(role._id);
+    // Everyone on the team is an administrator with full access. A temporary password is generated unless the admin
+    // typed one (which must meet the same rules as any password); either way the person must replace it at first sign-in.
+    const supplied = String(data.password || "");
+    if (supplied) {
+      if (supplied.length < 8 || supplied.length > 128 || !/[A-Za-z]/.test(supplied) || !/\d/.test(supplied)) {
+        throw ApiError.badRequest("The temporary password must be 8-128 characters with at least one letter and one number.");
+      }
     }
+    const temporaryPassword = supplied || generateTemporaryPassword();
 
-    const user = await User.create({
-      name: data.name,
-      email: data.email.toLowerCase(),
-      phone: data.phone || undefined,
-      passwordHash,
-      isStaff: true,
-      roles: roleIds,
-      status: "active",
-    });
+    const role = await Role.findOne({ name: ROLES.SUPER_ADMIN });
+    if (!role) throw ApiError.internal("The administrator role is missing. Run the admin setup script.");
+
+    let user;
+    try {
+      user = await User.create({
+        name,
+        email,
+        phone: phone || undefined,
+        passwordHash: await hashPassword(temporaryPassword),
+        isStaff: true,
+        roles: [role._id],
+        status: "active",
+        isOwner: false,
+        mustChangePassword: true,
+      });
+    } catch (err) {
+      if (err.code === 11000) throw ApiError.conflict("An account with this email address or phone number already exists.");
+      throw err;
+    }
 
     await logAudit({
       actorId: staffUser?._id,
@@ -569,19 +588,68 @@ export class AdminService {
       action: "users.create",
       module: "Administration",
       targetId: user.id,
-      details: `Created staff user ${user.name} (${user.email})`,
+      details: `Created staff user ${user.name} (${user.email}) with a temporary password`,
     });
 
-    return user.toJSON();
+    // The temporary password is returned this once so the admin can pass it on; only its hash is stored
+    return { ...user.toJSON(), temporaryPassword };
   }
 
   /**
-   * Support inbox: enquiries, tickets and newsletter subscribers
+   * Issue a new temporary password for a staff member (forgotten password). Signs them out everywhere and makes them
+   * choose their own at next sign-in. Your own password is changed from Profile & Security instead.
+   */
+  async resetAdminUserPassword(id, staffUser) {
+    const user = await User.findOne({ _id: id, isStaff: true });
+    if (!user) throw ApiError.notFound("Staff user not found");
+    if (user.isOwner) {
+      throw ApiError.forbidden("The owner account can only be changed by the owner, from Profile & Security.");
+    }
+    if (String(user._id) === String(staffUser?._id)) {
+      throw ApiError.forbidden("Change your own password from Profile & Security.");
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          passwordHash: await hashPassword(temporaryPassword),
+          mustChangePassword: true,
+          refreshTokenHash: null,
+          failedLoginAttempts: 0,
+          lockUntil: null,
+        },
+        $inc: { tokenVersion: 1 },
+      }
+    );
+
+    await logAudit({
+      actorId: staffUser?._id,
+      actorName: staffUser?.name,
+      actorRole: staffUser?.roles?.[0]?.name || "Staff",
+      action: "users.reset_password",
+      module: "Administration",
+      targetId: user.id,
+      details: `Issued a temporary password for ${user.name} (${user.email}); their sessions were signed out.`,
+    });
+    return { id: String(user._id), email: user.email, temporaryPassword };
+  }
+
+  /**
+   * Support inbox: enquiries and tickets
    */
   async updateEnquiry(id, data, staffUser) {
     const enquiry = await ContactEnquiry.findById(id);
     if (!enquiry) throw ApiError.notFound("Enquiry not found");
     const before = enquiry.status;
+    const reply = String(data.reply ?? "").trim();
+    if (reply) {
+      if (reply.length > 2000) throw ApiError.badRequest("A reply can be at most 2000 characters.");
+      enquiry.replies.push({ message: reply, staffName: staffUser?.name || "Staff", time: new Date() });
+      // Replying moves it forward unless the staff member chose a status themselves
+      if (data.status === undefined && ["New", "In Progress"].includes(enquiry.status)) enquiry.status = "Replied";
+    }
     if (data.status !== undefined) enquiry.status = data.status;
     if (data.adminNotes !== undefined) enquiry.adminNotes = String(data.adminNotes);
     await enquiry.save();
@@ -592,7 +660,7 @@ export class AdminService {
       action: "support.enquiry.update",
       module: "Customers",
       targetId: enquiry.id,
-      details: `Enquiry from ${enquiry.email}: ${before} -> ${enquiry.status}`,
+      details: `Enquiry from ${enquiry.email}: ${before} -> ${enquiry.status}${reply ? " (reply saved)" : ""}`,
     });
     return enquiry.toJSON();
   }
@@ -601,6 +669,13 @@ export class AdminService {
     const ticket = await SupportTicket.findById(id);
     if (!ticket) throw ApiError.notFound("Support ticket not found");
     const before = ticket.status;
+    const reply = String(data.reply ?? "").trim();
+    if (reply) {
+      if (reply.length > 2000) throw ApiError.badRequest("A reply can be at most 2000 characters.");
+      ticket.messages.push({ sender: staffUser?.name || "Support team", senderRole: "staff", message: reply, time: new Date() });
+      // A reply means someone is on it; resolving stays a separate, deliberate step
+      if (data.status === undefined && ticket.status === "Open") ticket.status = "In Progress";
+    }
     if (data.status !== undefined) ticket.status = data.status;
     if (data.internalNotes !== undefined) ticket.internalNotes = String(data.internalNotes);
     await ticket.save();
@@ -611,33 +686,17 @@ export class AdminService {
       action: "support.ticket.update",
       module: "Customers",
       targetId: ticket.id,
-      details: `Ticket ${ticket.ticketNumber}: ${before} -> ${ticket.status}`,
+      details: `Ticket ${ticket.ticketNumber}: ${before} -> ${ticket.status}${reply ? " (reply sent)" : ""}`,
     });
     return ticket.toJSON();
   }
 
-  async deleteSubscriber(id, staffUser) {
-    const subscriber = await Subscriber.findByIdAndDelete(id);
-    if (!subscriber) throw ApiError.notFound("Subscriber not found");
-    await logAudit({
-      actorId: staffUser?._id,
-      actorName: staffUser?.name,
-      actorRole: staffUser?.roles?.[0]?.name || "Staff",
-      action: "support.subscriber.delete",
-      module: "Customers",
-      targetId: subscriber.id,
-      details: `Removed subscriber ${subscriber.email}`,
-    });
-    return { message: "Subscriber removed." };
-  }
-
-  /**
-   * Edit a staff account. Guards: you cannot suspend your own account, and the last active
-   * Super Admin cannot be demoted or suspended (that would lock everyone out of the admin).
-   */
   async updateAdminUser(id, data, staffUser) {
     const user = await User.findOne({ _id: id, isStaff: true }).populate("roles");
     if (!user) throw ApiError.notFound("Staff user not found");
+    if (user.isOwner) {
+      throw ApiError.forbidden("The owner account can only be changed by the owner, from Profile & Security.");
+    }
 
     const isSelf = String(user._id) === String(staffUser?._id);
     const wasSuperAdmin = user.roles.some((r) => r.name === ROLES.SUPER_ADMIN);
@@ -649,27 +708,28 @@ export class AdminService {
       throw ApiError.forbidden("You cannot deactivate your own account.");
     }
 
-    let newRole = null;
-    if (data.role !== undefined) {
-      newRole = await Role.findOne({ name: data.role });
-      if (!newRole) throw ApiError.badRequest("Unknown role.");
-    }
-
-    const demoted = wasSuperAdmin && newRole && newRole.name !== ROLES.SUPER_ADMIN;
     const suspended = wasSuperAdmin && data.status && data.status !== "active";
-    if (demoted || suspended) {
+    if (suspended) {
       const otherActive = await this._countOtherActiveSuperAdmins(user._id);
       if (otherActive === 0) throw ApiError.conflict("At least one active Super Admin is required.");
     }
 
     if (data.name !== undefined && String(data.name).trim()) user.name = String(data.name).trim();
-    if (data.phone !== undefined) user.phone = data.phone || undefined;
-    if (newRole) user.roles = [newRole._id];
-    if (data.status !== undefined) {
-      user.status = data.status;
-      if (data.status !== "active") user.refreshTokenHash = undefined; // end any open session
+    if (data.phone !== undefined) {
+      const phone = String(data.phone || "").trim();
+      if (phone && phone.replace(/\D/g, "").length < 10) throw ApiError.badRequest("Enter a valid phone number, or leave it blank.");
+      if (phone && phone !== user.phone && (await User.exists({ phone, _id: { $ne: user._id } }))) {
+        throw ApiError.conflict("This phone number is already used by another account.");
+      }
+      user.phone = phone || undefined;
     }
-    if (data.password) user.passwordHash = await hashPassword(data.password);
+    if (data.status !== undefined) {
+      if (data.status !== user.status && data.status !== "active") {
+        user.refreshTokenHash = undefined; // end any open session...
+        user.tokenVersion = (user.tokenVersion || 0) + 1; // ...including access tokens already issued
+      }
+      user.status = data.status;
+    }
     await user.save();
 
     await logAudit({
@@ -688,6 +748,9 @@ export class AdminService {
   async deleteAdminUser(id, staffUser) {
     const user = await User.findOne({ _id: id, isStaff: true }).populate("roles");
     if (!user) throw ApiError.notFound("Staff user not found");
+    if (user.isOwner) {
+      throw ApiError.forbidden("The owner account can only be changed by the owner, from Profile & Security.");
+    }
     if (String(user._id) === String(staffUser?._id)) throw ApiError.forbidden("You cannot delete your own account.");
     if (user.roles.some((r) => r.name === ROLES.SUPER_ADMIN)) {
       const otherActive = await this._countOtherActiveSuperAdmins(user._id);

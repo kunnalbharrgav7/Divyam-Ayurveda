@@ -1,29 +1,65 @@
 import React, { useState } from "react";
 import { Mail, Phone, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
+import { Link } from "react-router-dom";
 import { useStoreSettings } from "../hooks/useStoreSettings";
+import { useAuth } from "../context/AuthContext";
 
 export const ContactPage = () => {
   const { settings } = useStoreSettings();
+  const { user, authFetch } = useAuth();
+  const isCustomer = Boolean(user && !user.isStaff);
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
+    name: isCustomer ? user.name || "" : "",
+    email: isCustomer ? user.email || "" : "",
+    phone: isCustomer ? user.phone || "" : "",
     subject: "Product Inquiry",
     message: "",
+    website: "", // hidden spam trap: people never see it, bots fill it in
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (sending) return;
     if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
       setError("Please fill in all required fields.");
       return;
     }
+    if (formData.message.trim().length < 10) {
+      setError("Please write a little more so we can help (at least 10 characters).");
+      return;
+    }
     setError("");
-    setSubmitted(true);
+    setSending(true);
+    try {
+      // Saved on the server: it only shows the thank-you once the message is really stored
+      const res = await authFetch("/api/v1/contact", {
+        method: "POST",
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+          subject: formData.subject,
+          message: formData.message.trim(),
+          website: formData.website,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.success) {
+        setSubmitted(true);
+        return;
+      }
+      const detail = json?.error?.details?.[0]?.message;
+      setError(detail || json?.error?.message || "We couldn't send your message. Please try again in a moment.");
+    } catch {
+      setError("We couldn't reach the server. Please check your connection and try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -119,17 +155,23 @@ export const ContactPage = () => {
                   Thank You for Writing to Us!
                 </h3>
                 <p className="text-xs sm:text-sm text-[#666B64] max-w-md mx-auto leading-relaxed">
-                  Your message has been safely logged in our dispensary inbox. One of our Ayurvedic specialists will respond to <strong>{formData.email}</strong> within 24 business hours.
+                  Your message has reached our team. One of our Ayurvedic specialists will get back to <strong>{formData.email}</strong> within 24 business hours.
+                  {isCustomer && (
+                    <>
+                      {" "}You can read our reply any time in <Link to="/account/support" className="font-semibold text-[#173D2A] underline">My Account &rarr; Help &amp; Support</Link>.
+                    </>
+                  )}
                 </p>
                 <button
                   onClick={() => {
                     setSubmitted(false);
                     setFormData({
-                      name: "",
-                      email: "",
-                      phone: "",
+                      name: isCustomer ? user.name || "" : "",
+                      email: isCustomer ? user.email || "" : "",
+                      phone: isCustomer ? user.phone || "" : "",
                       subject: "Product Inquiry",
                       message: "",
+                      website: "",
                     });
                   }}
                   className="px-6 py-2.5 bg-[#173D2A] text-white text-xs font-semibold rounded-xl"
@@ -142,6 +184,11 @@ export const ContactPage = () => {
                 <h3 className="font-heading tracking-tight text-xl font-bold text-[#171A17] mb-2">
                   Send Us an Inquiry
                 </h3>
+                {isCustomer && (
+                  <p className="text-[#666B64] -mt-1 mb-1">
+                    Need help with an order? <Link to="/account/support" className="font-semibold text-[#173D2A] underline">Raise a support ticket</Link> and follow the replies in your account.
+                  </p>
+                )}
 
                 {error && (
                   <div className="p-3 bg-rose-50 text-rose-700 rounded-xl border border-rose-200">
@@ -225,11 +272,20 @@ export const ContactPage = () => {
                   />
                 </div>
 
+                {/* Spam trap: hidden from people, ignored by screen readers */}
+                <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
+                  <label>
+                    Leave this empty
+                    <input type="text" tabIndex={-1} autoComplete="off" value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} />
+                  </label>
+                </div>
+
                 <button
                   type="submit"
-                  className="px-8 py-3 bg-[#173D2A] hover:bg-[#0B2416] text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors"
+                  disabled={sending}
+                  className="px-8 py-3 bg-[#173D2A] hover:bg-[#0B2416] text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <span>Submit Message</span>
+                  <span>{sending ? "Sending..." : "Submit Message"}</span>
                   <Send size={14} />
                 </button>
               </form>

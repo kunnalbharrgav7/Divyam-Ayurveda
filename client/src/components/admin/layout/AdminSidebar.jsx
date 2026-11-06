@@ -18,12 +18,12 @@ import {
   BookOpen,
   Mail,
   LifeBuoy,
-  Send,
+
   BarChart3,
   ShieldCheck,
-  UserCheck,
   History,
   Settings,
+  UserCog,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -44,6 +44,8 @@ export const AdminSidebar = ({
     lowStockCount,
     pendingOrdersCount,
     pendingReviewsCount,
+    newEnquiriesCount,
+    openTicketsCount,
   } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
@@ -97,7 +99,7 @@ export const AdminSidebar = ({
     navigate("/login", { replace: true });
   };
 
-  const navGroups = [
+  const allNavGroups = [
     {
       group: "Overview",
       items: [
@@ -175,13 +177,20 @@ export const AdminSidebar = ({
     {
       group: "Communications",
       items: [
-        { label: "Contact Enquiries", to: "/admin/enquiries", icon: Mail },
+        {
+          label: "Contact Enquiries",
+          to: "/admin/enquiries",
+          icon: Mail,
+          badge: newEnquiriesCount > 0 ? newEnquiriesCount : null,
+          badgeVariant: "emerald",
+        },
         {
           label: "Support Tickets",
           to: "/admin/support-tickets",
           icon: LifeBuoy,
+          badge: openTicketsCount > 0 ? openTicketsCount : null,
+          badgeVariant: "amber",
         },
-        { label: "Subscribers", to: "/admin/subscribers", icon: Send },
       ],
     },
     {
@@ -193,16 +202,23 @@ export const AdminSidebar = ({
     {
       group: "Administration",
       items: [
-        { label: "Admin Staff", to: "/admin/users", icon: ShieldCheck },
-        { label: "Roles & Permissions", to: "/admin/roles", icon: UserCheck },
+        { label: "Admin Staff", to: "/admin/users", icon: ShieldCheck, ownerOnly: true },
         { label: "Audit Logs", to: "/admin/audit-logs", icon: History },
       ],
     },
     {
       group: "Configuration",
-      items: [{ label: "Settings", to: "/admin/settings", icon: Settings }],
+      items: [
+        { label: "Settings", to: "/admin/settings", icon: Settings },
+        { label: "Profile & Security", to: "/admin/profile", icon: UserCog },
+      ],
     },
   ];
+
+  // Team management belongs to the store owner only; everyone else does not see the entry
+  const navGroups = allNavGroups
+    .map((grp) => ({ ...grp, items: grp.items.filter((item) => !item.ownerOnly || adminUser?.isOwner) }))
+    .filter((grp) => grp.items.length > 0);
 
   return (
     <>

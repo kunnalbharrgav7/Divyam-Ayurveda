@@ -17,8 +17,36 @@ import v1Routes from "./routes/v1/index.js";
 import sitemapRoutes from "./routes/sitemap.routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const clientDistPath = path.resolve(__dirname, "../../client/dist");
-const hasClientBuild = fs.existsSync(clientDistPath) && fs.existsSync(path.join(clientDistPath, "index.html"));
+
+// Where the built storefront (index.html + assets) lives. The server serves it for every page address, so reloading
+// /login or opening a shared link works. Looked for, in order: CLIENT_DIST_PATH, the repo's client/dist, and a
+// public_html folder next to the app (shared hosting). Checked lazily, so uploading a new build needs no restart.
+const clientDistCandidates = () =>
+  [
+    process.env.CLIENT_DIST_PATH,
+    path.resolve(__dirname, "../../client/dist"),
+    path.resolve(process.cwd(), "../public_html"),
+    path.resolve(process.cwd(), "../../public_html"),
+  ]
+    .filter(Boolean)
+    .map((p) => path.resolve(p));
+
+let clientDistCache = { key: null, at: 0, dir: null };
+const findClientDist = () => {
+  const key = process.env.CLIENT_DIST_PATH || "";
+  if (clientDistCache.key === key && Date.now() - clientDistCache.at < 10000) return clientDistCache.dir;
+  const dir = clientDistCandidates().find((p) => fs.existsSync(path.join(p, "index.html"))) || null;
+  clientDistCache = { key, at: Date.now(), dir };
+  return dir;
+};
+
+const staticByDir = new Map();
+const serveClientStatic = (req, res, next) => {
+  const dir = findClientDist();
+  if (!dir) return next();
+  if (!staticByDir.has(dir)) staticByDir.set(dir, express.static(dir));
+  return staticByDir.get(dir)(req, res, next);
+};
 
 const app = express();
 
@@ -97,13 +125,12 @@ app.get("/ready", (req, res) => {
 });
 
 // Root handler: Serve React frontend if built, or API status JSON
-if (hasClientBuild) {
-  app.use(express.static(clientDistPath));
-}
+app.use(serveClientStatic);
 
 app.get("/", (req, res) => {
-  if (hasClientBuild) {
-    return res.sendFile(path.join(clientDistPath, "index.html"));
+  const clientDist = findClientDist();
+  if (clientDist) {
+    return res.sendFile(path.join(clientDist, "index.html"));
   }
   return res.status(200).json({
     success: true,
@@ -127,20 +154,22 @@ app.use("/api/v1/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 // 7. Mount Versioned API Routes (/api/v1)
 app.use("/api/v1", v1Routes);
 
-// SPA client fallback for non-API routes when client build exists
-if (hasClientBuild) {
-  app.use((req, res, next) => {
-    if (
-      req.method !== "GET" ||
-      req.originalUrl.startsWith("/api") ||
-      req.originalUrl.startsWith("/health") ||
-      req.originalUrl.startsWith("/ready")
-    ) {
-      return next();
-    }
-    return res.sendFile(path.join(clientDistPath, "index.html"));
-  });
-}
+// SPA client fallback: any other page address gets the storefront, and the React router shows the right page.
+// API calls, health checks and anything that looks like a missing file (a stale script or image) still get a real 404.
+app.use((req, res, next) => {
+  const clientDist = findClientDist();
+  if (
+    !clientDist ||
+    req.method !== "GET" ||
+    req.originalUrl.startsWith("/api") ||
+    req.originalUrl.startsWith("/health") ||
+    req.originalUrl.startsWith("/ready") ||
+    /\.[a-z0-9]{1,8}$/i.test(req.path)
+  ) {
+    return next();
+  }
+  return res.sendFile(path.join(clientDist, "index.html"));
+});
 
 // 8. 404 Catch-All Handler
 app.use((req, res) => {

@@ -25,7 +25,6 @@ export const PERMISSIONS = {
   // Analytics & Admin Governance
   REPORTS_VIEW: "reports.view",
   USERS_MANAGE: "users.manage",
-  ROLES_MANAGE: "roles.manage",
   SETTINGS_MANAGE: "settings.manage",
   AUDIT_VIEW: "audit.view",
 };

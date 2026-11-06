@@ -2,15 +2,24 @@ import { Router } from "express";
 import * as adminController from "../../controllers/admin.controller.js";
 import * as returnController from "../../controllers/return.controller.js";
 import { authenticate, requireStaff } from "../../middleware/auth.js";
-import { requirePermission } from "../../middleware/rbac.js";
+import { requirePermission, requirePasswordChanged, requireOwner } from "../../middleware/rbac.js";
 import { PERMISSIONS } from "../../constants/permissions.js";
 import { requireIdempotency } from "../../middleware/idempotency.js";
 import { auditAdminMutations } from "../../middleware/auditContext.js";
+import * as authController from "../../controllers/auth.controller.js";
+import { validate } from "../../middleware/validate.js";
+import { credentialLimiter } from "../../middleware/rateLimiter.js";
+import { adminChangeEmailSchema, adminChangePasswordSchema } from "../../validators/auth.validator.js";
 
 const router = Router();
 
 // Staff authentication guard for all admin routes
-router.use(authenticate, requireStaff, auditAdminMutations);
+router.use(authenticate, requireStaff, requirePasswordChanged, auditAdminMutations);
+
+// The signed-in staff member's own profile and sign-in credentials (any staff role may manage their own)
+router.get("/profile", authController.getAdminProfile);
+router.patch("/profile/email", credentialLimiter, validate(adminChangeEmailSchema), authController.updateAdminEmail);
+router.patch("/profile/password", credentialLimiter, validate(adminChangePasswordSchema), authController.updateAdminPassword);
 
 // Dashboard & Analytics
 router.get("/dashboard", requirePermission(PERMISSIONS.REPORTS_VIEW), adminController.getDashboard);
@@ -95,10 +104,8 @@ router.delete("/reviews/:id", requirePermission(PERMISSIONS.REVIEWS_MODERATE), a
 // Customer Support & Communications
 router.get("/enquiries", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.listEnquiries);
 router.get("/support-tickets", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.listSupportTickets);
-router.get("/subscribers", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.listSubscribers);
 router.patch("/enquiries/:id", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.updateEnquiry);
 router.patch("/support-tickets/:id", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.updateSupportTicket);
-router.delete("/subscribers/:id", requirePermission(PERMISSIONS.SUPPORT_MANAGE), adminController.deleteSubscriber);
 
 // Storefront Content & Settings
 router.get("/homepage", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.getHomepageAdmin);
@@ -116,16 +123,16 @@ router.delete("/blog/:id", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminC
 router.get("/settings", requirePermission(PERMISSIONS.SETTINGS_MANAGE), adminController.getSettings);
 router.patch("/settings", requirePermission(PERMISSIONS.SETTINGS_MANAGE), adminController.updateSettings);
 
-// Users, Roles & Governance
+// Customers & Staff
 router.get("/customers", requirePermission(PERMISSIONS.CUSTOMERS_VIEW), adminController.listCustomers);
 router.get("/customers/:id", requirePermission(PERMISSIONS.CUSTOMERS_VIEW), adminController.getCustomer);
 router.patch("/customers/:id", requirePermission(PERMISSIONS.CUSTOMERS_MANAGE), adminController.updateCustomerStatus);
 router.post("/customers/:id/notes", requirePermission(PERMISSIONS.CUSTOMERS_MANAGE), adminController.addCustomerNote);
-router.get("/users", requirePermission(PERMISSIONS.USERS_MANAGE), adminController.listAdminUsers);
-router.post("/users", requirePermission(PERMISSIONS.USERS_MANAGE), adminController.createAdminUser);
-router.patch("/users/:id", requirePermission(PERMISSIONS.USERS_MANAGE), adminController.updateAdminUser);
-router.delete("/users/:id", requirePermission(PERMISSIONS.USERS_MANAGE), adminController.deleteAdminUser);
-router.get("/roles", requirePermission(PERMISSIONS.ROLES_MANAGE), adminController.listRoles);
+router.get("/users", requireOwner, requirePermission(PERMISSIONS.USERS_MANAGE), adminController.listAdminUsers);
+router.post("/users", requireOwner, requirePermission(PERMISSIONS.USERS_MANAGE), adminController.createAdminUser);
+router.patch("/users/:id", requireOwner, requirePermission(PERMISSIONS.USERS_MANAGE), adminController.updateAdminUser);
+router.delete("/users/:id", requireOwner, requirePermission(PERMISSIONS.USERS_MANAGE), adminController.deleteAdminUser);
+router.post("/users/:id/reset-password", credentialLimiter, requireOwner, requirePermission(PERMISSIONS.USERS_MANAGE), adminController.resetAdminUserPassword);
 router.get("/audit-logs", requirePermission(PERMISSIONS.AUDIT_VIEW), adminController.listAuditLogs);
 
 export default router;

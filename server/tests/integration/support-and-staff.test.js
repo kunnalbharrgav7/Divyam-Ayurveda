@@ -5,7 +5,6 @@ import { User } from "../../src/models/User.js";
 import { Role } from "../../src/models/Role.js";
 import { ContactEnquiry } from "../../src/models/ContactEnquiry.js";
 import { SupportTicket } from "../../src/models/SupportTicket.js";
-import { Subscriber } from "../../src/models/Subscriber.js";
 import { ROLES } from "../../src/constants/roles.js";
 import { ALL_PERMISSIONS } from "../../src/constants/permissions.js";
 import { generateAccessToken } from "../../src/utils/token.js";
@@ -15,14 +14,15 @@ describe("Support inbox and staff account management", () => {
   let superRole;
   let admin;
   let adminToken;
-  const created = { users: [], enquiries: [], tickets: [], subscribers: [] };
+  const created = { users: [], enquiries: [], tickets: [], };
 
-  const makeStaff = async (label, status = "active") => {
+  const makeStaff = async (label, status = "active", isOwner = false) => {
     const user = await User.create({
       name: `Staff ${label}`,
       email: `staff.${label}.${stamp}@example.test`,
       passwordHash: "testHash123",
       isStaff: true,
+      isOwner,
       roles: [superRole._id],
       status,
     });
@@ -34,7 +34,7 @@ describe("Support inbox and staff account management", () => {
     superRole =
       (await Role.findOne({ name: ROLES.SUPER_ADMIN })) ||
       (await Role.create({ name: ROLES.SUPER_ADMIN, description: "All permissions", permissions: ALL_PERMISSIONS }));
-    admin = await makeStaff("actor");
+    admin = await makeStaff("actor", "active", true);
     adminToken = generateAccessToken({ id: admin._id, email: admin.email, isStaff: true });
   });
 
@@ -42,7 +42,6 @@ describe("Support inbox and staff account management", () => {
     await User.deleteMany({ _id: { $in: created.users } });
     await ContactEnquiry.deleteMany({ _id: { $in: created.enquiries } });
     await SupportTicket.deleteMany({ _id: { $in: created.tickets } });
-    await Subscriber.deleteMany({ _id: { $in: created.subscribers } });
   });
 
   const auth = (req) => req.set("Authorization", `Bearer ${adminToken}`);
@@ -85,14 +84,6 @@ describe("Support inbox and staff account management", () => {
     expect(saved.internalNotes).toBe("Refunded");
   });
 
-  it("deletes a subscriber and returns 404 the second time", async () => {
-    const sub = await Subscriber.create({ email: `sub.${stamp}@example.test` });
-    created.subscribers.push(sub._id);
-    expect((await auth(request(app).delete(`/api/v1/admin/subscribers/${sub.id}`))).status).toBe(200);
-    expect(await Subscriber.findById(sub._id)).toBeNull();
-    expect((await auth(request(app).delete(`/api/v1/admin/subscribers/${sub.id}`))).status).toBe(404);
-  });
-
   it("updates a staff user's name and status", async () => {
     const target = await makeStaff("target");
     const res = await auth(request(app).patch(`/api/v1/admin/users/${target.id}`)).send({ name: "Renamed Staff", status: "suspended" });
@@ -113,14 +104,7 @@ describe("Support inbox and staff account management", () => {
     expect(await User.findById(target._id)).toBeNull();
   });
 
-  it("rejects an unknown role", async () => {
-    const target = await makeStaff("badrole");
-    const res = await auth(request(app).patch(`/api/v1/admin/users/${target.id}`)).send({ role: "No Such Role" });
-    expect(res.status).toBe(400);
-  });
-
   it("blocks these routes without a token", async () => {
     expect((await request(app).patch("/api/v1/admin/users/abc")).status).toBe(401);
-    expect((await request(app).delete("/api/v1/admin/subscribers/abc")).status).toBe(401);
-  });
+      });
 });

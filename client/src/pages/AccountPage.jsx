@@ -18,12 +18,14 @@ import {
   Star,
   Gift,
   RotateCcw,
+  LifeBuoy,
 } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { useAuth } from "../context/AuthContext";
 import { useOrders } from "../context/OrderContext";
 import { useReturns } from "../context/ReturnContext";
 import { ReturnRequestModal } from "../components/returns/ReturnRequestModal";
+import { MySupportPanel } from "../components/support/MySupportPanel";
 import { MyReturnsPanel, RETURN_STATUS_LABEL, RETURN_STATUS_STYLE } from "../components/returns/MyReturnsPanel";
 import { formatINR, formatDate } from "../utils/formatters";
 import { ReferralLinkCard } from "../components/referrals/ReferralLinkCard";
@@ -47,6 +49,7 @@ export const AccountPage = () => {
   const getInitialTab = () => {
     if (location.pathname.includes("/referrals") || location.search.includes("tab=referrals")) return "referrals";
     if (location.pathname.includes("/returns") || location.search.includes("tab=returns")) return "returns";
+    if (location.pathname.includes("/support") || location.search.includes("tab=support")) return "support";
     if (location.pathname.includes("/orders")) return "orders";
     if (location.pathname.includes("/addresses")) return "addresses";
     if (location.pathname.includes("/profile")) return "profile";
@@ -182,6 +185,7 @@ export const AccountPage = () => {
               { id: "overview", label: "Dashboard Overview", icon: ShieldCheck },
               { id: "orders", label: ordersPending ? "My Orders" : `My Orders (${orders.length})`, icon: Package },
               { id: "returns", label: `Returns & Refunds${returns.length ? ` (${returns.length})` : ""}`, icon: RotateCcw },
+              { id: "support", label: "Help & Support", icon: LifeBuoy },
               { id: "referrals", label: "Refer & Earn (Rewards)", icon: Gift },
               { id: "addresses", label: `Saved Addresses (${addresses.length})`, icon: MapPin },
               { id: "profile", label: "Profile Settings", icon: Settings },
@@ -452,12 +456,20 @@ export const AccountPage = () => {
                         </div>
 
                         <div className="pt-2 flex items-center justify-between">
-                          <Link
-                            to={`/track-order?orderId=${ord.id}`}
-                            className="text-xs font-semibold text-[#386B40] hover:underline"
-                          >
-                            Track Shipment &rarr;
-                          </Link>
+                          <div className="flex items-center gap-4">
+                            <Link
+                              to={`/track-order?orderId=${ord.id}`}
+                              className="text-xs font-semibold text-[#386B40] hover:underline"
+                            >
+                              Track Shipment &rarr;
+                            </Link>
+                            <Link
+                              to={`/account/support?order=${encodeURIComponent(ord.orderNumber || ord.id)}`}
+                              className="text-xs font-semibold text-stone-500 hover:text-[#173D2A] hover:underline"
+                            >
+                              Need help?
+                            </Link>
+                          </div>
                           <div className="flex items-center gap-2">
                             {(() => {
                               const ret = getReturnForOrder(ord.id);
@@ -505,6 +517,9 @@ export const AccountPage = () => {
 
             {/* RETURNS TAB */}
             {activeTab === "returns" && <MyReturnsPanel />}
+
+            {/* SUPPORT TAB */}
+            {activeTab === "support" && <MySupportPanel orders={orders} />}
 
             {/* 3. ADDRESSES TAB */}
             {activeTab === "addresses" && (

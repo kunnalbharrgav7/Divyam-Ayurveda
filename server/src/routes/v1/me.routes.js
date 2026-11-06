@@ -5,7 +5,10 @@ import * as authController from "../../controllers/auth.controller.js";
 import * as orderController from "../../controllers/order.controller.js";
 import * as cartController from "../../controllers/cart.controller.js";
 import * as returnController from "../../controllers/return.controller.js";
+import * as contentController from "../../controllers/content.controller.js";
+import { ticketLimiter } from "../../middleware/rateLimiter.js";
 import { addressSchema, changePasswordSchema } from "../../validators/auth.validator.js";
+import { ticketCreateSchema, ticketMessageSchema } from "../../validators/support.validator.js";
 
 const router = Router();
 
@@ -22,6 +25,15 @@ router.post("/addresses", validate(addressSchema), authController.addAddress);
 router.patch("/addresses/:addressId", authController.updateAddress);
 router.delete("/addresses/:addressId", authController.deleteAddress);
 router.patch("/addresses/:addressId/default", authController.setDefaultAddress);
+
+// Contact Us messages sent while signed in, with the team's replies
+router.get("/enquiries", contentController.listMyEnquiries);
+
+// Support tickets: customers see and write to their own only
+router.get("/tickets", contentController.listMyTickets);
+router.post("/tickets", ticketLimiter, validate(ticketCreateSchema), contentController.createMyTicket);
+router.get("/tickets/:ticketNumber", contentController.getMyTicket);
+router.post("/tickets/:ticketNumber/messages", ticketLimiter, validate(ticketMessageSchema), contentController.addMyTicketMessage);
 
 // Customer Reviews
 router.get("/reviews", orderController.getMyReviews);

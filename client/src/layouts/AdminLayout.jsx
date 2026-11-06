@@ -7,7 +7,7 @@ import { AdminHeader } from "../components/admin/layout/AdminHeader";
 import { PageSkeleton } from "../components/common/Skeleton";
 
 export const AdminLayout = () => {
-  const { isAdmin, adminUser } = useAuth();
+  const { isAdmin, adminUser, syncStaffFlags } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
@@ -18,9 +18,21 @@ export const AdminLayout = () => {
     if (isAdmin) loadAdminData();
   }, [isAdmin, loadAdminData]);
 
+  // Pick up owner / temporary-password changes made since this browser last signed in
+  useEffect(() => {
+    if (isAdmin) syncStaffFlags();
+    // once per admin visit; syncStaffFlags changes identity on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
   // If not logged in as admin, redirect to unified login
   if (!isAdmin || !adminUser) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  }
+
+  // A new or reset account has only a temporary password: nothing else in the admin works until it is replaced
+  if (adminUser.mustChangePassword && location.pathname !== "/admin/profile") {
+    return <Navigate to="/admin/profile" replace />;
   }
 
   return (

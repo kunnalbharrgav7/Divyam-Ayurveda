@@ -38,17 +38,29 @@ export const getTestimonials = asyncHandler(async (req, res) => {
 });
 
 export const submitContact = asyncHandler(async (req, res) => {
-  const enquiry = await contentService.submitContact(req.body);
+  // A filled-in hidden field means a bot: answer as if it worked, store nothing
+  if (req.body.website) return sendSuccess(res, { id: "received", status: "New" }, undefined, 201);
+  const enquiry = await contentService.submitContact(req.body, req.user || null);
   return sendSuccess(res, enquiry, undefined, 201);
 });
 
-export const submitSupportTicket = asyncHandler(async (req, res) => {
-  const ticket = await contentService.submitSupportTicket(req.body, req.user || null);
-  return sendSuccess(res, ticket, undefined, 201);
+export const listMyEnquiries = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await contentService.listMyEnquiries(req.user));
 });
 
-export const subscribeNewsletter = asyncHandler(async (req, res) => {
-  const result = await contentService.subscribeNewsletter(req.body.email);
-  return sendSuccess(res, result);
+export const createMyTicket = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await contentService.createTicket(req.user, req.body), undefined, 201);
+});
+
+export const listMyTickets = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await contentService.listMyTickets(req.user));
+});
+
+export const getMyTicket = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await contentService.getMyTicket(req.user, req.params.ticketNumber));
+});
+
+export const addMyTicketMessage = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await contentService.addMyTicketMessage(req.user, req.params.ticketNumber, req.body.message), undefined, 201);
 });
 

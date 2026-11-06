@@ -12,14 +12,12 @@ import { Collection } from "../models/Collection.js";
 import { Ingredient } from "../models/Ingredient.js";
 import { Order } from "../models/Order.js";
 import { User } from "../models/User.js";
-import { Role } from "../models/Role.js";
 import { Coupon } from "../models/Coupon.js";
 import { Review } from "../models/Review.js";
 import { ReturnRequest } from "../models/ReturnRequest.js";
 import { Refund } from "../models/Refund.js";
 import { SupportTicket } from "../models/SupportTicket.js";
 import { ContactEnquiry } from "../models/ContactEnquiry.js";
-import { Subscriber } from "../models/Subscriber.js";
 import { StoreSettings } from "../models/StoreSettings.js";
 import { HomepageConfig } from "../models/HomepageConfig.js";
 import { Faq } from "../models/Faq.js";
@@ -655,7 +653,7 @@ export const deleteReview = asyncHandler(async (req, res) => {
   return sendSuccess(res, { message: "Review deleted" });
 });
 
-// Enquiries, Tickets, Subscribers
+// Enquiries and tickets
 export const listEnquiries = asyncHandler(async (req, res) => {
   const enquiries = await ContactEnquiry.find().sort({ createdAt: -1 });
   return sendSuccess(res, enquiries);
@@ -666,21 +664,12 @@ export const listSupportTickets = asyncHandler(async (req, res) => {
   return sendSuccess(res, tickets);
 });
 
-export const listSubscribers = asyncHandler(async (req, res) => {
-  const subscribers = await Subscriber.find().sort({ createdAt: -1 });
-  return sendSuccess(res, subscribers);
-});
-
 export const updateEnquiry = asyncHandler(async (req, res) => {
   return sendSuccess(res, await adminService.updateEnquiry(req.params.id, req.body, req.user));
 });
 
 export const updateSupportTicket = asyncHandler(async (req, res) => {
   return sendSuccess(res, await adminService.updateSupportTicket(req.params.id, req.body, req.user));
-});
-
-export const deleteSubscriber = asyncHandler(async (req, res) => {
-  return sendSuccess(res, await adminService.deleteSubscriber(req.params.id, req.user));
 });
 
 // Customers & Users
@@ -719,9 +708,8 @@ export const deleteAdminUser = asyncHandler(async (req, res) => {
   return sendSuccess(res, await adminService.deleteAdminUser(req.params.id, req.user));
 });
 
-export const listRoles = asyncHandler(async (req, res) => {
-  const roles = await Role.find();
-  return sendSuccess(res, roles);
+export const resetAdminUserPassword = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await adminService.resetAdminUserPassword(req.params.id, req.user));
 });
 
 // Store Settings & Homepage

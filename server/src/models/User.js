@@ -117,6 +117,27 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Raised whenever the email or password changes. Tokens carry the version they were issued under, so every
+    // token issued before the change stops working at once (access tokens included, not only refresh tokens).
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
+    // The one account that owns the store: only it can manage the team, and nobody can edit, reset or remove it
+    // except itself, through Profile & Security. Set by create-admin / set-owner, never through the API.
+    isOwner: {
+      type: Boolean,
+      default: false,
+    },
+    // New and reset staff accounts start with a temporary password; they must choose their own before using the admin
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
+    },
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -128,6 +149,7 @@ const userSchema = new mongoose.Schema(
         delete ret.__v;
         delete ret.passwordHash;
         delete ret.refreshTokenHash;
+        delete ret.tokenVersion;
         delete ret.adminNotes;
         ret.storeCredit = Number(((ret.storeCreditPaise || 0) / 100).toFixed(2));
         return ret;

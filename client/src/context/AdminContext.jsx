@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { storage } from "../utils/storage";
 import { compactProduct } from "../utils/productSnapshot";
 import { getStatusLabel } from "../utils/orderStatus";
-import { ROLE_DEFINITIONS } from "../data/adminUsers";
 import { apiUrl } from "../config/api";
 import { invalidateCache } from "../services/requestCache";
 import { refreshStoreSettings } from "../hooks/useStoreSettings";
@@ -13,15 +12,12 @@ import {
 
 const AdminContext = createContext();
 
-// The server stores staff with role documents and lowercase status; the admin screens use a role name,
-// "Active"/"Inactive" labels and a readable last-login time.
+// The server stores staff with lowercase status; the admin screens use "Active"/"Inactive" labels and a readable
+// last-login time. Everyone on the team is a full administrator, so there is no role to show.
 const normalizeAdminUser = (u) => {
-  const roleName = u.roles?.[0]?.name || u.roleName || u.role || "Staff";
   const statusLabels = { active: "Active", suspended: "Inactive", pending: "Pending" };
   return {
     ...u,
-    role: roleName,
-    roleName,
     status: statusLabels[u.status] || u.status || "Active",
     lastLogin: u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("en-IN") : "Never",
   };
@@ -57,7 +53,6 @@ export const STORAGE_KEYS = {
   INGREDIENTS: "divyam_ayurveda_ingredients",
   SUPPORT: "divyam_ayurveda_support",
   ENQUIRIES: "divyam_ayurveda_enquiries",
-  SUBSCRIBERS: "divyam_ayurveda_subscribers",
   ADMIN_USERS: "divyam_ayurveda_admin_users",
   SETTINGS: "divyam_ayurveda_settings",
   AUDIT: "divyam_ayurveda_audit",
@@ -399,14 +394,6 @@ export const AdminProvider = ({ children }) => {
   useEffect(() => {
     storage.setDebounced(STORAGE_KEYS.ENQUIRIES, contactEnquiries);
   }, [contactEnquiries]);
-
-  // 13. Subscribers
-  const [subscribers, setSubscribers] = useState(() =>
-    storage.get(STORAGE_KEYS.SUBSCRIBERS, [])
-  );
-  useEffect(() => {
-    storage.setDebounced(STORAGE_KEYS.SUBSCRIBERS, subscribers);
-  }, [subscribers]);
 
   // 14. Admin Users
   const [adminUsers, setAdminUsers] = useState(() =>
@@ -795,27 +782,6 @@ export const AdminProvider = ({ children }) => {
     }
   };
 
-  const fetchAdminSubscribers = async () => {
-    try {
-      const { headers, isStaff } = getAdminAuth();
-      if (!isStaff) return;
-      const res = await fetch("/api/v1/admin/subscribers", {
-        headers,
-        credentials: "include",
-      });
-      if (!res.ok) markAdminLoadFailed("subscribers");
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setSubscribers(json.data);
-          storage.set(STORAGE_KEYS.SUBSCRIBERS, json.data);
-        }
-      }
-    } catch (_) {
-      markAdminLoadFailed("subscribers");
-    }
-  };
-
   const fetchAdminUsers = async () => {
     try {
       const { headers, isStaff } = getAdminAuth();
@@ -976,7 +942,6 @@ export const AdminProvider = ({ children }) => {
     customers: fetchAdminCustomers,
     enquiries: fetchAdminEnquiries,
     supportTickets: fetchAdminSupportTickets,
-    subscribers: fetchAdminSubscribers,
     users: fetchAdminUsers,
     auditLogs: fetchAdminAuditLogs,
     returns: fetchAdminReturns,
@@ -1757,39 +1722,36 @@ export const AdminProvider = ({ children }) => {
   // ================= SUPPORT & ENQUIRIES =================
   // Support inbox changes are saved on the server, then the list is re-read so it always matches the database.
   // These throw on failure so the page can tell the admin the change was not saved.
-  const updateEnquiryStatus = async (id, status, notes) => {
-    await adminApiFetch(`/api/v1/admin/enquiries/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status, ...(notes !== undefined && { adminNotes: notes }) }),
-    });
+  // fields: { status?, reply?, adminNotes? }. A reply is saved on the enquiry; the team then contacts the person
+  // by email or phone (nothing is emailed from here).
+  const updateEnquiry = async (id, fields) => {
+    await adminApiFetch(`/api/v1/admin/enquiries/${id}`, { method: "PATCH", body: JSON.stringify(fields) });
     await refreshAdminData(["enquiries"]);
   };
 
-  const updateTicketStatus = async (id, status, notes) => {
-    await adminApiFetch(`/api/v1/admin/support-tickets/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status, ...(notes !== undefined && { internalNotes: notes }) }),
-    });
+  // fields: { status?, reply?, internalNotes? }. A reply is added to the ticket's conversation, which the customer
+  // reads under My Account > Support.
+  const updateTicket = async (id, fields) => {
+    await adminApiFetch(`/api/v1/admin/support-tickets/${id}`, { method: "PATCH", body: JSON.stringify(fields) });
     await refreshAdminData(["supportTickets"]);
   };
 
   // ================= ADMIN USERS & ROLES =================
   // Staff accounts live in the database. Each change is saved on the server, then the list is re-read.
-  // These throw on failure (duplicate email, last Super Admin, own account...) so the page can show why.
-  const roleNameFor = (userData) => userData.roleName || ROLE_DEFINITIONS[userData.role]?.name || userData.role;
-
+  // These throw on failure (duplicate email, last administrator, own account...) so the page can show why.
+  // Adding or resetting returns the temporary password, shown to the admin once and never kept.
   const addAdminUser = async (userData) => {
-    await adminApiFetch("/api/v1/admin/users", {
+    const res = await adminApiFetch("/api/v1/admin/users", {
       method: "POST",
       body: JSON.stringify({
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
-        role: roleNameFor(userData),
         ...(userData.password && { password: userData.password }),
       }),
     });
     await refreshAdminData(["users"]);
+    return { email: res.data?.email, temporaryPassword: res.data?.temporaryPassword };
   };
 
   const updateAdminUser = async (id, data) => {
@@ -1798,12 +1760,16 @@ export const AdminProvider = ({ children }) => {
       body: JSON.stringify({
         name: data.name,
         phone: data.phone,
-        role: roleNameFor(data),
         status: adminStatusToServer(data.status),
-        ...(data.password && { password: data.password }),
       }),
     });
     await refreshAdminData(["users"]);
+  };
+
+  const resetAdminUserPassword = async (id) => {
+    const res = await adminApiFetch(`/api/v1/admin/users/${id}/reset-password`, { method: "POST" });
+    await refreshAdminData(["users"]);
+    return { email: res.data?.email, temporaryPassword: res.data?.temporaryPassword };
   };
 
   const deleteAdminUser = async (id) => {
@@ -1826,7 +1792,6 @@ export const AdminProvider = ({ children }) => {
     setIngredients([]);
     setSupportTickets([]);
     setContactEnquiries([]);
-    setSubscribers([]);
     setAdminUsers([]);
     setAuditLogs([]);
 
@@ -1843,7 +1808,6 @@ export const AdminProvider = ({ children }) => {
     storage.set(STORAGE_KEYS.INGREDIENTS, []);
     storage.set(STORAGE_KEYS.SUPPORT, []);
     storage.set(STORAGE_KEYS.ENQUIRIES, []);
-    storage.set(STORAGE_KEYS.SUBSCRIBERS, []);
     storage.set(STORAGE_KEYS.ADMIN_USERS, []);
     storage.set(STORAGE_KEYS.AUDIT, []);
 
@@ -1861,7 +1825,6 @@ export const AdminProvider = ({ children }) => {
       fetchAdminCustomers();
       fetchAdminEnquiries();
       fetchAdminSupportTickets();
-      fetchAdminSubscribers();
       fetchAdminUsers();
       fetchAdminAuditLogs();
       fetchAdminSettings();
@@ -1898,12 +1861,9 @@ export const AdminProvider = ({ children }) => {
   const pendingReviewsCount = reviews.filter(
     (r) => (r.status || "").toLowerCase() === "pending"
   ).length;
-  const openTicketsCount = supportTickets.filter(
-    (t) =>
-      (t.status || "").toLowerCase() === "new" ||
-      (t.status || "").toLowerCase() === "in_progress" ||
-      (t.status || "").toLowerCase() === "open"
-  ).length;
+  // Tickets still waiting on the team: Open (nobody has answered) and In Progress
+  const openTicketsCount = supportTickets.filter((t) => ["open", "in progress"].includes((t.status || "").toLowerCase())).length;
+  const newEnquiriesCount = contactEnquiries.filter((e) => (e.status || "").toLowerCase() === "new").length;
 
   const kpis = {
     totalRevenue,
@@ -2026,11 +1986,6 @@ export const AdminProvider = ({ children }) => {
     return json.data;
   };
 
-  const deleteSubscriber = async (id) => {
-    await adminApiFetch(`/api/v1/admin/subscribers/${id}`, { method: "DELETE" });
-    await refreshAdminData(["subscribers"]);
-  };
-
   return (
     <AdminContext.Provider
       value={{
@@ -2048,9 +2003,7 @@ export const AdminProvider = ({ children }) => {
         supportTickets,
         contactEnquiries,
         enquiries: contactEnquiries,
-        subscribers,
         adminUsers,
-        roles: ROLE_DEFINITIONS,
         storeSettings,
         auditLogs,
         returns,
@@ -2128,7 +2081,6 @@ export const AdminProvider = ({ children }) => {
         fetchAdminCustomers,
         fetchAdminEnquiries,
         fetchAdminSupportTickets,
-        fetchAdminSubscribers,
         fetchAdminUsers,
         fetchAdminAuditLogs,
         fetchAdminSettings,
@@ -2171,14 +2123,15 @@ export const AdminProvider = ({ children }) => {
         saveBlogPost,
         deleteBlogPost,
 
-        updateEnquiryStatus,
-        updateTicketStatus,
-        deleteSubscriber,
+        updateEnquiry,
+        updateTicket,
+        newEnquiriesCount,
 
         addAdminUser,
         updateAdminUser,
         saveAdminUser,
         deleteAdminUser,
+        resetAdminUserPassword,
 
         saveStoreSettings,
         resetDemoData,

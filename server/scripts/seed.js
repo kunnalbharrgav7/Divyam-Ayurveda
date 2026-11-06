@@ -41,6 +41,12 @@ import {
 } from "../../client/src/data/storeSettings.js";
 
 const runSeed = async () => {
+  // Demo data comes with a known admin password: it must never be written to a production database
+  if (process.env.NODE_ENV === "production") {
+    logger.fatal("Seeding is disabled when NODE_ENV=production. It creates demo data and a demo admin with a published password.");
+    process.exit(1);
+  }
+
   const isAtlas =
     (config.MONGODB_URI || "").includes("mongodb+srv") ||
     (config.MONGODB_URI || "").includes(".mongodb.net");

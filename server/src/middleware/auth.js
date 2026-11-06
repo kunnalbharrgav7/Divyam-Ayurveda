@@ -24,6 +24,11 @@ export const authenticate = asyncHandler(async (req, res, next) => {
     throw ApiError.unauthorized("User account associated with this token no longer exists.");
   }
 
+  // A token issued before the last email/password change (or from before sessions were versioned: no "tv") is dead
+  if ((decoded.tv ?? 0) !== (user.tokenVersion ?? 0)) {
+    throw ApiError.unauthorized("Your session has ended. Please sign in again.");
+  }
+
   if (user.status !== "active") {
     throw ApiError.forbidden("This account is currently suspended or inactive.");
   }
@@ -54,7 +59,7 @@ export const optionalAuthenticate = asyncHandler(async (req, res, next) => {
   try {
     const decoded = verifyAccessToken(token);
     const user = await User.findById(decoded.id).populate("roles");
-    if (user && user.status === "active") {
+    if (user && user.status === "active" && (decoded.tv ?? 0) === (user.tokenVersion ?? 0)) {
       req.user = user;
     } else {
       req.user = null;

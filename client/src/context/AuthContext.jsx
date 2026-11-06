@@ -289,6 +289,25 @@ export const AuthProvider = ({ children }) => {
     setUser((prev) => ({ ...prev, name: saved.name ?? prev.name, phone: saved.phone ?? prev.phone }));
   };
 
+  // The owner / temporary-password flags come from the server. A session saved before they existed (or changed
+  // since sign-in) is brought up to date here, without making anyone sign in again.
+  const syncStaffFlags = async () => {
+    if (!hasBackendSession) return;
+    try {
+      const res = await authFetch("/api/v1/admin/profile");
+      if (!res.ok) return;
+      const flags = (await res.json())?.data;
+      if (!flags) return;
+      setUser((prev) =>
+        prev && (prev.isOwner !== flags.isOwner || prev.mustChangePassword !== flags.mustChangePassword)
+          ? { ...prev, isOwner: Boolean(flags.isOwner), mustChangePassword: Boolean(flags.mustChangePassword) }
+          : prev
+      );
+    } catch {
+      /* offline: keep what we have */
+    }
+  };
+
   const addAddress = async (newAddr) => {
     if (!hasBackendSession) {
       const created = {
@@ -350,6 +369,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         updateProfile,
+        syncStaffFlags,
         authFetch,
         hasBackendSession,
 

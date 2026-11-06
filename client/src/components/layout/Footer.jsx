@@ -1,51 +1,12 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { ScrollReveal } from "../../animations/useScrollReveal";
-import { apiUrl } from "../../config/api";
 
 export const Footer = () => {
-  const [email, setEmail] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleNewsletterSubmit = async (e) => {
-    e.preventDefault();
-    if (!email || !email.includes("@") || !email.includes(".")) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-    setError("");
-    setLoading(true);
-    try {
-      const res = await fetch(apiUrl("/api/v1/newsletter/subscriptions"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSubscribed(true);
-        setEmail("");
-      } else {
-        setError(
-          data.error?.message || "Subscription failed. Please try again.",
-        );
-      }
-    } catch (_) {
-      // Graceful fallback
-      setSubscribed(true);
-      setEmail("");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <footer className="bg-[#0B2416] text-white pt-16 pb-8 border-t border-emerald-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-8 pb-12 border-b border-emerald-900/60">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8 pb-12 border-b border-emerald-900/60">
           {/* Col 1 & 2: Brand Information */}
           <ScrollReveal
             yOffset={16}
@@ -260,62 +221,6 @@ export const Footer = () => {
             </ul>
           </ScrollReveal>
 
-          {/* Col 5: Newsletter Subscription */}
-          <ScrollReveal
-            delay={150}
-            yOffset={16}
-            duration={500}
-            className="space-y-3"
-          >
-            <h4 className="text-sm font-semibold tracking-wider text-white uppercase">
-              Newsletter
-            </h4>
-            <p className="text-xs text-stone-300 leading-relaxed">
-              Get exclusive herbal offers, seasonal health tips, and Ayurvedic
-              lifestyle guides.
-            </p>
-
-            {subscribed ? (
-              <div className="p-3 bg-emerald-950/80 border border-emerald-700/60 rounded-xl text-emerald-200 text-xs flex items-start gap-2 animate-in fade-in duration-200">
-                <CheckCircle2
-                  size={16}
-                  className="text-emerald-400 shrink-0 mt-0.5"
-                />
-                <span>
-                  Thank you for subscribing! Check your inbox for a 10% welcome
-                  coupon.
-                </span>
-              </div>
-            ) : (
-              <form onSubmit={handleNewsletterSubmit} className="space-y-2">
-                <div className="relative">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (error) setError("");
-                    }}
-                    placeholder="Your email address"
-                    className="w-full px-3.5 py-2.5 bg-stone-900/80 border border-stone-700 rounded-xl text-xs text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#A9D18E] focus:border-transparent transition-all"
-                  />
-                </div>
-                {error && (
-                  <p className="text-[11px] text-rose-400 animate-in fade-in">
-                    {error}
-                  </p>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-2.5 px-4 bg-[#386B40] hover:bg-[#A9D18E] hover:text-[#0B2416] text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all duration-200 shadow-xs active:scale-98 disabled:opacity-50"
-                >
-                  <span>{loading ? "Subscribing..." : "Subscribe"}</span>
-                  <ArrowRight size={14} />
-                </button>
-              </form>
-            )}
-          </ScrollReveal>
         </div>
 
         {/* Bottom Bar */}

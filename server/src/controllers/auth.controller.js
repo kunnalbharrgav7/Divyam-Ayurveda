@@ -117,6 +117,33 @@ export const changePassword = asyncHandler(async (req, res) => {
   return sendSuccess(res, result);
 });
 
+const clearSessionCookies = (res) => {
+  const cookieOptions = { httpOnly: true, secure: config.COOKIE_SECURE, sameSite: "Lax" };
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+};
+
+// Admin: the signed-in staff member's own profile and credentials. The account always comes from the token,
+// never from anything in the request body.
+export const getAdminProfile = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await authService.getAdminProfile(req.user._id));
+});
+
+export const updateAdminEmail = asyncHandler(async (req, res) => {
+  const result = await authService.changeEmail(req.user._id, req.body, { actor: req.user });
+  clearSessionCookies(res);
+  return sendSuccess(res, { ...result, reauthenticate: true });
+});
+
+export const updateAdminPassword = asyncHandler(async (req, res) => {
+  const result = await authService.changePassword(req.user._id, req.body.currentPassword, req.body.newPassword, {
+    revokeAllSessions: true,
+    actor: req.user,
+  });
+  clearSessionCookies(res);
+  return sendSuccess(res, { ...result, reauthenticate: true });
+});
+
 export const getAddresses = asyncHandler(async (req, res) => {
   const user = await authService.getProfile(req.user._id);
   return sendSuccess(res, user.addresses || []);

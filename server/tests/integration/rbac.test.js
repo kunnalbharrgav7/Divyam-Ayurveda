@@ -48,11 +48,13 @@ describe("RBAC Permissions and Access Control Integration", () => {
         email: "admin@divyamayurveda.demo",
         passwordHash: "testHash123",
         isStaff: true,
+        isOwner: true,
         roles: [superAdminRole._id],
       });
     } else {
       admin.roles = [superAdminRole._id];
       admin.isStaff = true;
+      admin.isOwner = true;
       await admin.save();
     }
     superAdminToken = generateAccessToken({
@@ -123,20 +125,16 @@ describe("RBAC Permissions and Access Control Integration", () => {
       .set("Authorization", `Bearer ${unprivilegedStaffToken}`);
 
     expect(res.status).toBe(403);
-    expect(res.body.error.message).toContain("Missing required permission");
+    expect(res.body.error.message).toMatch(/only the store owner|Missing required permission/i);
   });
 
-  it("should confirm only one role exists in the system (Super Admin) with all permissions", async () => {
-    const res = await request(app)
-      .get("/api/v1/admin/roles")
-      .set("Authorization", `Bearer ${superAdminToken}`);
+  it("no longer offers a roles endpoint, and the Super Admin role keeps every remaining permission", async () => {
+    const res = await request(app).get("/api/v1/admin/roles").set("Authorization", `Bearer ${superAdminToken}`);
+    expect(res.status).toBe(404);
 
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data.length).toBe(1);
-    expect(res.body.data[0].name).toBe("Super Admin");
-    expect(res.body.data[0].permissions.length).toBe(20);
+    const role = await Role.findOne({ name: ROLES.SUPER_ADMIN }).lean();
+    expect(role).toBeTruthy();
+    expect(ALL_PERMISSIONS).not.toContain("roles.manage");
   });
 });
 

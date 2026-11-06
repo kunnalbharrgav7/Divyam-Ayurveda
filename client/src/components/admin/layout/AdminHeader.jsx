@@ -18,7 +18,7 @@ import { AdminRefreshButton } from "../common/AdminRefreshButton";
 export const AdminHeader = ({ isCollapsed, setIsMobileOpen }) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const { lowStockCount, pendingOrdersCount, pendingReviewsCount, orders } = useAdmin();
+  const { lowStockCount, pendingOrdersCount, pendingReviewsCount, newEnquiriesCount, openTicketsCount, orders } = useAdmin();
   const location = useLocation();
 
   // Generate breadcrumb items from URL path
@@ -34,7 +34,9 @@ export const AdminHeader = ({ isCollapsed, setIsMobileOpen }) => {
   const totalNotifications =
     (lowStockCount > 0 ? 1 : 0) +
     (pendingOrdersCount > 0 ? 1 : 0) +
-    (pendingReviewsCount > 0 ? 1 : 0);
+    (pendingReviewsCount > 0 ? 1 : 0) +
+    (newEnquiriesCount > 0 ? 1 : 0) +
+    (openTicketsCount > 0 ? 1 : 0);
 
   return (
     <>
@@ -166,6 +168,38 @@ export const AdminHeader = ({ isCollapsed, setIsMobileOpen }) => {
                           <p className="text-[11px] text-stone-500">
                             Stock level fell below safety reorder threshold.
                           </p>
+                        </div>
+                      </Link>
+                    )}
+
+                    {newEnquiriesCount > 0 && (
+                      <Link
+                        to="/admin/enquiries"
+                        onClick={() => setNotificationsOpen(false)}
+                        className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-emerald-50/70 transition-colors"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Bell className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-stone-900">{newEnquiriesCount} New Enquiry(ies)</div>
+                          <p className="text-[11px] text-stone-500">Messages from the Contact Us page waiting for a reply.</p>
+                        </div>
+                      </Link>
+                    )}
+
+                    {openTicketsCount > 0 && (
+                      <Link
+                        to="/admin/support-tickets"
+                        onClick={() => setNotificationsOpen(false)}
+                        className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-amber-50/70 transition-colors"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Bell className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-stone-900">{openTicketsCount} Open Ticket(s)</div>
+                          <p className="text-[11px] text-stone-500">Customer support tickets waiting on the team.</p>
                         </div>
                       </Link>
                     )}

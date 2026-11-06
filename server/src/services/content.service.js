@@ -5,7 +5,8 @@ import { Faq } from "../models/Faq.js";
 import { Testimonial } from "../models/Testimonial.js";
 import { ContactEnquiry } from "../models/ContactEnquiry.js";
 import { SupportTicket } from "../models/SupportTicket.js";
-import { Subscriber } from "../models/Subscriber.js";
+import { Order } from "../models/Order.js";
+import { generateSecureToken } from "../utils/crypto.js";
 import { ApiError } from "../utils/apiError.js";
 import { settingsService } from "./settings.service.js";
 import { ContentPage } from "../models/ContentPage.js";
@@ -197,61 +198,122 @@ export class ContentService {
     return Testimonial.find({ isActive: true }).sort({ displayOrder: 1 });
   }
 
-  async submitContact(data) {
+  async submitContact(data, user = null) {
     const enquiry = await ContactEnquiry.create({
-      name: data.name,
-      email: data.email.toLowerCase(),
-      phone: data.phone || "",
-      subject: data.subject || "Storefront Contact Inquiry",
-      message: data.message,
+      name: clean(data.name, 100),
+      email: String(data.email).trim().toLowerCase(),
+      phone: clean(data.phone, 20),
+      subject: clean(data.subject, 150) || "General enquiry",
+      message: clean(data.message, 2000),
+      userId: user?._id || null,
     });
-    return enquiry.toJSON();
+    // The sender only needs to know it arrived; internal notes and staff replies stay private
+    return { id: enquiry.id, status: enquiry.status, createdAt: enquiry.createdAt };
   }
 
-  async submitSupportTicket(data, user = null) {
-    const count = await SupportTicket.countDocuments();
-    const ticketNumber = `TKT-${Date.now().toString().slice(-4)}-${count + 1}`;
+  /**
+   * The Contact Us messages a signed-in customer sent, with the team's replies. Only messages linked to their account
+   * (sent while signed in) are shown: an email typed into the form proves nothing about who owns it. Internal notes
+   * are never included.
+   */
+  async listMyEnquiries(user) {
+    const enquiries = await ContactEnquiry.find({ userId: user._id }).sort({ createdAt: -1 });
+    return enquiries.map((e) => {
+      const json = e.toJSON();
+      return {
+        id: json.id,
+        subject: json.subject,
+        message: json.message,
+        status: json.status,
+        createdAt: json.createdAt,
+        updatedAt: json.updatedAt,
+        replies: (json.replies || []).map((r) => ({ message: r.message, staffName: r.staffName, time: r.time })),
+      };
+    });
+  }
+
+  // ---------------------------------------------------------------- support tickets (signed-in customers)
+
+  /** What a customer may see of their own ticket: never the staff's internal notes */
+  #toCustomerTicket(ticket) {
+    const json = ticket.toJSON();
+    return {
+      id: json.id,
+      ticketNumber: json.ticketNumber,
+      subject: json.subject,
+      category: json.category,
+      orderNumber: json.orderNumber || "",
+      status: json.status,
+      createdAt: json.createdAt,
+      updatedAt: json.updatedAt,
+      messages: (json.messages || []).map((m) => ({
+        sender: m.sender,
+        senderRole: m.senderRole === "customer" ? "customer" : "staff",
+        message: m.message,
+        time: m.time,
+      })),
+    };
+  }
+
+  async #newTicketNumber() {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const d = new Date();
+      const ymd = `${String(d.getUTCFullYear()).slice(2)}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`;
+      const number = `TKT-${ymd}-${parseInt(generateSecureToken(3), 16) % 900000 + 100000}`;
+      if (!(await SupportTicket.exists({ ticketNumber: number }))) return number;
+    }
+    throw ApiError.internal("Could not create a ticket number. Please try again.");
+  }
+
+  async createTicket(user, data) {
+    const orderNumber = clean(data.orderNumber, 40);
+    if (orderNumber) {
+      const order = await Order.findOne({ orderNumber }).select("userId customer.email").lean();
+      const owns =
+        order &&
+        ((order.userId && String(order.userId) === String(user._id)) ||
+          (order.customer?.email && order.customer.email.toLowerCase() === String(user.email).toLowerCase()));
+      if (!owns) throw ApiError.badRequest("That order isn't on your account. Choose one of your own orders, or leave it blank.");
+    }
 
     const ticket = await SupportTicket.create({
-      ticketNumber,
-      userId: user?._id || null,
-      customerName: data.name || user?.name || "Customer",
-      customerEmail: (data.email || user?.email || "").toLowerCase(),
-      customerPhone: data.phone || user?.phone || "",
-      orderNumber: data.orderNumber || "",
-      subject: data.subject,
-      category: data.category || "General",
-      priority: data.priority || "Normal",
-      messages: [
-        {
-          sender: data.name || user?.name || "Customer",
-          senderRole: "customer",
-          message: data.message,
-          time: new Date(),
-        },
-      ],
+      ticketNumber: await this.#newTicketNumber(),
+      userId: user._id,
+      customerName: user.name || "Customer",
+      customerEmail: String(user.email).toLowerCase(),
+      customerPhone: user.phone || "",
+      orderNumber,
+      subject: clean(data.subject, 150),
+      category: data.category || "Other",
+      priority: "Normal",
+      messages: [{ sender: user.name || "Customer", senderRole: "customer", message: clean(data.message, 2000), time: new Date() }],
     });
-
-    return ticket.toJSON();
+    return this.#toCustomerTicket(ticket);
   }
 
-  async subscribeNewsletter(email) {
-    if (!email || !email.includes("@")) {
-      throw ApiError.badRequest("Please provide a valid email address.");
-    }
+  async listMyTickets(user) {
+    const tickets = await SupportTicket.find({ userId: user._id }).sort({ updatedAt: -1 });
+    return tickets.map((t) => this.#toCustomerTicket(t));
+  }
 
-    const cleanEmail = email.trim().toLowerCase();
-    const existing = await Subscriber.findOne({ email: cleanEmail });
-    if (existing) {
-      if (existing.status === "unsubscribed") {
-        existing.status = "subscribed";
-        await existing.save();
-      }
-      return { message: "Thank you for subscribing to Divyam Ayurveda newsletter." };
-    }
+  async getMyTicket(user, ticketNumber) {
+    // Someone else's ticket looks exactly like one that does not exist
+    const ticket = await SupportTicket.findOne({ ticketNumber: String(ticketNumber), userId: user._id });
+    if (!ticket) throw ApiError.notFound("Ticket not found.");
+    return this.#toCustomerTicket(ticket);
+  }
 
-    await Subscriber.create({ email: cleanEmail });
-    return { message: "Thank you for subscribing to Divyam Ayurveda newsletter." };
+  async addMyTicketMessage(user, ticketNumber, message) {
+    const ticket = await SupportTicket.findOne({ ticketNumber: String(ticketNumber), userId: user._id });
+    if (!ticket) throw ApiError.notFound("Ticket not found.");
+    if (ticket.status === "Closed") {
+      throw ApiError.conflict("This ticket is closed. Please open a new ticket if you still need help.");
+    }
+    ticket.messages.push({ sender: user.name || "Customer", senderRole: "customer", message: clean(message, 2000), time: new Date() });
+    // Writing back on a resolved ticket reopens it so the team sees it again
+    if (ticket.status === "Resolved") ticket.status = "Open";
+    await ticket.save();
+    return this.#toCustomerTicket(ticket);
   }
 }
 

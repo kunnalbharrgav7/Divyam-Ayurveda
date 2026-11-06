@@ -49,3 +49,18 @@ export const verifyHmacSignature = (rawBody, signature, secret) => {
   }
 };
 
+// A random temporary password for a new or reset staff account: 14 characters, always with letters and a number,
+// and without look-alike characters (0/O, 1/l/I) so it can be read out or typed from a message.
+export const generateTemporaryPassword = () => {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const all = letters + digits;
+  const pick = (set) => set[crypto.randomInt(set.length)];
+  const chars = [pick(letters), pick(letters), pick(digits), pick(digits)];
+  while (chars.length < 14) chars.push(pick(all));
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+};

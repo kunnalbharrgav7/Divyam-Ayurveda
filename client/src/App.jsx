@@ -68,12 +68,11 @@ const ContentPagesPage = lazyPage(() => import("./pages/admin/ContentPagesPage")
 const BlogAdminPage = lazyPage(() => import("./pages/admin/BlogAdminPage"), "BlogAdminPage");
 const EnquiriesPage = lazyPage(() => import("./pages/admin/EnquiriesPage"), "EnquiriesPage");
 const SupportTicketsPage = lazyPage(() => import("./pages/admin/SupportTicketsPage"), "SupportTicketsPage");
-const SubscribersPage = lazyPage(() => import("./pages/admin/SubscribersPage"), "SubscribersPage");
 const ReportsPage = lazyPage(() => import("./pages/admin/ReportsPage"), "ReportsPage");
 const AdminUsersPage = lazyPage(() => import("./pages/admin/AdminUsersPage"), "AdminUsersPage");
-const RolesPage = lazyPage(() => import("./pages/admin/RolesPage"), "RolesPage");
 const AuditLogsPage = lazyPage(() => import("./pages/admin/AuditLogsPage"), "AuditLogsPage");
 const SettingsPage = lazyPage(() => import("./pages/admin/SettingsPage"), "SettingsPage");
+const ProfileSecurityPage = lazyPage(() => import("./pages/admin/ProfileSecurityPage"), "ProfileSecurityPage");
 import { SmoothScroll } from "./animations/SmoothScroll";
 import { LiveOrderToast } from "./components/common/LiveOrderToast";
 import { RouteSeo } from "./components/common/RouteSeo";
@@ -141,18 +140,17 @@ export const App = () => {
                     {/* Communications & Support */}
                     <Route path="enquiries" element={<EnquiriesPage />} />
                     <Route path="support-tickets" element={<SupportTicketsPage />} />
-                    <Route path="subscribers" element={<SubscribersPage />} />
 
                     {/* Analytics & Reports */}
                     <Route path="reports" element={<ReportsPage />} />
 
                     {/* Administration & Staff */}
                     <Route path="users" element={<AdminUsersPage />} />
-                    <Route path="roles" element={<RolesPage />} />
                     <Route path="audit-logs" element={<AuditLogsPage />} />
 
                     {/* Configuration */}
                     <Route path="settings" element={<SettingsPage />} />
+                    <Route path="profile" element={<ProfileSecurityPage />} />
                   </Route>
 
                   {/* ======================================================== */}
@@ -185,6 +183,7 @@ export const App = () => {
                     <Route path="account/orders" element={<AccountPage />} />
                     <Route path="account/orders/:orderId" element={<AccountPage />} />
                     <Route path="account/referrals" element={<AccountPage />} />
+                    <Route path="account/support" element={<AccountPage />} />
                     <Route path="referrals" element={<ReferralPage />} />
 
                     {/* Informational & Support */}

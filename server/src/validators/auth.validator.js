@@ -44,3 +44,24 @@ export const changePasswordSchema = z.object({
   }),
 });
 
+// Policy for credentials an administrator sets: 8-128 characters with at least one letter and one number
+const strongPassword = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password must be at most 128 characters")
+  .regex(/[A-Za-z]/, "Password must contain at least one letter")
+  .regex(/\d/, "Password must contain at least one number");
+
+export const adminChangePasswordSchema = z.object({
+  body: z.object({
+    currentPassword: z.string().min(1, "Current password is required").max(128),
+    newPassword: strongPassword,
+  }),
+});
+
+export const adminChangeEmailSchema = z.object({
+  body: z.object({
+    newEmail: z.string().trim().toLowerCase().email("Valid email address is required").max(254),
+    currentPassword: z.string().min(1, "Current password is required").max(128),
+  }),
+});

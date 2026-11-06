@@ -66,3 +66,39 @@ export const orderLookupLimiter = rateLimit({
     error: { code: "TOO_MANY_REQUESTS", message: "Too many lookups. Please wait a minute and try again." },
   },
 });
+
+// Changing an email or password needs the current password, so every call is also a password guess: keep it slow
+export const credentialLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: config.NODE_ENV === "test" ? 1000 : 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: { code: "TOO_MANY_REQUESTS", message: "Too many attempts. Please wait 15 minutes and try again." },
+  },
+});
+
+// Public contact form: a handful of messages per hour per person is plenty
+export const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: config.NODE_ENV === "test" ? 5000 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: { code: "TOO_MANY_REQUESTS", message: "You've sent several messages recently. Please try again in an hour, or call us." },
+  },
+});
+
+// Opening tickets and adding messages from a customer account
+export const ticketLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: config.NODE_ENV === "test" ? 5000 : 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: { code: "TOO_MANY_REQUESTS", message: "Too many support messages. Please try again later." },
+  },
+});

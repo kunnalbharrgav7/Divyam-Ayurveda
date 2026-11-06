@@ -9,6 +9,16 @@ const contactEnquirySchema = new mongoose.Schema(
     message: { type: String, required: true },
     status: { type: String, enum: ["New", "In Progress", "Replied", "Resolved", "Archived"], default: "New", index: true },
     adminNotes: { type: String, default: "" },
+    // The signed-in customer who sent it, when there was one
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    // Staff replies kept on the enquiry (there is no email sending, so the team contacts the person by email or phone)
+    replies: [
+      {
+        message: { type: String, required: true, maxlength: 2000 },
+        staffName: { type: String, default: "Staff" },
+        time: { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: true,

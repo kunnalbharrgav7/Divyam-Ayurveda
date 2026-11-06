@@ -1,6 +1,9 @@
 import { Router } from "express";
 import * as contentController from "../../controllers/content.controller.js";
 import { optionalAuthenticate } from "../../middleware/auth.js";
+import { validate } from "../../middleware/validate.js";
+import { contactLimiter } from "../../middleware/rateLimiter.js";
+import { contactSchema } from "../../validators/support.validator.js";
 
 const router = Router();
 
@@ -17,10 +20,8 @@ router.get("/faqs", contentController.getFaqs);
 router.get("/content-pages/:slug", contentController.getContentPage);
 router.get("/testimonials", contentController.getTestimonials);
 
-// Inquiries & Subscriptions
-router.post("/contact", contentController.submitContact);
-router.post("/support/tickets", optionalAuthenticate, contentController.submitSupportTicket);
-router.post("/newsletter/subscriptions", contentController.subscribeNewsletter);
+// Contact form (anyone; a signed-in customer's message is linked to their account)
+router.post("/contact", contactLimiter, optionalAuthenticate, validate(contactSchema), contentController.submitContact);
 
 export default router;
 
