@@ -85,7 +85,7 @@ export const Header = ({ onToggleMobileMenu, isSticky = true }) => {
                   aria-label="Admin Dashboard"
                 >
                   <Shield size={15} className="text-[#A9D18E]" />
-                  <span className="hidden min-[400px]:inline">Admin Dashboard</span>
+                  <span className="hidden sm:inline">Admin Dashboard</span>
                 </Link>
                 <button
                   type="button"

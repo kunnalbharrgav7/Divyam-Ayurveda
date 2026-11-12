@@ -75,7 +75,7 @@ export const LiveOrderToast = () => {
   // Cycle through purchases
   useEffect(() => {
     if (isDismissed) return;
-    if (location.pathname.startsWith("/admin")) return;
+    if (location.pathname !== "/") return;
 
     let showTimer;
     let hideTimer;
@@ -113,7 +113,7 @@ export const LiveOrderToast = () => {
     }
   };
 
-  if (isDismissed || location.pathname.startsWith("/admin")) return null;
+  if (isDismissed || location.pathname !== "/") return null;
 
   const currentOrder = RECENT_ORDERS[currentIndex];
 

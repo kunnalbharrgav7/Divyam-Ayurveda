@@ -96,10 +96,11 @@ export const AdminHeader = ({ isCollapsed, setIsMobileOpen }) => {
           <Link
             to="/"
             title="Go to Live Storefront"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold border border-emerald-200/60 transition-colors"
+            aria-label="Live Store"
+            className="inline-flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold border border-emerald-200/60 transition-colors"
           >
-            <Store className="w-3.5 h-3.5" />
-            <span>Live Store</span>
+            <Store className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden sm:inline">Live Store</span>
           </Link>
 
           {/* Notifications dropdown */}

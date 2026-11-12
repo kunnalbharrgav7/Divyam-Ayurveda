@@ -35,6 +35,7 @@ import { ReferralHowItWorks } from "../components/referrals/ReferralHowItWorks";
 import { ReferralHistory } from "../components/referrals/ReferralHistory";
 import { WalletLedger } from "../components/referrals/WalletLedger";
 import { ListRowsSkeleton } from "../components/common/Skeleton";
+import { OrderItemImage } from "../components/common/OrderItemImage";
 
 export const AccountPage = () => {
   const { user, isAuthenticated, logout, updateProfile, addresses, addAddress, deleteAddress, setDefaultAddress } = useAuth();
@@ -427,11 +428,7 @@ export const AccountPage = () => {
                         <div className="space-y-2">
                           {ord.items?.map((it, idx) => (
                             <div key={idx} className="flex items-center gap-3 text-xs">
-                              <img width={40} height={40} loading="lazy" decoding="async"
-                                src={it.image}
-                                alt={it.name}
-                                className="w-10 h-10 rounded-lg object-contain bg-[#FBFAF6] border p-1"
-                              />
+                              <OrderItemImage src={it.image} name={it.name} size={40} className="rounded-lg" />
                               <div className="flex-1">
                                 <span className="font-semibold text-[#171A17]">{it.name}</span>
                                 <span className="text-stone-500 block">

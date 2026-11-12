@@ -596,7 +596,7 @@ export const ProductsPage = () => {
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDeleteConfirm}
         title="Delete Ayurvedic Product"
-        message="Are you sure you want to delete this product? It will immediately be removed from the catalog and customer storefront."
+        message="Are you sure you want to delete this product? It will be removed from the storefront. If customers have already ordered it, it is archived instead (kept for their order history) and can be restored from the Archived filter."
         confirmText="Delete Product"
         confirmVariant="danger"
       />

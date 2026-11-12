@@ -58,13 +58,13 @@ export const NewArrivalsSection = () => {
 
         {/* Product Cards Grid with stagger */}
         {loading ? (
-          <ProductGridSkeleton count={4} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" />
+          <ProductGridSkeleton count={4} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6" />
         ) : products.length === 0 ? (
           <div className="text-center py-10 bg-white rounded-2xl border border-stone-100">
             <p className="text-stone-500 text-sm">No new arrivals available yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
             {products.map((product, idx) => (
               <ScrollReveal key={product.id} delay={idx * 60} yOffset={18} duration={500}>
                 <ProductCard product={product} />

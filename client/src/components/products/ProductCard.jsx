@@ -109,15 +109,15 @@ const ProductCardImpl = ({ product }) => {
         />
 
         {/* Top Badges & Wishlist Action */}
-        <div className="absolute top-3 inset-x-3 z-10 flex items-center justify-between pointer-events-none">
+        <div className="absolute top-2 sm:top-3 inset-x-2 sm:inset-x-3 z-10 flex items-center justify-between pointer-events-none">
           <div className="flex flex-col gap-1 items-start">
             {product.isBestSeller && (
-              <span className="px-2.5 py-0.5 text-[11px] font-semibold bg-[#173D2A] text-[#FAF8F2] rounded-md tracking-wider shadow-xs transition-transform duration-200 group-hover:scale-105">
+              <span className="px-1.5 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-semibold bg-[#173D2A] text-[#FAF8F2] rounded-md tracking-wider shadow-xs transition-transform duration-200 group-hover:scale-105">
                 Best Seller
               </span>
             )}
             {product.isNew && (
-              <span className="px-2.5 py-0.5 text-[11px] font-semibold bg-emerald-600 text-white rounded-md tracking-wider shadow-xs transition-transform duration-200 group-hover:scale-105">
+              <span className="px-1.5 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-semibold bg-emerald-600 text-white rounded-md tracking-wider shadow-xs transition-transform duration-200 group-hover:scale-105">
                 New
               </span>
             )}
@@ -134,7 +134,7 @@ const ProductCardImpl = ({ product }) => {
                 onClick={handleAddToCart}
                 whileTap={{ scale: 0.82 }}
                 whileHover={{ scale: 1.1 }}
-                className={`pointer-events-auto p-2 rounded-full transition-colors duration-200 cursor-pointer shadow-xs ${
+                className={`pointer-events-auto p-1.5 sm:p-2 rounded-full transition-colors duration-200 cursor-pointer shadow-xs ${
                   isAdded
                     ? "bg-[#173D2A] text-white ring-2 ring-[#A9D18E]"
                     : alreadyInCart
@@ -162,7 +162,7 @@ const ProductCardImpl = ({ product }) => {
               onClick={handleWishlistToggle}
               whileTap={{ scale: 0.82 }}
               whileHover={{ scale: 1.1 }}
-              className={`pointer-events-auto p-2 rounded-full transition-colors duration-200 cursor-pointer shadow-xs ${
+              className={`pointer-events-auto p-1.5 sm:p-2 rounded-full transition-colors duration-200 cursor-pointer shadow-xs ${
                 inWishlist
                   ? "bg-rose-50 text-rose-600 ring-2 ring-rose-200"
                   : "bg-white/90 text-stone-600 hover:text-rose-600 hover:bg-white backdrop-blur-xs"
@@ -191,7 +191,7 @@ const ProductCardImpl = ({ product }) => {
         )}
 
         {/* Image Container with Dynamic Spring Zoom & Quick View Reveal */}
-        <div className="relative aspect-square w-full overflow-hidden bg-[#FBFAF6] p-4 flex items-center justify-center group/img">
+        <div className="relative aspect-square w-full overflow-hidden bg-[#FBFAF6] p-2 sm:p-4 flex items-center justify-center group/img">
           <Link
             to={`/products/${product.slug}`}
             className="w-full h-full flex items-center justify-center"
@@ -218,7 +218,7 @@ const ProductCardImpl = ({ product }) => {
               e.stopPropagation();
               setIsQuickViewOpen(true);
             }}
-            className="absolute bottom-3 inset-x-4 z-10 py-2 px-3 rounded-xl bg-white/95 backdrop-blur-md text-[#173D2A] hover:bg-[#173D2A] hover:text-white text-xs font-semibold shadow-md flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-coarse:opacity-100 pointer-coarse:translate-y-0 transition-all duration-200 cursor-pointer"
+            className="hidden sm:flex absolute bottom-3 inset-x-4 z-10 py-2 px-3 rounded-xl bg-white/95 backdrop-blur-md text-[#173D2A] hover:bg-[#173D2A] hover:text-white text-xs font-semibold shadow-md items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-coarse:opacity-100 pointer-coarse:translate-y-0 transition-all duration-200 cursor-pointer"
             aria-label="Quick view product details"
           >
             <Eye size={14} />
@@ -230,9 +230,9 @@ const ProductCardImpl = ({ product }) => {
         </div>
 
         {/* Product Content Details */}
-        <div className="p-4 flex flex-col flex-1">
+        <div className="p-3 sm:p-4 flex flex-col flex-1">
           <Link to={`/products/${product.slug}`} className="block mb-1 group/title">
-            <h3 className="text-base font-semibold text-[#171A17] group-hover/title:text-[#173D2A] transition-colors line-clamp-1 leading-snug">
+            <h3 className="text-sm sm:text-base font-semibold text-[#171A17] group-hover/title:text-[#173D2A] transition-colors line-clamp-1 leading-snug">
               {product.name}
             </h3>
           </Link>
@@ -252,9 +252,9 @@ const ProductCardImpl = ({ product }) => {
           </div>
 
           {/* Price & Add to Cart button */}
-          <div className="mt-auto pt-2 flex flex-col gap-3">
+          <div className="mt-auto pt-2 flex flex-col gap-2 sm:gap-3">
             <div className="flex items-baseline gap-2">
-              <span className="text-lg font-bold text-[#171A17]">
+              <span className="text-base sm:text-lg font-bold text-[#171A17]">
                 {formatINR(product.price)}
               </span>
               {product.originalPrice > product.price && (
@@ -269,7 +269,7 @@ const ProductCardImpl = ({ product }) => {
               disabled={isOutOfStock}
               whileTap={{ scale: isOutOfStock ? 1 : 0.96 }}
               whileHover={{ scale: isOutOfStock ? 1 : 1.02 }}
-              className={`w-full py-2.5 px-4 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 ${
+              className={`w-full py-2 sm:py-2.5 px-2 sm:px-4 rounded-xl text-xs sm:text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 ${
                 isOutOfStock
                   ? "bg-stone-200 text-stone-500 cursor-not-allowed"
                   : isAdded

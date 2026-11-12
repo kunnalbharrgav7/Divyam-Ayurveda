@@ -60,7 +60,7 @@ export const BlogListPage = () => {
 
         {/* Articles Grid */}
         {loading ? (
-          <SkeletonRegion label="Loading articles" className="grid grid-cols-1 md:grid-cols-3 gap-8 my-8">
+          <SkeletonRegion label="Loading articles" className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-8 my-8">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="border border-[#E5E7DF] rounded-3xl h-80" />
             ))}
@@ -70,7 +70,7 @@ export const BlogListPage = () => {
             No articles published yet. Check back soon for traditional Ayurvedic insights!
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 my-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-8 my-8">
             {posts.map((post) => (
             <article
               key={post.id || post._id || post.slug}
@@ -90,7 +90,7 @@ export const BlogListPage = () => {
                 </span>
               </Link>
 
-              <div className="p-6 flex flex-col flex-1">
+              <div className="p-3 sm:p-6 flex flex-col flex-1">
                 <div className="flex items-center gap-2 text-xs text-stone-500 mb-3">
                   <span className="flex items-center gap-1">
                     <Clock size={13} /> {post.readTime}
@@ -100,7 +100,7 @@ export const BlogListPage = () => {
                 </div>
 
                 <Link to={`/blog/${post.slug}`} className="block mb-3">
-                  <h2 className="font-heading tracking-tight text-xl font-bold text-[#171A17] group-hover:text-[#173D2A] transition-colors leading-snug">
+                  <h2 className="font-heading tracking-tight text-sm sm:text-xl font-bold text-[#171A17] group-hover:text-[#173D2A] transition-colors leading-snug">
                     {post.title}
                   </h2>
                 </Link>

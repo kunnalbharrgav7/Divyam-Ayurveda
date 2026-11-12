@@ -66,9 +66,9 @@ export const FeaturedProductsSection = () => {
         </ScrollReveal>
 
         {loading ? (
-          <ProductGridSkeleton count={4} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" />
+          <ProductGridSkeleton count={4} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6" />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
             {products.map((product, idx) => (
               <ScrollReveal key={product.id} delay={idx * 60} yOffset={18} duration={500}>
                 <ProductCard product={product} />

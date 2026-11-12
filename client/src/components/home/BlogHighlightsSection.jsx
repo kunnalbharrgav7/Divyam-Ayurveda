@@ -67,7 +67,7 @@ export const BlogHighlightsSection = () => {
               <Skeleton className="h-8 w-72 max-w-full" />
               <Skeleton className="h-4 w-96 max-w-full" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
               {[0, 1, 2].map((i) => (
                 <div key={i} aria-hidden="true" className="bg-white rounded-2xl border border-[#E5E7DF] overflow-hidden">
                   <div className="aspect-16/10 p-3 bg-stone-50">
@@ -123,7 +123,7 @@ export const BlogHighlightsSection = () => {
 
         {/* 3 Article Cards Grid with Framer Motion Stagger */}
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+          className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -138,7 +138,7 @@ export const BlogHighlightsSection = () => {
             >
               <article className="bg-white rounded-2xl border border-[#E5E7DF] overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-xl hover:border-[#A9D18E]/70 w-full h-full">
                 {/* Image Banner with Deep Pan & Zoom */}
-                <Link to={`/blog/${post.slug}`} className="block relative aspect-16/10 overflow-hidden bg-stone-50 flex items-center justify-center p-3">
+                <Link to={`/blog/${post.slug}`} className="block relative aspect-16/10 overflow-hidden bg-stone-50 flex items-center justify-center p-2 sm:p-3">
                   <img
                     src={post.image || "/images/ProductImages/Himalya.png"}
                     alt={post.title}
@@ -152,14 +152,14 @@ export const BlogHighlightsSection = () => {
                   <div className="absolute inset-0 bg-[#173D2A]/0 group-hover:bg-[#173D2A]/5 transition-colors duration-300 pointer-events-none" />
 
                   {/* Category Pill */}
-                  <span className="absolute top-3 left-3 px-2.5 py-0.5 text-[11px] font-semibold bg-white/95 text-[#173D2A] rounded-md shadow-xs group-hover:bg-[#173D2A] group-hover:text-white transition-all duration-300">
+                  <span className="absolute top-2 left-2 sm:top-3 sm:left-3 px-1.5 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-semibold bg-white/95 text-[#173D2A] rounded-md shadow-xs group-hover:bg-[#173D2A] group-hover:text-white transition-all duration-300">
                     {post.category}
                   </span>
                 </Link>
 
                 {/* Body */}
-                <div className="p-5 sm:p-6 flex flex-col flex-1">
-                  <div className="flex items-center gap-2 text-[11px] text-[#666B64] mb-2.5">
+                <div className="p-3 sm:p-6 flex flex-col flex-1">
+                  <div className="flex items-center gap-2 text-[10px] sm:text-[11px] flex-wrap text-[#666B64] mb-2.5">
                     <span className="flex items-center gap-1">
                       <Clock size={12} className="group-hover:text-[#386B40] transition-colors" /> {post.readTime}
                     </span>
@@ -168,12 +168,12 @@ export const BlogHighlightsSection = () => {
                   </div>
 
                   <Link to={`/blog/${post.slug}`} className="block mb-2">
-                    <h3 className="font-heading text-base sm:text-lg font-bold tracking-tight text-[#171A17] group-hover:text-[#173D2A] transition-colors line-clamp-2 leading-snug">
+                    <h3 className="font-heading text-sm sm:text-lg font-bold tracking-tight text-[#171A17] group-hover:text-[#173D2A] transition-colors line-clamp-2 leading-snug">
                       {post.title}
                     </h3>
                   </Link>
 
-                  <p className="text-xs text-[#666B64] line-clamp-3 mb-5 leading-relaxed font-light flex-1">
+                  <p className="text-xs text-[#666B64] line-clamp-2 sm:line-clamp-3 mb-3 sm:mb-5 leading-relaxed font-light flex-1">
                     {post.excerpt}
                   </p>
 

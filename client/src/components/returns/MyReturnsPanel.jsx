@@ -3,6 +3,7 @@ import { CheckCircle2, Circle, XCircle, Wallet } from "lucide-react";
 import { useReturns } from "../../context/ReturnContext";
 import { formatINR, formatDate } from "../../utils/formatters";
 import { ListRowsSkeleton } from "../common/Skeleton";
+import { OrderItemImage } from "../common/OrderItemImage";
 
 export const RETURN_STATUS_STYLE = {
   requested: "bg-amber-100 text-amber-800",
@@ -135,7 +136,7 @@ export const MyReturnsPanel = () => {
               <div className="space-y-1.5">
                 {r.items.map((it, i) => (
                   <div key={i} className="flex items-center gap-3 text-xs">
-                    {it.image && <img width={36} height={36} loading="lazy" decoding="async" src={it.image} alt="" className="w-9 h-9 rounded-lg object-contain bg-[#FBFAF6] border p-1" />}
+                    <OrderItemImage src={it.image} name={it.name} size={36} className="rounded-lg" />
                     <span className="flex-1 font-semibold text-[#171A17]">
                       {it.name} <span className="text-stone-500 font-normal">&bull; {it.size} &bull; Qty {it.quantity}</span>
                     </span>

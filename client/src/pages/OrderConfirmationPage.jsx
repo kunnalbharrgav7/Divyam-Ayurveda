@@ -17,6 +17,7 @@ import { load } from "@cashfreepayments/cashfree-js";
 import { useOrders } from "../context/OrderContext";
 import { formatINR, formatDate } from "../utils/formatters";
 import { Skeleton, SkeletonRegion } from "../components/common/Skeleton";
+import { OrderItemImage } from "../components/common/OrderItemImage";
 
 export const OrderConfirmationPage = () => {
   const { orderId } = useParams();
@@ -324,11 +325,7 @@ export const OrderConfirmationPage = () => {
             {order.items?.map((item, idx) => (
               <div key={idx} className="py-3 flex items-center justify-between gap-4 text-xs sm:text-sm">
                 <div className="flex items-center gap-3">
-                  <img width={48} height={48} loading="lazy" decoding="async"
-                    src={item.image}
-                    alt={item.name}
-                    className="w-12 h-12 rounded-xl object-contain bg-[#FBFAF6] border p-1"
-                  />
+                  <OrderItemImage src={item.image} name={item.name} size={48} className="rounded-xl" />
                   <div>
                     <span className="font-bold text-[#171A17] block">{item.name}</span>
                     <span className="text-stone-500 text-xs">

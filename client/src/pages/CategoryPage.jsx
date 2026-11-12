@@ -209,7 +209,7 @@ export const CategoryPage = () => {
 
         {/* Product Grid with Smooth Transition */}
         {loading ? (
-          <ProductGridSkeleton count={8} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" />
+          <ProductGridSkeleton count={8} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6" />
         ) : loadError ? (
           <EmptyState
             icon={WifiOff}
@@ -231,7 +231,7 @@ export const CategoryPage = () => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"
           >
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />

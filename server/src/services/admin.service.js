@@ -664,7 +664,8 @@ export class AdminService {
   }
 
   /**
-   * Permanently delete a product and its product-owned records.
+   * Delete a product. Products with past orders are archived (soft delete); the rest are removed
+   * permanently along with their product-owned records.
    *
    * Orders, returns, inventory movements, and audit logs deliberately keep
    * their historical product ids/snapshots; deleting those would corrupt
@@ -685,13 +686,27 @@ export class AdminService {
       details: `Permanently deleted product "${product.name}"`,
     });
 
+    // A product that customers have bought is archived, not erased: past orders still show its
+    // photo (served from the product record) and details. It disappears from the store and the
+    // default admin list, and can be restored by setting its status back to active.
+    const hasOrders = await Order.exists({ "items.productId": product._id });
+    if (hasOrders) {
+      product.status = "archived";
+      await product.save();
+      return {
+        archived: true,
+        id: product.id,
+        message: "This product has past orders, so it was archived instead of deleted. It is hidden from the store.",
+      };
+    }
+
     await Promise.all([
       ProductVariant.deleteMany({ productId: product._id }),
       Review.deleteMany({ productId: product._id }),
     ]);
     await Product.deleteOne({ _id: product._id });
 
-    return { message: "Product deleted permanently." };
+    return { archived: false, message: "Product deleted permanently." };
   }
 
   /**

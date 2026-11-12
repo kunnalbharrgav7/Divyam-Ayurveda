@@ -1151,13 +1151,23 @@ export const AdminProvider = ({ children }) => {
   };
 
   const deleteProduct = async (productId) => {
-    await adminApiFetch(`/api/v1/admin/products/${productId}`, {
+    const json = await adminApiFetch(`/api/v1/admin/products/${productId}`, {
       method: "DELETE",
     });
+    const archived = Boolean(json?.data?.archived);
 
     const prod = products.find((p) => p.id === productId || p._id === productId);
-    setProducts((prev) => prev.filter((p) => p.id !== productId && p._id !== productId));
-    logAction("Deleted Product", "Catalog", `Removed formulation: ${prod?.name || productId}`);
+    setProducts((prev) =>
+      archived
+        ? prev.map((p) => (p.id === productId || p._id === productId ? { ...p, status: "archived", isArchived: true } : p))
+        : prev.filter((p) => p.id !== productId && p._id !== productId)
+    );
+    logAction(
+      archived ? "Archived Product" : "Deleted Product",
+      "Catalog",
+      `${archived ? "Archived (has past orders)" : "Removed formulation"}: ${prod?.name || productId}`
+    );
+    if (archived) return { archived: true };
 
     const currentStorage = storage.get(STORAGE_KEYS.PRODUCTS, []);
     storage.set(

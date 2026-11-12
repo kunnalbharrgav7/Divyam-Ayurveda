@@ -139,7 +139,7 @@ export const BestsellersSection = () => {
             <p className="text-stone-500 text-sm">No products found in this category yet.</p>
           </div>
         ) : (
-          <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+          <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
             <AnimatePresence mode="popLayout">
               {displayedProducts.map((product) => (
                 <motion.div

@@ -162,7 +162,7 @@ export const OffersPage = () => {
 
         {/* Product Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-12">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="aspect-3/4 rounded-2xl bg-stone-100 motion-safe:animate-pulse border border-stone-200" />
             ))}
@@ -172,7 +172,7 @@ export const OffersPage = () => {
             No active promotional offers right now. Check back soon for seasonal discounts!
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 mb-12">
             {discountedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
