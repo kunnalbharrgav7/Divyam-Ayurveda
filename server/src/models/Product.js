@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { toRupees } from "../utils/currency.js";
+import { PRODUCT_TYPE_KEYS, SOLD_AS } from "../constants/productTypes.js";
 
 const productSchema = new mongoose.Schema(
   {
@@ -71,6 +72,19 @@ const productSchema = new mongoose.Schema(
     productForm: {
       type: String,
       default: "",
+    },
+    // Decides the pack-size unit (tablets are counted, resin is weighed, syrup is measured)
+    productType: {
+      type: String,
+      enum: PRODUCT_TYPE_KEYS,
+      default: "other",
+      index: true,
+    },
+    // "multiple": customers pick a pack size; "single": one fixed pack
+    soldAs: {
+      type: String,
+      enum: SOLD_AS,
+      default: "multiple",
     },
     ingredients: {
       type: [String],

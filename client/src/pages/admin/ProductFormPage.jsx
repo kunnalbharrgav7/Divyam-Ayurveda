@@ -18,8 +18,18 @@ import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { formatCurrency } from "../../utils/formatters";
 import { compressImageFile } from "../../utils/imageCompressor";
+import { PRODUCT_TYPES, PRODUCT_TYPE_KEYS, buildPackLabel, parsePackLabel, guessProductType } from "../../utils/productTypes";
 import { DetailPageSkeleton } from "../../components/common/Skeleton";
 import { AdminLoadError } from "../../components/admin/common/AdminLoadError";
+
+// The admin lists show this placeholder for products without photos; it must never be saved as a real image
+const isPlaceholderImage = (img) => typeof img === "string" && img.includes("Ashuwaganda.png");
+
+function emptyVariant(unit = "") {
+  return { id: "", label: "", packQuantity: "", packUnit: unit, price: "", compareAtPrice: "", costPrice: "", stock: "" };
+}
+
+const inputClass = "w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]";
 
 export const ProductFormPage = () => {
   const { productId } = useParams();
@@ -33,47 +43,34 @@ export const ProductFormPage = () => {
     subtitle: "",
     slug: "",
     sku: "",
-    category: categories[0]?.name || "Digestive Health",
+    category: "",
     subcategory: "",
     subcategoryId: "",
     brand: "Divyam Ayurveda",
-    price: 499,
-    compareAtPrice: 699,
-    costPrice: 200,
-    taxRate: 12,
-    stock: 50,
-    reorderThreshold: 10,
-    image: "/images/ProductImages/Ashuwaganda.png",
-    images: [
-      "/images/ProductImages/Ashuwaganda.png",
-    ],
+    productType: "",
+    soldAs: "single",
+    price: "",
+    compareAtPrice: "",
+    costPrice: "",
+    stock: "",
+    reorderThreshold: "",
+    image: "",
+    images: [],
     gallery: [],
-    rating: 4.8,
-    reviewCount: 24,
     status: "Active",
     isFeatured: false,
     isBestseller: false,
     isTrending: false,
     isNewArrival: true,
-    dosha: ["Vata", "Pitta"],
-    benefits: [
-      "Promotes deep vitality and rejuvenation",
-      "Balances internal natural digestive fire (Agni)",
-      "Supports daily immune resilience",
-    ],
-    ingredients: [
-      { name: "Ashwagandha", sanskrit: "Withania somnifera", ratio: "40%" },
-      { name: "Shatavari", sanskrit: "Asparagus racemosus", ratio: "30%" },
-    ],
-    dosage: "1-2 tablets twice daily with warm milk or water after meals, or as directed by an Ayurvedic physician.",
-    certifications: ["AYUSH Certified", "GMP Certified", "100% Organic", "Lab Tested"],
-    variants: [
-      { name: "60 Tablets", price: 499, stock: 35 },
-      { name: "120 Tablets", price: 899, stock: 15 },
-    ],
-    metaTitle: "",
-    metaDescription: "",
-    description: "Formulated according to classical Ayurvedic texts, this authentic preparation combines potent botanical extracts to restore natural systemic balance.",
+    dosha: [],
+    benefits: [],
+    ingredients: [],
+    dosage: "",
+    warnings: "",
+    certifications: [],
+    // One row per pack size. In "single" mode there is exactly one row and it only carries the pack size.
+    variants: [emptyVariant()],
+    description: "",
   };
 
   const [formData, setFormData] = useState(defaultFormData);
@@ -96,16 +93,33 @@ export const ProductFormPage = () => {
           existingImages = [...existing.images];
         } else if (existing.image) {
           existingImages = [existing.image];
-        } else {
-          existingImages = [defaultFormData.image];
         }
 
-        existingImages = existingImages.filter(img => !img || !img.startsWith("data:") || img.length < 500000);
-        if (existingImages.length === 0) existingImages = [defaultFormData.image];
-        const primaryImage = existing.image || existingImages[0] || defaultFormData.image;
-        if (!existingImages.includes(primaryImage)) {
-          existingImages = [primaryImage, ...existingImages];
-        }
+        // The lists show a stand-in picture for products without photos: never load it as a real image
+        existingImages = existingImages.filter(
+          (img) => img && !isPlaceholderImage(img) && (!img.startsWith("data:") || img.length < 500000)
+        );
+        const primaryImage = existingImages.includes(existing.image) ? existing.image : existingImages[0] || "";
+
+        const productType = PRODUCT_TYPES[existing.productType] && existing.productType !== "other"
+          ? existing.productType
+          : guessProductType(`${existing.productForm} ${existing.packSize}`) || existing.productType || "other";
+        const loadedVariants = (Array.isArray(existing.variants) ? existing.variants : []).map((v) => {
+          const label = v.label || v.size || v.name || "";
+          const parsed = v.packQuantity ? null : parsePackLabel(label);
+          return {
+            id: v.id || "",
+            label,
+            packQuantity: v.packQuantity ?? parsed?.quantity ?? "",
+            packUnit: v.packUnit || parsed?.unit || PRODUCT_TYPES[productType]?.unit || "",
+            price: v.price ?? "",
+            compareAtPrice: v.compareAtPrice || "",
+            costPrice: v.costPrice || "",
+            stock: v.stock ?? "",
+          };
+        });
+        const soldAs = existing.soldAs || (loadedVariants.length === 1 ? "single" : "multiple");
+        const lead = loadedVariants[0];
 
         setFormData({
           ...defaultFormData,
@@ -116,7 +130,14 @@ export const ProductFormPage = () => {
           image: primaryImage,
           images: existingImages,
           gallery: existingImages,
-          stock: existing.stock !== undefined ? existing.stock : (existing.stockQuantity ?? 50),
+          productType,
+          soldAs,
+          // Single pack: the product's own price/stock fields are the pack's. Several packs: each row carries its own.
+          price: soldAs === "single" ? (lead?.price ?? existing.price ?? "") : "",
+          compareAtPrice: soldAs === "single" ? (lead?.compareAtPrice || "") : "",
+          costPrice: soldAs === "single" ? (lead?.costPrice || "") : "",
+          stock: soldAs === "single" ? (lead?.stock ?? existing.stock ?? existing.stockQuantity ?? "") : "",
+          reorderThreshold: existing.reorderThreshold ?? "",
           category: (() => {
             const catObj = categories.find(
               (c) =>
@@ -128,13 +149,17 @@ export const ProductFormPage = () => {
             );
             return catObj?.name || existing.category || defaultFormData.category;
           })(),
-          benefits: existing.benefits || defaultFormData.benefits,
+          benefits: existing.benefits || [],
           subcategory: existing.subcategory || "",
           subcategoryId: existing.subcategoryId || "",
-          ingredients: existing.ingredients || defaultFormData.ingredients,
-          dosha: existing.dosha || defaultFormData.dosha,
-          variants: existing.variants || defaultFormData.variants,
-          certifications: existing.certifications || defaultFormData.certifications,
+          // The API stores herb names only; the form edits them as { name, sanskrit } rows
+          ingredients: (existing.ingredients || []).map((ing) => (typeof ing === "string" ? { name: ing, sanskrit: "" } : ing)),
+          dosha: existing.dosha || [],
+          warnings: existing.warnings || "",
+          description: existing.description || "",
+          dosage: existing.dosage || "",
+          variants: loadedVariants.length > 0 ? loadedVariants : [emptyVariant(PRODUCT_TYPES[productType]?.unit)],
+          certifications: existing.productInformation?.certifications || existing.certifications || [],
         });
       }
     }
@@ -155,12 +180,8 @@ export const ProductFormPage = () => {
         if (!validUploads.length) return;
 
         setFormData((prev) => {
-          const isPlaceholder = (img) =>
-            typeof img === "string" &&
-            (img.includes("Ashuwaganda.png") || img === "/images/ProductImages/Ashuwaganda.png");
-
           const currentImages = (Array.isArray(prev.images) ? prev.images : [])
-            .filter((img) => !isPlaceholder(img));
+            .filter((img) => !isPlaceholderImage(img));
 
           const combined = [...currentImages, ...validUploads];
           return {
@@ -312,20 +333,22 @@ export const ProductFormPage = () => {
   };
 
   // Variant handlers
+  const typeConfig = PRODUCT_TYPES[formData.productType] || null;
+  const isSingle = formData.soldAs === "single";
+
   const handleAddVariant = () => {
     setFormData((prev) => ({
       ...prev,
-      variants: [
-        ...prev.variants,
-        { name: "New Size / Pack", price: prev.price, stock: 20 },
-      ],
+      variants: [...prev.variants, emptyVariant(PRODUCT_TYPES[prev.productType]?.unit)],
     }));
   };
 
+  // Values stay as typed (strings) so blank fields stay blank; they are converted when saving
   const handleUpdateVariant = (index, field, value) => {
-    const updated = [...formData.variants];
-    updated[index][field] = field === "price" || field === "stock" ? Number(value) : value;
-    setFormData((prev) => ({ ...prev, variants: updated }));
+    setFormData((prev) => ({
+      ...prev,
+      variants: prev.variants.map((v, i) => (i === index ? { ...v, [field]: value } : v)),
+    }));
   };
 
   const handleRemoveVariant = (index) => {
@@ -335,14 +358,89 @@ export const ProductFormPage = () => {
     }));
   };
 
+  // Changing the type sets the pack unit on every row (tablets are counted, a resin is weighed, a syrup is measured)
+  const handleTypeChange = (e) => {
+    const productType = e.target.value;
+    const unit = PRODUCT_TYPES[productType]?.unit ?? "";
+    setFormData((prev) => ({
+      ...prev,
+      productType,
+      variants: prev.variants.map((v) => ({ ...v, packUnit: unit })),
+    }));
+  };
+
+  // Single pack keeps one row; going back to several packs keeps that row as the first
+  const handleSoldAsChange = (soldAs) => {
+    setFormData((prev) => {
+      if (soldAs === "single") {
+        const lead = prev.variants[0] || emptyVariant(PRODUCT_TYPES[prev.productType]?.unit);
+        return {
+          ...prev,
+          soldAs,
+          variants: [lead],
+          price: prev.price !== "" ? prev.price : lead.price,
+          compareAtPrice: prev.compareAtPrice !== "" ? prev.compareAtPrice : lead.compareAtPrice,
+          costPrice: prev.costPrice !== "" ? prev.costPrice : lead.costPrice,
+          stock: prev.stock !== "" ? prev.stock : lead.stock,
+        };
+      }
+      const [lead, ...rest] = prev.variants;
+      return {
+        ...prev,
+        soldAs,
+        variants: [
+          { ...(lead || emptyVariant(PRODUCT_TYPES[prev.productType]?.unit)), price: prev.price, compareAtPrice: prev.compareAtPrice, costPrice: prev.costPrice, stock: prev.stock },
+          ...rest,
+        ],
+      };
+    });
+  };
+
   // Submit Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError("");
-    if (!formData.title) {
-      setSubmitError("Please provide a product title.");
-      return;
+    const fail = (message) => {
+      setSubmitError(message);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    if (!formData.title.trim()) return fail("Please provide a product title.");
+    if (!formData.category) return fail("Please choose a primary category.");
+    if (!formData.productType) return fail("Please choose the product type (tablet, powder, resin, oil...).");
+
+    // Pack sizes to save: one fixed pack, or the rows the admin built
+    const rows = isSingle ? formData.variants.slice(0, 1) : formData.variants;
+    if (rows.length === 0) return fail("Add at least one pack size.");
+    const unit = PRODUCT_TYPES[formData.productType]?.unit ?? "";
+    const labels = new Set();
+    const variantsPayload = [];
+    for (const [i, row] of rows.entries()) {
+      const packUnit = String(row.packUnit || unit).trim();
+      const label = buildPackLabel(row.packQuantity, packUnit) || String(row.label || "").trim();
+      const where = isSingle ? "the pack size" : `pack size ${i + 1}`;
+      if (!label) return fail(`Enter the quantity for ${where}${packUnit ? ` (in ${packUnit})` : ""}.`);
+      if (labels.has(label.toLowerCase())) return fail(`"${label}" is listed twice. Each pack size must be different.`);
+      labels.add(label.toLowerCase());
+      const price = isSingle ? Number(formData.price) : Number(row.price);
+      const mrp = isSingle ? Number(formData.compareAtPrice) : Number(row.compareAtPrice);
+      if (!(price > 0)) return fail(isSingle ? "Enter the selling price." : `Enter the selling price for "${label}".`);
+      if (mrp > 0 && mrp < price) return fail(`MRP cannot be lower than the selling price${isSingle ? "" : ` for "${label}"`}.`);
+      const stockRaw = isSingle ? formData.stock : row.stock;
+      if (stockRaw === "" || Number(stockRaw) < 0 || !Number.isFinite(Number(stockRaw))) {
+        return fail(isSingle ? "Enter the available stock (0 if none yet)." : `Enter the stock for "${label}" (0 if none yet).`);
+      }
+      variantsPayload.push({
+        id: row.id || undefined,
+        label,
+        packQuantity: Number(row.packQuantity) > 0 ? Number(row.packQuantity) : null,
+        packUnit,
+        price,
+        compareAtPrice: mrp > 0 ? mrp : 0,
+        costPrice: Number(isSingle ? formData.costPrice : row.costPrice) || 0,
+        stock: Number(stockRaw),
+      });
     }
+    const lead = variantsPayload[0];
 
     const primaryImg = formData.image || formData.images?.[0] || "";
     const imagesList = Array.isArray(formData.images) && formData.images.length > 0
@@ -364,7 +462,7 @@ export const ProductFormPage = () => {
         c.slug === formData.category
     );
     const resolvedCatName = matchedCategoryObj?.name || formData.category;
-    const resolvedCatId = matchedCategoryObj?.slug || matchedCategoryObj?.id || "ayurvedic-herbs";
+    const resolvedCatId = matchedCategoryObj?.slug || matchedCategoryObj?.id || formData.categoryId || "";
 
     const matchedSubcategoryObj = matchedCategoryObj?.subcategories?.find(
       (s) =>
@@ -389,11 +487,17 @@ export const ProductFormPage = () => {
       image: primaryImg,
       images: orderedImages,
       gallery: orderedImages,
-      price: Number(formData.price),
-      originalPrice: Number(formData.compareAtPrice) || Number(formData.price),
-      compareAtPrice: Number(formData.compareAtPrice) || null,
-      stock: Number(formData.stock),
-      stockQuantity: Number(formData.stock),
+      productType: formData.productType,
+      soldAs: formData.soldAs,
+      variants: variantsPayload,
+      // The product card shows the first pack size's price; stock is the total across pack sizes
+      price: lead.price,
+      originalPrice: lead.compareAtPrice || lead.price,
+      compareAtPrice: lead.compareAtPrice || null,
+      costPrice: lead.costPrice,
+      stock: variantsPayload.reduce((sum, v) => sum + v.stock, 0),
+      stockQuantity: variantsPayload.reduce((sum, v) => sum + v.stock, 0),
+      packSize: lead.label,
       // Send the API field names explicitly; formData may still hold stale copies of them
       isFeatured: Boolean(formData.isFeatured),
       isBestSeller: Boolean(formData.isBestseller),
@@ -401,8 +505,8 @@ export const ProductFormPage = () => {
       isTrending: Boolean(formData.isTrending),
       isNew: Boolean(formData.isNewArrival),
       isNewArrival: Boolean(formData.isNewArrival),
-      reorderThreshold: Number(formData.reorderThreshold),
-      costPrice: Number(formData.costPrice),
+      reorderThreshold: Number(formData.reorderThreshold) > 0 ? Number(formData.reorderThreshold) : 10,
+      warnings: formData.warnings || "",
       productInformation: {
         ...(formData.productInformation || {}),
         certifications: Array.isArray(formData.certifications) ? formData.certifications : [],
@@ -436,6 +540,12 @@ export const ProductFormPage = () => {
       c.slug === formData.category
   );
   const currentSubcategories = selectedCategoryObj?.subcategories || [];
+
+  // The storefront card shows the first pack size: its price for several sizes, the form's own price for a single pack
+  const leadRow = formData.variants[0] || {};
+  const previewPrice = Number(isSingle ? formData.price : leadRow.price) || 0;
+  const previewCompareAt = Number(isSingle ? formData.compareAtPrice : leadRow.compareAtPrice) || 0;
+  const previewPack = buildPackLabel(leadRow.packQuantity, leadRow.packUnit);
 
   // Editing a product that is not in the list yet: wait for it instead of showing the blank demo form
   if (isEdit && hasAdminLoadError("products") && !products.some((p) => p.id === productId)) {
@@ -607,8 +717,57 @@ export const ProductFormPage = () => {
             </div>
           </AdminCard>
 
+          {/* Product type and how it is sold: decides the pack-size unit */}
+          <AdminCard title="Product Type & Packing" subtitle="Tablets and capsules are counted, powders and resins are weighed, syrups and oils are measured">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">Product Type *</label>
+                <select name="productType" value={formData.productType} onChange={handleTypeChange} className={inputClass}>
+                  <option value="">Select the product type</option>
+                  {PRODUCT_TYPE_KEYS.map((key) => (
+                    <option key={key} value={key}>
+                      {PRODUCT_TYPES[key].label}
+                      {PRODUCT_TYPES[key].unit ? ` (sold in ${PRODUCT_TYPES[key].unit})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <span className="block text-xs font-semibold text-stone-700 mb-1.5">How is it sold?</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { value: "single", title: "Single pack", help: "One fixed pack, e.g. Shilajit 20 g. No size choice for the customer." },
+                    { value: "multiple", title: "Several pack sizes", help: "Customer picks a size, e.g. 60 or 120 tablets, each with its own price and stock." },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => handleSoldAsChange(opt.value)}
+                      className={`text-left p-3 rounded-xl border-2 transition-colors ${
+                        formData.soldAs === opt.value ? "border-[#173D2A] bg-emerald-50/60" : "border-stone-200 hover:border-stone-300 bg-white"
+                      }`}
+                    >
+                      <span className="block text-xs font-bold text-stone-900">{opt.title}</span>
+                      <span className="block text-[11px] text-stone-500 mt-0.5 leading-snug">{opt.help}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </AdminCard>
+
           {/* Section 2: Pricing & Inventory */}
-          <AdminCard title="2. Pricing & Warehouse Inventory" subtitle="Price points, cost margin, and stock counters">
+          <AdminCard
+            title="2. Pricing & Warehouse Inventory"
+            subtitle={isSingle ? "Price points, cost margin, and stock counters" : "Low-stock alert for the whole product"}
+          >
+            {!isSingle && (
+              <p className="mb-4 p-3 rounded-xl bg-stone-50 border border-stone-200 text-[11px] text-stone-600">
+                This product has several pack sizes, so price, MRP, cost and stock are set on each pack size in section 5.
+              </p>
+            )}
+            {isSingle && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
@@ -653,22 +812,26 @@ export const ProductFormPage = () => {
                 />
               </div>
             </div>
+            )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-stone-100">
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Current Stock Available (Units) *
-                </label>
-                <input
-                  type="number"
-                  name="stock"
-                  value={formData.stock}
-                  onChange={handleChange}
-                  required
-                  min="0"
-                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
-                />
-              </div>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${isSingle ? "mt-4 pt-4 border-t border-stone-100" : ""}`}>
+              {isSingle && (
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    Current Stock Available ({typeConfig?.unit ? `${typeConfig.unit} in stock` : "units"}) *
+                  </label>
+                  <input
+                    type="number"
+                    name="stock"
+                    value={formData.stock}
+                    onChange={handleChange}
+                    required
+                    min="0"
+                    placeholder="e.g. 50"
+                    className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
@@ -680,6 +843,7 @@ export const ProductFormPage = () => {
                   value={formData.reorderThreshold}
                   onChange={handleChange}
                   min="1"
+                  placeholder="10"
                   className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
                 />
               </div>
@@ -853,7 +1017,20 @@ export const ProductFormPage = () => {
                   rows={2}
                   value={formData.dosage}
                   onChange={handleChange}
-                  placeholder="e.g. 1-2 teaspoons with warm water twice daily before meals."
+                  placeholder={typeConfig?.dosageHint || "e.g. 1-2 teaspoons with warm water twice daily before meals."}
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Safety Warnings & Precautions
+                </label>
+                <textarea
+                  name="warnings"
+                  rows={2}
+                  value={formData.warnings}
+                  onChange={handleChange}
+                  placeholder="e.g. Not recommended during pregnancy. Keep out of reach of children. Consult a physician if on medication."
                   className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
                 />
               </div>
@@ -862,70 +1039,116 @@ export const ProductFormPage = () => {
 
           {/* Section 5: Variants & Sizes */}
           <AdminCard
-            title="5. Product Variants (Sizes & Pack Options)"
-            subtitle="Different weights, volumes, or tablet counts"
+            title={isSingle ? "5. Pack Size" : "5. Product Variants (Sizes & Pack Options)"}
+            subtitle={
+              isSingle
+                ? "The size of the single pack customers receive"
+                : "Each pack size has its own price, MRP and stock"
+            }
             action={
-              <button
-                type="button"
-                onClick={handleAddVariant}
-                className="text-xs font-semibold text-emerald-800 hover:underline inline-flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Variant</span>
-              </button>
+              !isSingle && (
+                <button
+                  type="button"
+                  onClick={handleAddVariant}
+                  className="text-xs font-semibold text-emerald-800 hover:underline inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Pack Size</span>
+                </button>
+              )
             }
           >
+            {!formData.productType && (
+              <p className="mb-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+                Choose the product type above first, so the pack size uses the right unit (tablets, g, ml).
+              </p>
+            )}
             <div className="space-y-3">
-              {formData.variants.map((v, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-stone-200 bg-stone-50/60"
-                >
-                  <div className="flex-1 min-w-[140px]">
-                    <label className="block text-[10px] font-semibold text-stone-500 uppercase">
-                      Variant Name
-                    </label>
-                    <input
-                      type="text"
-                      value={v.name}
-                      onChange={(e) => handleUpdateVariant(idx, "name", e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 bg-white"
-                    />
-                  </div>
+              {(isSingle ? formData.variants.slice(0, 1) : formData.variants).map((v, idx) => {
+                const units = typeConfig?.units || ["g", "ml", "pcs"];
+                const label = buildPackLabel(v.packQuantity, v.packUnit) || v.label;
+                return (
+                  <div key={v.id || idx} className="p-3 rounded-xl border border-stone-200 bg-stone-50/60">
+                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 items-end">
+                      <div className="col-span-1 sm:col-span-2">
+                        <label className="block text-[10px] font-semibold text-stone-500 uppercase">
+                          {typeConfig?.unit === "Tablets" || typeConfig?.unit === "Capsules" ? "Count" : "Quantity"} *
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={v.packQuantity}
+                          onChange={(e) => handleUpdateVariant(idx, "packQuantity", e.target.value)}
+                          placeholder={typeConfig?.unit === "Tablets" || typeConfig?.unit === "Capsules" ? "e.g. 60" : "e.g. 20"}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 bg-white"
+                        />
+                      </div>
 
-                  <div className="w-28">
-                    <label className="block text-[10px] font-semibold text-stone-500 uppercase">
-                      Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={v.price}
-                      onChange={(e) => handleUpdateVariant(idx, "price", e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 bg-white"
-                    />
-                  </div>
+                      <div className="col-span-1 sm:col-span-2">
+                        <label className="block text-[10px] font-semibold text-stone-500 uppercase">Unit</label>
+                        {units.length > 1 || !typeConfig ? (
+                          <select
+                            value={v.packUnit}
+                            onChange={(e) => handleUpdateVariant(idx, "packUnit", e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 bg-white"
+                          >
+                            {!units.includes(v.packUnit) && <option value={v.packUnit}>{v.packUnit || "Select unit"}</option>}
+                            {units.map((u) => (
+                              <option key={u} value={u}>{u}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="px-2.5 py-1.5 text-xs rounded-lg border border-stone-200 bg-stone-100 text-stone-600">
+                            {units[0]}
+                          </div>
+                        )}
+                      </div>
 
-                  <div className="w-24">
-                    <label className="block text-[10px] font-semibold text-stone-500 uppercase">
-                      Stock
-                    </label>
-                    <input
-                      type="number"
-                      value={v.stock}
-                      onChange={(e) => handleUpdateVariant(idx, "stock", e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 bg-white"
-                    />
-                  </div>
+                      <div className="col-span-2 text-[11px] text-stone-500 sm:pb-2">
+                        Shown to customers as{" "}
+                        <span className="font-semibold text-stone-800">{label || "..."}</span>
+                      </div>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveVariant(idx)}
-                    className="p-1.5 text-stone-400 hover:text-rose-600 self-end mb-1"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                    {!isSingle && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 items-end">
+                        {[
+                          { key: "price", label: "Selling Price (₹) *", placeholder: "e.g. 499" },
+                          { key: "compareAtPrice", label: "MRP (₹)", placeholder: "e.g. 699" },
+                          { key: "costPrice", label: "Cost (₹)", placeholder: "e.g. 200" },
+                          { key: "stock", label: "Stock *", placeholder: "e.g. 35" },
+                        ].map((f) => (
+                          <div key={f.key}>
+                            <label className="block text-[10px] font-semibold text-stone-500 uppercase">{f.label}</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={v[f.key]}
+                              onChange={(e) => handleUpdateVariant(idx, f.key, e.target.value)}
+                              placeholder={f.placeholder}
+                              className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 bg-white"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {!isSingle && formData.variants.length > 1 && (
+                      <div className="flex justify-end mt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVariant(idx)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-stone-500 hover:text-rose-600"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove this pack size</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </AdminCard>
         </div>
@@ -969,6 +1192,7 @@ export const ProductFormPage = () => {
                   }}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
                 >
+                  <option value="">Select a category</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.name}>
                       {c.name}
@@ -1179,8 +1403,7 @@ export const ProductFormPage = () => {
                               alt={`Product upload ${idx + 1}`}
                               className="w-full h-full object-contain"
                               onError={(e) => {
-                                e.target.src =
-                                  "/images/ProductImages/Ashuwaganda.png";
+                                e.target.style.visibility = "hidden";
                               }}
                             />
                           </div>
@@ -1234,15 +1457,18 @@ export const ProductFormPage = () => {
             <div className="p-3 bg-stone-50 rounded-xl border border-stone-200">
               <div className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-xs">
                 <div className="relative aspect-square overflow-hidden bg-stone-100 flex items-center justify-center p-2">
-                  <img loading="lazy" decoding="async"
-                    src={
-                      formData.image ||
-                      formData.images?.[0] ||
-                      "/images/ProductImages/Ashuwaganda.png"
-                    }
-                    alt={formData.title}
-                    className="w-full h-full object-contain"
-                  />
+                  {formData.image || formData.images?.[0] ? (
+                    <img loading="lazy" decoding="async"
+                      src={formData.image || formData.images?.[0]}
+                      alt={formData.title}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5 text-stone-300">
+                      <ImageIcon className="w-10 h-10" />
+                      <span className="text-[10px] font-medium text-stone-400">No image yet</span>
+                    </div>
+                  )}
                   {formData.isBestseller && (
                     <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white">
                       Bestseller
@@ -1290,13 +1516,14 @@ export const ProductFormPage = () => {
                   </h4>
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className="font-bold text-stone-900 text-sm">
-                      {formatCurrency(formData.price)}
+                      {previewPrice > 0 ? formatCurrency(previewPrice) : "₹ --"}
                     </span>
-                    {Number(formData.compareAtPrice) > 0 && (
+                    {previewCompareAt > previewPrice && (
                       <span className="text-[11px] text-stone-400 line-through">
-                        {formatCurrency(formData.compareAtPrice)}
+                        {formatCurrency(previewCompareAt)}
                       </span>
                     )}
+                    {previewPack && <span className="text-[10px] text-stone-400 ml-auto">{previewPack}</span>}
                   </div>
                 </div>
               </div>

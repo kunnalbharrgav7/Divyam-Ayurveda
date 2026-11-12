@@ -23,6 +23,9 @@ import { toRupees, toPaise } from "../utils/currency.js";
 import { hashPassword, generateTemporaryPassword } from "../utils/crypto.js";
 import { ROLES } from "../constants/roles.js";
 import { inventoryService } from "./inventory.service.js";
+import { InventoryMovement } from "../models/InventoryMovement.js";
+import { INVENTORY_REASONS } from "../constants/inventoryReasons.js";
+import { PRODUCT_TYPES, PRODUCT_TYPE_KEYS, buildPackLabel } from "../constants/productTypes.js";
 import { toPublicImages, resolveStoredImages } from "../utils/productImages.js";
 import { compressImages } from "../utils/imageCompression.js";
 
@@ -43,7 +46,10 @@ const cleanParcel = (parcel = {}) => {
 
 export const formatAdminProduct = (product, variants = []) => {
   const json = typeof product.toJSON === "function" ? product.toJSON() : { ...product };
-  const vars = variants.map((v) => (typeof v.toJSON === "function" ? v.toJSON() : v));
+  // Pack sizes that were removed from the product stay in the database (order history) but are not shown
+  const vars = variants
+    .map((v) => (typeof v.toJSON === "function" ? v.toJSON() : v))
+    .filter((v) => v.isActive !== false);
   const stock = vars.reduce(
     (sum, v) => sum + Math.max(0, (v.stockOnHand || 0) - (v.reservedStock || 0)),
     0
@@ -64,10 +70,167 @@ export const formatAdminProduct = (product, variants = []) => {
       sku: v.sku,
       label: v.label,
       size: v.label,
+      packQuantity: v.packQuantity ?? null,
+      packUnit: v.packUnit || "",
       price: toRupees(v.pricePaise),
+      compareAtPrice: toRupees(v.compareAtPricePaise || 0),
+      costPrice: toRupees(v.costPricePaise || 0),
+      reorderThreshold: v.reorderThreshold ?? 10,
       stock: Math.max(0, (v.stockOnHand || 0) - (v.reservedStock || 0)),
     })),
   };
+};
+
+const rupeesToPaise = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? toPaise(n) : 0;
+};
+const wholeNumber = (value, fallback = 0) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
+};
+
+/**
+ * Turns what the admin form sent into the list of pack sizes to store.
+ * "single": one fixed pack taken from the product's own price/stock fields.
+ * "multiple": the list the admin built, each with its own price and stock.
+ * A request without a usable list (older callers) falls back to one default pack.
+ */
+const buildVariantInputs = (data, productType) => {
+  const unit = PRODUCT_TYPES[productType]?.unit ?? "";
+  const soldAs = data.soldAs === "single" ? "single" : "multiple";
+  const listed = Array.isArray(data.variants) ? data.variants : [];
+
+  const toInput = (v, defaults = {}) => {
+    const packUnit = String(v.packUnit ?? unit).trim();
+    const packQuantity = Number(v.packQuantity);
+    const label =
+      buildPackLabel(packQuantity, packUnit) ||
+      String(v.label || v.size || v.name || defaults.label || "").trim() ||
+      "Standard";
+    return {
+      id: v.id ? String(v.id) : "",
+      sku: v.sku ? String(v.sku).trim() : "",
+      label,
+      packQuantity: Number.isFinite(packQuantity) && packQuantity > 0 ? packQuantity : null,
+      packUnit,
+      pricePaise: v.pricePaise ?? rupeesToPaise(v.price ?? defaults.price),
+      compareAtPricePaise: v.compareAtPricePaise ?? rupeesToPaise(v.compareAtPrice ?? v.originalPrice ?? defaults.compareAtPrice),
+      costPricePaise: rupeesToPaise(v.costPrice ?? defaults.costPrice),
+      stock: v.stockOnHand ?? v.stock ?? defaults.stock,
+      reorderThreshold: wholeNumber(v.reorderThreshold ?? defaults.reorderThreshold, 10) || 10,
+    };
+  };
+
+  if (soldAs === "single") {
+    const first = listed[0] || {};
+    return [
+      toInput(
+        { ...first, price: data.price, compareAtPrice: data.compareAtPrice, costPrice: data.costPrice, stock: data.stock ?? data.stockQuantity, reorderThreshold: data.reorderThreshold },
+        { label: "Single Pack" }
+      ),
+    ];
+  }
+  if (listed.length > 0) {
+    return listed.map((v) => toInput(v, { price: data.price, stock: 0, reorderThreshold: data.reorderThreshold }));
+  }
+  return [
+    toInput(
+      { price: data.price, compareAtPrice: data.compareAtPrice, costPrice: data.costPrice, stock: data.stock ?? data.stockQuantity, reorderThreshold: data.reorderThreshold },
+      { label: String(data.packSize || "Standard").trim() }
+    ),
+  ];
+};
+
+const validateVariantInputs = (inputs) => {
+  if (inputs.length === 0) throw ApiError.badRequest("Add at least one pack size.");
+  const seen = new Set();
+  for (const v of inputs) {
+    if (!(v.pricePaise > 0)) throw ApiError.badRequest(`Enter a selling price for "${v.label}".`);
+    if (v.compareAtPricePaise && v.compareAtPricePaise < v.pricePaise) {
+      throw ApiError.badRequest(`MRP for "${v.label}" cannot be lower than its selling price.`);
+    }
+    const key = v.label.toLowerCase();
+    if (seen.has(key)) throw ApiError.badRequest(`Pack size "${v.label}" is listed twice.`);
+    seen.add(key);
+  }
+};
+
+const newVariantSku = async (productSku, label) => {
+  const base = `${productSku}-${label.replace(/[^a-zA-Z0-9]/g, "")}`.toUpperCase();
+  let sku = base;
+  while (await ProductVariant.exists({ sku })) sku = `${base}-${Math.floor(100 + Math.random() * 900)}`;
+  return sku;
+};
+
+/** Writes the product's pack sizes: updates matching ones, adds new ones, retires the ones no longer listed. */
+const syncProductVariants = async (product, inputs, actorId) => {
+  const existing = await ProductVariant.find({ productId: product._id }).sort({ createdAt: 1 });
+  const byId = new Map(existing.map((v) => [String(v._id), v]));
+  const byLabel = new Map(existing.filter((v) => v.isActive).map((v) => [v.label.toLowerCase(), v]));
+  const kept = new Set();
+  const saved = [];
+
+  for (const input of inputs) {
+    let variant = (input.id && byId.get(input.id)) || byLabel.get(input.label.toLowerCase()) || null;
+    if (variant && kept.has(String(variant._id))) variant = null;
+    const stockTarget = input.stock === undefined || input.stock === null || input.stock === "" ? null : wholeNumber(input.stock, 0);
+
+    if (!variant) {
+      variant = new ProductVariant({
+        productId: product._id,
+        sku: await newVariantSku(product.sku, input.label),
+        label: input.label,
+        stockOnHand: 0,
+      });
+    }
+    const beforeStock = variant.stockOnHand || 0;
+    variant.label = input.label;
+    variant.packQuantity = input.packQuantity;
+    variant.packUnit = input.packUnit;
+    variant.pricePaise = input.pricePaise;
+    variant.compareAtPricePaise = input.compareAtPricePaise;
+    variant.costPricePaise = input.costPricePaise;
+    variant.reorderThreshold = input.reorderThreshold;
+    variant.isActive = true;
+    if ((variant.reservedStock || 0) < 0) variant.reservedStock = 0;
+    // The form shows available stock (on hand minus units held for open orders)
+    if (stockTarget !== null) variant.stockOnHand = stockTarget + (variant.reservedStock || 0);
+    await variant.save();
+    kept.add(String(variant._id));
+    saved.push(variant);
+
+    if (variant.stockOnHand !== beforeStock) {
+      await InventoryMovement.create({
+        variantId: variant._id,
+        productId: product._id,
+        delta: variant.stockOnHand - beforeStock,
+        beforeStock,
+        afterStock: variant.stockOnHand,
+        reason: INVENTORY_REASONS.WAREHOUSE_ADJUSTMENT,
+        reference: "Product form",
+        actorId: String(actorId || "staff"),
+        note: beforeStock === 0 && existing.every((e) => String(e._id) !== String(variant._id)) ? "Opening stock" : "Product edit",
+      });
+    }
+  }
+
+  for (const variant of existing) {
+    if (kept.has(String(variant._id)) || !variant.isActive) continue;
+    if ((variant.reservedStock || 0) > 0) {
+      throw ApiError.badRequest(`Pack size "${variant.label}" has units held for open orders and cannot be removed yet.`);
+    }
+    variant.isActive = false;
+    await variant.save();
+  }
+
+  // The product card shows the first pack size's price and label
+  const lead = saved[0];
+  product.basePricePaise = lead.pricePaise;
+  product.compareAtPricePaise = lead.compareAtPricePaise || 0;
+  product.packSize = lead.label;
+  await product.save();
+  return saved;
 };
 
 /** Admin-facing customer shape: account + real order stats + default address (no fabricated values). */
@@ -280,10 +443,17 @@ export class AdminService {
    * Admin Product Creation with Variants
    */
   async createProduct(data, staffUser) {
-    const basePricePaise = toPaise(Number(data.price || data.basePrice || 249));
-    const compareAtPricePaise = toPaise(Number(data.compareAtPrice || data.originalPrice || 0));
+    const productName = String(data.name || data.title || "").trim();
+    if (!productName) throw ApiError.badRequest("Product title is required.");
+    const productType = PRODUCT_TYPE_KEYS.includes(data.productType) ? data.productType : "other";
+    const soldAs = data.soldAs === "single" ? "single" : "multiple";
 
-    let finalSlug = (data.slug || (data.name || data.title).toLowerCase().replace(/[^a-z0-9]+/g, "-")).trim();
+    const variantInputs = buildVariantInputs(data, productType);
+    validateVariantInputs(variantInputs);
+    const basePricePaise = variantInputs[0].pricePaise;
+    const compareAtPricePaise = variantInputs[0].compareAtPricePaise;
+
+    let finalSlug = (data.slug || productName.toLowerCase().replace(/[^a-z0-9]+/g, "-")).trim();
     if (!finalSlug) finalSlug = `product-${Date.now()}`;
     const slugExists = await Product.findOne({ slug: finalSlug });
     if (slugExists) {
@@ -297,7 +467,7 @@ export class AdminService {
     }
 
     const product = await Product.create({
-      name: data.name || data.title,
+      name: productName,
       slug: finalSlug,
       sku: finalSku,
       brand: data.brand || "Divyam Ayurveda",
@@ -307,12 +477,12 @@ export class AdminService {
       shortDescription: data.shortDescription || data.subtitle || "",
       description: data.description || "",
       images: await compressImages(
-        Array.isArray(data.images) && data.images.length > 0
-          ? data.images
-          : [data.image || "/images/ProductImages/Ashuwaganda.png"]
+        Array.isArray(data.images) && data.images.length > 0 ? data.images : data.image ? [data.image] : []
       ),
-      packSize: data.packSize || "Standard Pack",
-      productForm: data.productForm || "Classical Formulation",
+      packSize: variantInputs[0].label,
+      productType,
+      soldAs,
+      productForm: String(data.productForm || "").trim() || (productType === "other" ? "" : PRODUCT_TYPES[productType].label),
       ingredients: Array.isArray(data.ingredients)
         ? data.ingredients.map((i) => (typeof i === "string" ? i : i.name))
         : [],
@@ -335,39 +505,8 @@ export class AdminService {
       status: (data.status || "active").toLowerCase(),
     });
 
-    // Create variants if supplied
-    const initialStock = Math.max(0, Number(data.stock ?? data.stockQuantity ?? 50) || 0);
-    // An empty variants array from the form must not leave the product without stock-holding variants
-    const variants = Array.isArray(data.variants) && data.variants.length > 0 ? data.variants : [
-      {
-        sku: product.sku,
-        label: product.packSize || "Standard",
-        pricePaise: basePricePaise,
-        compareAtPricePaise,
-        stockOnHand: initialStock,
-        reorderThreshold: Number(data.reorderThreshold || 10),
-      },
-    ];
-
-    const createdVariants = [];
-    for (const v of variants) {
-      const vPricePaise = v.pricePaise || toPaise(Number(v.price || data.price || 249));
-      const vComparePaise = v.compareAtPricePaise || toPaise(Number(v.compareAtPrice || v.originalPrice || 0));
-      const variantLabel = v.label || v.size || v.name || "Standard";
-      const variantSku = (v.sku || `${product.sku}-${variantLabel.replace(/[^a-zA-Z0-9]/g, "")}`).toUpperCase();
-
-      const variant = await ProductVariant.create({
-        productId: product._id,
-        sku: variantSku,
-        label: variantLabel,
-        pricePaise: vPricePaise,
-        compareAtPricePaise: vComparePaise,
-        stockOnHand: Math.max(0, Number(v.stockOnHand ?? v.stock ?? initialStock) || 0),
-        reorderThreshold: Number(v.reorderThreshold || 10),
-        weightGrams: Number(v.weightGrams || 250),
-      });
-      createdVariants.push(variant);
-    }
+    // Every product always has at least one pack size: stock and price live on them
+    const createdVariants = await syncProductVariants(product, variantInputs, staffUser?._id);
 
     await logAudit({
       actorId: staffUser?._id,
@@ -393,11 +532,22 @@ export class AdminService {
     const before = product.toJSON();
     const oldBasePricePaise = product.basePricePaise;
 
+    // The product form sends its pack sizes (or the single pack's details); price edits without them use the older path
+    if (data.productType !== undefined && !PRODUCT_TYPE_KEYS.includes(data.productType)) {
+      throw ApiError.badRequest("Unknown product type.");
+    }
+    const nextType = data.productType ?? product.productType;
+    const structured = Array.isArray(data.variants) || data.soldAs !== undefined;
+    const variantInputs = structured ? buildVariantInputs({ ...data, soldAs: data.soldAs ?? product.soldAs }, nextType) : null;
+    if (variantInputs) validateVariantInputs(variantInputs);
+    if (data.productType !== undefined) product.productType = data.productType;
+    if (data.soldAs !== undefined) product.soldAs = data.soldAs === "single" ? "single" : "multiple";
+
     if (data.name || data.title) product.name = String(data.name || data.title).trim();
     if (data.slug !== undefined) product.slug = String(data.slug).trim().toLowerCase();
     if (data.sku !== undefined) product.sku = String(data.sku).trim().toUpperCase();
-    if (data.price !== undefined) product.basePricePaise = toPaise(Number(data.price));
-    if (data.compareAtPrice !== undefined) product.compareAtPricePaise = toPaise(Number(data.compareAtPrice));
+    if (!variantInputs && data.price !== undefined) product.basePricePaise = toPaise(Number(data.price));
+    if (!variantInputs && data.compareAtPrice !== undefined) product.compareAtPricePaise = toPaise(Number(data.compareAtPrice));
     if (data.status !== undefined) product.status = String(data.status).toLowerCase();
 
     // Keep every editable formulation field in sync with the admin form. The
@@ -405,10 +555,12 @@ export class AdminService {
     // few flags), which made successful edits appear to be lost after reload.
     for (const field of [
       "brand", "categoryId", "subcategoryId", "subcategory", "shortDescription",
-      "description", "packSize", "productForm", "dosage", "warnings",
+      "description", "productForm", "dosage", "warnings",
     ]) {
       if (data[field] !== undefined) product[field] = data[field];
     }
+    if (!variantInputs && data.packSize !== undefined) product.packSize = data.packSize;
+    if (!product.productForm && product.productType !== "other") product.productForm = PRODUCT_TYPES[product.productType].label;
     for (const field of ["tags", "dosha", "benefits"]) {
       if (Array.isArray(data[field])) product[field] = data[field].map(String).filter(Boolean);
     }
@@ -448,12 +600,18 @@ export class AdminService {
       product.isNew = Boolean(data.isNew ?? data.isNewArrival);
     }
 
-    await product.save();
+    if (variantInputs) {
+      await product.save();
+      await syncProductVariants(product, variantInputs, staffUser?._id || staffUser?.id);
+    } else {
+      await product.save();
+    }
 
     // Customers see each pack size's own price (quick view, product page, cart), so a price edit has to
     // reach the pack size that carries the product's price: the variant priced at the old base price,
     // or the first pack size when none matches (this also repairs products already out of sync).
-    if (data.price !== undefined || data.compareAtPrice !== undefined) {
+    // Skipped when the whole pack-size list was saved above.
+    if (!variantInputs && (data.price !== undefined || data.compareAtPrice !== undefined)) {
       const packSizes = await ProductVariant.find({ productId: product._id }).sort({ createdAt: 1 });
       if (packSizes.length > 0) {
         const matching = packSizes.filter((v) => v.pricePaise === oldBasePricePaise);
@@ -469,7 +627,7 @@ export class AdminService {
     // Products saved earlier without any variant are repaired here.
     await inventoryService.ensureDefaultVariant(product._id);
 
-    const requestedStock = data.stock ?? data.stockQuantity;
+    const requestedStock = variantInputs ? undefined : data.stock ?? data.stockQuantity;
     if (requestedStock !== undefined && requestedStock !== null && requestedStock !== "") {
       const target = Number(requestedStock);
       if (!Number.isFinite(target) || target < 0) {
@@ -485,7 +643,7 @@ export class AdminService {
     }
 
     const threshold = Number(data.reorderThreshold);
-    if (data.reorderThreshold !== undefined && Number.isFinite(threshold) && threshold >= 0) {
+    if (!variantInputs && data.reorderThreshold !== undefined && Number.isFinite(threshold) && threshold >= 0) {
       await ProductVariant.updateMany({ productId: product._id }, { reorderThreshold: threshold });
     }
 

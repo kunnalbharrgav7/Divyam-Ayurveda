@@ -22,6 +22,17 @@ const productVariantSchema = new mongoose.Schema(
       required: true, // e.g. "250g", "60 Tablets"
       trim: true,
     },
+    // Structured pack size behind the label, e.g. 60 + "Tablets" or 20 + "g" (empty for older records)
+    packQuantity: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+    packUnit: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     pricePaise: {
       type: Number,
       required: true,

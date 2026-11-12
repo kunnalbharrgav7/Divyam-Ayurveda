@@ -11,6 +11,7 @@
     "seed": "node scripts/seed.js",
     "create-admin": "node scripts/create-admin.js",
     "set-owner": "node scripts/set-owner.js",
+    "backfill-product-types": "node scripts/backfill-product-types.js",
     "clean-db": "node scripts/clean-database.js --confirm",
     "test": "vitest run",
     "test:watch": "vitest",

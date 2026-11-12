@@ -400,10 +400,16 @@ export const AdminUsersPage = () => {
                 disabled={isMe(selectedUser)}
                 className={`${inputClass} text-stone-700 disabled:bg-stone-50`}
               >
-                <option value="Active">Active (can sign in)</option>
-                <option value="Inactive">Inactive (signed out, cannot sign in)</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
               </select>
-              {isMe(selectedUser) && <p className="text-[11px] text-stone-500 mt-1">You can't deactivate your own account.</p>}
+              <p className="text-[11px] text-stone-500 mt-1">
+                {isMe(selectedUser)
+                  ? "You can't deactivate your own account."
+                  : formData.status === "Inactive"
+                    ? "Signed out and cannot sign in."
+                    : "Can sign in."}
+              </p>
             </div>
           )}
         </form>

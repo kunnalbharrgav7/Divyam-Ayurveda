@@ -23,11 +23,11 @@ export const BlogAdminPage = () => {
     title: "",
     slug: "",
     category: "Ayurvedic Lifestyle",
-    author: "Dr. Ananya Sharma (BAMS, MD)",
-    readTime: "5 min read",
+    author: "",
+    readTime: "",
     excerpt: "",
     content: "",
-    image: "/images/ProductImages/Himalya.png",
+    image: "",
     status: "Published",
     date: new Date().toISOString().split("T")[0],
   };
@@ -48,11 +48,11 @@ export const BlogAdminPage = () => {
       title: post.title,
       slug: post.slug,
       category: post.category || "Ayurvedic Lifestyle",
-      author: post.author || "Dr. Ananya Sharma",
-      readTime: post.readTime || "5 min read",
+      author: post.author || "",
+      readTime: post.readTime || "",
       excerpt: post.excerpt || "",
       content: post.content || "",
-      image: post.image || defaultForm.image,
+      image: post.image || "",
       status: post.status ? post.status.charAt(0).toUpperCase() + post.status.slice(1).toLowerCase() : "Published",
       date: post.date || (post.publishedAt ? new Date(post.publishedAt).toISOString().split("T")[0] : defaultForm.date),
     });
@@ -246,12 +246,12 @@ export const BlogAdminPage = () => {
               onChange={handleTitleChange}
               required
               placeholder="e.g. 5 Morning Dinacharya Rituals for Radiant Energy"
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white font-sans"
+              className="w-full min-w-0 px-3 py-2 text-base sm:text-sm rounded-xl border border-stone-300 bg-white font-sans"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-stone-700 mb-1">
                 URL Slug
               </label>
@@ -259,17 +259,18 @@ export const BlogAdminPage = () => {
                 type="text"
                 value={formData.slug}
                 onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white font-mono text-xs"
+                placeholder="auto-generated from the title"
+                className="w-full min-w-0 px-3 py-2 text-base sm:text-xs rounded-xl border border-stone-300 bg-white font-mono"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-stone-700 mb-1">
                 Category
               </label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white text-stone-700"
+                className="w-full min-w-0 px-3 py-2 text-base sm:text-sm rounded-xl border border-stone-300 bg-white text-stone-700"
               >
                 <option value="Ayurvedic Lifestyle">Ayurvedic Lifestyle</option>
                 <option value="Herbal Remedies">Herbal Remedies</option>
@@ -280,8 +281,8 @@ export const BlogAdminPage = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-stone-700 mb-1">
                 Author
               </label>
@@ -289,10 +290,11 @@ export const BlogAdminPage = () => {
                 type="text"
                 value={formData.author}
                 onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
+                placeholder="e.g. Dr. Name (BAMS)"
+                className="w-full min-w-0 px-3 py-2 text-base sm:text-sm rounded-xl border border-stone-300 bg-white"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-stone-700 mb-1">
                 Estimated Reading Time
               </label>
@@ -300,7 +302,8 @@ export const BlogAdminPage = () => {
                 type="text"
                 value={formData.readTime}
                 onChange={(e) => setFormData({ ...formData, readTime: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
+                placeholder="e.g. 5 min read"
+                className="w-full min-w-0 px-3 py-2 text-base sm:text-sm rounded-xl border border-stone-300 bg-white"
               />
             </div>
           </div>
@@ -321,7 +324,7 @@ export const BlogAdminPage = () => {
               value={formData.excerpt}
               onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
               placeholder="Short summary displayed on cards..."
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white"
+              className="w-full min-w-0 px-3 py-2 text-base sm:text-sm rounded-xl border border-stone-300 bg-white"
             />
           </div>
 
@@ -334,7 +337,7 @@ export const BlogAdminPage = () => {
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
               placeholder="Write the complete educational article here..."
-              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-300 bg-white font-mono text-xs"
+              className="w-full min-w-0 px-3 py-2 text-base sm:text-xs rounded-xl border border-stone-300 bg-white font-mono"
             />
           </div>
         </form>

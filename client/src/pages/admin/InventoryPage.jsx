@@ -343,39 +343,42 @@ export const InventoryPage = () => {
                 <button
                   type="button"
                   onClick={() => setAdjustType("add")}
-                  className={`py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1 sm:gap-1.5 transition-colors min-w-0 ${
                     adjustType === "add"
                       ? "bg-emerald-50 border-emerald-500 text-emerald-800"
                       : "bg-white border-stone-300 text-stone-700 hover:bg-stone-50"
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Add Units (+)</span>
+                  <span className="sm:hidden">Add (+)</span>
+                  <span className="hidden sm:inline">Add Units (+)</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setAdjustType("subtract")}
-                  className={`py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1 sm:gap-1.5 transition-colors min-w-0 ${
                     adjustType === "subtract"
                       ? "bg-rose-50 border-rose-500 text-rose-800"
                       : "bg-white border-stone-300 text-stone-700 hover:bg-stone-50"
                   }`}
                 >
                   <Minus className="w-3.5 h-3.5" />
-                  <span>Deduct Units (-)</span>
+                  <span className="sm:hidden">Deduct (-)</span>
+                  <span className="hidden sm:inline">Deduct Units (-)</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setAdjustType("set")}
-                  className={`py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1 sm:gap-1.5 transition-colors min-w-0 ${
                     adjustType === "set"
                       ? "bg-blue-50 border-blue-500 text-blue-800"
                       : "bg-white border-stone-300 text-stone-700 hover:bg-stone-50"
                   }`}
                 >
-                  <span>Set Exactly (=)</span>
+                  <span className="sm:hidden">Set (=)</span>
+                  <span className="hidden sm:inline">Set Exactly (=)</span>
                 </button>
               </div>
             </div>
@@ -392,7 +395,7 @@ export const InventoryPage = () => {
                   setAdjustAmount(Math.max(adjustType === "set" ? 0 : 1, Number(e.target.value)))
                 }
                 required
-                className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white"
+                className="w-full min-w-0 px-3.5 py-2 text-base sm:text-sm rounded-xl border border-stone-300 bg-white"
               />
             </div>
 
@@ -403,26 +406,15 @@ export const InventoryPage = () => {
               <select
                 value={adjustReason}
                 onChange={(e) => setAdjustReason(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 bg-white text-stone-700"
+                className="w-full min-w-0 px-3 py-2 text-sm sm:text-xs rounded-xl border border-stone-300 bg-white text-stone-700"
               >
-                <option value="Warehouse Stock Inward (Supplier)">
-                  Warehouse Stock Inward (Supplier Batch Restock)
-                </option>
-                <option value="Cycle Count / Physical Audit Reconciliation">
-                  Cycle Count / Physical Audit Reconciliation
-                </option>
-                <option value="Damaged Goods / Packaging Defect">
-                  Damaged Goods / Packaging Defect
-                </option>
-                <option value="Batch Expiry / Laboratory Disposal">
-                  Batch Expiry / Laboratory Disposal
-                </option>
-                <option value="Customer Return Restocked">
-                  Customer Return Restocked
-                </option>
-                <option value="Physician Clinical Sampling / Promotional">
-                  Physician Clinical Sampling / Promotional
-                </option>
+                {/* Short labels: a phone's native list is as wide as the longest option, so long text runs off screen */}
+                <option value="Warehouse Stock Inward (Supplier)">Supplier restock</option>
+                <option value="Cycle Count / Physical Audit Reconciliation">Stock count / audit</option>
+                <option value="Damaged Goods / Packaging Defect">Damaged / packaging defect</option>
+                <option value="Batch Expiry / Laboratory Disposal">Expired / disposed</option>
+                <option value="Customer Return Restocked">Customer return restocked</option>
+                <option value="Physician Clinical Sampling / Promotional">Sampling / promotional</option>
               </select>
             </div>
 
@@ -435,7 +427,7 @@ export const InventoryPage = () => {
                 placeholder="e.g. Batch #HRD-2026-9 received via DHL freight"
                 value={adjustNote}
                 onChange={(e) => setAdjustNote(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 bg-white"
+                className="w-full min-w-0 px-3 py-2 text-base sm:text-xs rounded-xl border border-stone-300 bg-white"
               />
             </div>
 
