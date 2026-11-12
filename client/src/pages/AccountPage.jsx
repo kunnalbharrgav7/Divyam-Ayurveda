@@ -61,6 +61,14 @@ export const AccountPage = () => {
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
 
+  // Follow the URL: navigating between /account/... links (or using back/forward) does not remount
+  // this page, so the tab has to be re-derived whenever the address changes.
+  useEffect(() => {
+    setActiveTab(getInitialTab());
+    if (location.pathname.includes("/support")) window.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, location.search]);
+
   // Address Modal State
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [newAddr, setNewAddr] = useState({
@@ -207,7 +215,13 @@ export const AccountPage = () => {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    // Keep the address in step with the tab so links back into a tab always register
+                    navigate(
+                      tab.id === "overview" ? "/account" : tab.id === "returns" ? "/account?tab=returns" : `/account/${tab.id}`
+                    );
+                  }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-semibold transition-all ${
                     activeTab === tab.id
                       ? "bg-[#173D2A] text-white shadow-xs"
@@ -528,7 +542,7 @@ export const AccountPage = () => {
             {activeTab === "returns" && <MyReturnsPanel />}
 
             {/* SUPPORT TAB */}
-            {activeTab === "support" && <MySupportPanel orders={orders} />}
+            {activeTab === "support" && <MySupportPanel key={location.search} orders={orders} />}
 
             {/* 3. ADDRESSES TAB */}
             {activeTab === "addresses" && (
