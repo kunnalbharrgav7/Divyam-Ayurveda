@@ -101,3 +101,12 @@ h1, h2, h3, h4, h5, h6, .font-heading, .font-serif {
 .admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(169, 209, 142, 0.5);
 }
+
+/* Hide the scrollbar on horizontally scrolling chip rows while keeping them scrollable */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

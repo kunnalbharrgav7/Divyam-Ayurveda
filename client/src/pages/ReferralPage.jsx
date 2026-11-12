@@ -66,8 +66,8 @@ export const ReferralPage = () => {
   ];
 
   return (
-    <div className="bg-[#FBFAF6] min-h-screen py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="bg-[#FBFAF6] min-h-screen py-5 sm:py-8 overflow-x-clip">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
         {/* Breadcrumb Navigation */}
         <Breadcrumbs
           items={[
@@ -77,85 +77,98 @@ export const ReferralPage = () => {
         />
 
         {/* Page Hero Header */}
-        <div className="relative rounded-3xl bg-gradient-to-r from-[#173D2A] via-[#1E4A34] to-[#0B2416] text-white p-8 sm:p-12 overflow-hidden shadow-sm">
+        <section className="relative rounded-3xl bg-gradient-to-r from-[#173D2A] via-[#1E4A34] to-[#0B2416] text-white p-5 sm:p-10 lg:p-12 overflow-hidden shadow-sm">
           {/* Subtle Ayurvedic glow accents */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#A9D18E]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-0 right-0 w-72 sm:w-96 h-72 sm:h-96 bg-[#A9D18E]/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
 
-          <div className="relative z-10 max-w-3xl space-y-4">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 text-[#A9D18E] text-xs font-bold uppercase tracking-wider border border-white/10 backdrop-blur-xs">
-              <Gift size={14} />
-              <span>Ayurvedic Wellness Circle</span>
+          <div className="relative z-10 grid lg:grid-cols-[minmax(0,1fr)_auto] gap-6 lg:gap-12 items-center">
+            <div className="space-y-3 sm:space-y-4 min-w-0">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-[#A9D18E] text-[11px] sm:text-xs font-bold uppercase tracking-wider border border-white/10 backdrop-blur-xs">
+                <Gift size={14} />
+                <span>Ayurvedic Wellness Circle</span>
+              </div>
+
+              <h1 className="font-heading tracking-tight text-[1.75rem] sm:text-4xl lg:text-5xl font-bold text-white leading-[1.15]">
+                Share Natural Healing. <br className="hidden sm:inline" />
+                <span className="text-[#A9D18E]">
+                  Give {describeFriendOffer(settings)}, Earn {describeReward(settings)}.
+                </span>
+              </h1>
+
+              <p className="text-sm sm:text-base text-stone-200 leading-relaxed max-w-2xl">
+                Introduce your friends and family to authentic, single-origin herbs, Shilajit, and classical churnas.
+                They receive an immediate welcome discount of {describeFriendOffer(settings)}, and you receive {describeReward(settings)} in wellness rewards on their first qualifying order.
+              </p>
+
+              {!isAuthenticated && (
+                <div className="pt-1 flex flex-wrap items-center gap-3">
+                  <Link
+                    to="/login?redirect=/referrals"
+                    className="px-5 py-3 bg-[#A9D18E] hover:bg-[#8FBE72] text-[#0B2416] text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all duration-200 flex items-center gap-2 w-full sm:w-auto justify-center"
+                  >
+                    <span>Sign In for Personal Code</span>
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
+              )}
             </div>
 
-            <h1 className="font-heading tracking-tight text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white leading-tight">
-              Share Natural Healing. <br className="hidden sm:inline" />
-              <span className="text-[#A9D18E]">Give 10%, Earn ₹100.</span>
-            </h1>
-
-            <p className="text-sm sm:text-base text-stone-200 leading-relaxed max-w-2xl">
-              Introduce your friends and family to authentic, single-origin herbs, Shilajit, and classical churnas. 
-              They receive an immediate 10% welcome discount, and you receive ₹100 in wellness rewards on their first qualifying order.
-            </p>
-
-            {!isAuthenticated && (
-              <div className="pt-2 flex flex-wrap items-center gap-3">
-                <Link
-                  to="/login?redirect=/referrals"
-                  className="px-5 py-2.5 bg-[#A9D18E] hover:bg-[#8FBE72] text-[#0B2416] text-xs font-bold rounded-xl shadow-xs transition-all duration-200 flex items-center gap-2"
-                >
-                  <span>Sign In for Personal Code</span>
-                  <ArrowRight size={14} />
-                </Link>
-                <span className="text-xs text-stone-300">
-                  (Or test using our active demo customer Aarav Sharma)
-                </span>
+            {/* At-a-glance offer */}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 lg:w-60">
+              <div className="rounded-2xl bg-white/10 border border-white/15 backdrop-blur-xs p-3.5 sm:p-4">
+                <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-stone-300">Your friend gets</span>
+                <p className="text-xl sm:text-2xl font-bold text-white mt-0.5">{describeFriendOffer(settings)}</p>
+                <p className="text-[11px] text-stone-300 mt-0.5">on their first order</p>
               </div>
-            )}
+              <div className="rounded-2xl bg-[#A9D18E]/15 border border-[#A9D18E]/30 backdrop-blur-xs p-3.5 sm:p-4">
+                <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-[#A9D18E]">You earn</span>
+                <p className="text-xl sm:text-2xl font-bold text-[#A9D18E] mt-0.5">{describeReward(settings)}</p>
+                <p className="text-[11px] text-stone-300 mt-0.5">as store credit</p>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
 
         {/* 1-Click Link & Share Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-7 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8 items-start">
+          <div className="lg:col-span-7 min-w-0 space-y-5 sm:space-y-6">
             <ReferralLinkCard />
             <ReferralShareActions />
           </div>
 
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-5 min-w-0 lg:sticky lg:top-24">
             <ReferralHowItWorks />
           </div>
         </div>
 
         {/* Real-time Statistics Cards */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-heading tracking-tight text-2xl font-bold text-[#171A17]">
-                Your Referral Performance
-              </h2>
-              <p className="text-xs sm:text-sm text-[#666B64] mt-0.5">
-                Real-time tracking of links shared, invited friends, orders placed, and rewards earned.
-              </p>
-            </div>
+        <section className="space-y-4">
+          <div>
+            <h2 className="font-heading tracking-tight text-xl sm:text-2xl font-bold text-[#171A17]">
+              Your Referral Performance
+            </h2>
+            <p className="text-xs sm:text-sm text-[#666B64] mt-0.5">
+              Real-time tracking of links shared, invited friends, orders placed, and rewards earned.
+            </p>
           </div>
-          <ReferralStats />
-        </div>
+          <ReferralStats showTitle={false} />
+        </section>
 
         {/* Referral Activity History */}
-        <div className="space-y-4">
+        <section>
           <ReferralHistory />
-        </div>
+        </section>
 
         {/* Frequently Asked Questions */}
-        <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="flex items-center gap-3 pb-3 border-b border-[#E5E7DF]">
+        <section className="bg-white rounded-3xl border border-[#E5E7DF] p-4 sm:p-8 shadow-xs space-y-4 sm:space-y-6">
+          <div className="flex items-start sm:items-center gap-3 pb-3 border-b border-[#E5E7DF]">
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0">
               <HelpCircle size={20} />
             </div>
-            <div>
-              <h3 className="font-heading tracking-tight text-xl font-bold text-[#171A17]">
-                Referral Program FAQs & Guidelines
+            <div className="min-w-0">
+              <h3 className="font-heading tracking-tight text-lg sm:text-xl font-bold text-[#171A17]">
+                Referral Program FAQs &amp; Guidelines
               </h3>
               <p className="text-xs text-[#666B64]">
                 Everything you need to know about sharing, qualifying orders, and reward redemption.
@@ -167,10 +180,12 @@ export const ReferralPage = () => {
             {faqs.map((faq, idx) => {
               const isOpen = expandedFaq === idx;
               return (
-                <div key={idx} className="py-4 first:pt-0 last:pb-0">
+                <div key={idx} className="py-1">
                   <button
+                    type="button"
                     onClick={() => toggleFaq(idx)}
-                    className="w-full flex items-center justify-between text-left gap-4 font-semibold text-xs sm:text-sm text-[#171A17] hover:text-[#386B40] transition-colors"
+                    aria-expanded={isOpen}
+                    className="w-full min-h-12 py-2.5 flex items-center justify-between text-left gap-4 font-semibold text-[13px] sm:text-sm text-[#171A17] hover:text-[#386B40] transition-colors cursor-pointer"
                   >
                     <span>{faq.q}</span>
                     <ChevronDown
@@ -181,7 +196,7 @@ export const ReferralPage = () => {
                     />
                   </button>
                   {isOpen && (
-                    <div className="mt-2.5 text-xs text-stone-600 leading-relaxed pl-1 animate-in fade-in duration-150">
+                    <div className="pb-3 text-xs sm:text-sm text-stone-600 leading-relaxed pr-6 animate-in fade-in duration-150">
                       {faq.a}
                     </div>
                   )}
@@ -189,7 +204,7 @@ export const ReferralPage = () => {
               );
             })}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

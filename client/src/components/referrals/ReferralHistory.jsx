@@ -50,13 +50,13 @@ export const ReferralHistory = () => {
   }, [dashboardData.referrals, statusFilter, searchTerm]);
 
   return (
-    <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 shadow-xs space-y-6">
+    <div className="bg-white rounded-3xl border border-[#E5E7DF] p-4 sm:p-8 shadow-xs space-y-4 sm:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#E5E7DF]">
         <div>
           <h4 className="font-heading tracking-tight text-lg font-bold text-[#171A17]">Your Referrals</h4>
           <p className="text-xs text-stone-500 mt-0.5">Friends who joined with your code and the rewards they earned you. Updates automatically.</p>
         </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 -mx-1 px-1 no-scrollbar">
           {FILTERS.map((tab) => (
             <button
               key={tab.id}
@@ -72,7 +72,7 @@ export const ReferralHistory = () => {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
+      <div className="relative w-full sm:max-w-sm">
         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
         <input
           type="text"
@@ -101,16 +101,18 @@ export const ReferralHistory = () => {
       ) : (
         <div className="divide-y divide-stone-100">
           {rows.map((r) => (
-            <div key={r.id} className="py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div key={r.id} className="py-3.5 grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto_auto] items-center gap-x-4 gap-y-2 text-xs">
               <div className="min-w-0">
-                <span className="font-semibold text-stone-900 block">{r.friend}</span>
-                <span className="text-[10px] text-stone-400 font-mono">{r.email} &bull; joined {formatDate(r.createdAt)}</span>
+                <span className="font-semibold text-stone-900 block truncate">{r.friend}</span>
+                <span className="text-[10px] text-stone-400 font-mono block truncate">{r.email} &bull; joined {formatDate(r.createdAt)}</span>
               </div>
-              <span className="text-[11px] text-stone-500 flex-1 min-w-[140px]">{detail(r)}</span>
-              <span className="font-bold text-[#173D2A]">
+              <span className="font-bold text-[#173D2A] text-right sm:order-3">
                 {r.reward > 0 && ["ordered", "rewarded"].includes(r.status) ? `+${formatINR(r.reward)}` : "—"}
               </span>
-              <Badge status={r.status} />
+              <span className="text-[11px] text-stone-500 sm:order-2 min-w-0">{detail(r)}</span>
+              <span className="justify-self-end sm:order-4">
+                <Badge status={r.status} />
+              </span>
             </div>
           ))}
         </div>

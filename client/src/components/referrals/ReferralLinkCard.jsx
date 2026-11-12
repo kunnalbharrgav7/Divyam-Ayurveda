@@ -15,12 +15,12 @@ export const ReferralLinkCard = () => {
   const { referralCode, shareUrl } = dashboardData;
 
   return (
-    <div className="bg-gradient-to-br from-[#173D2A] to-[#0B2416] text-white rounded-3xl p-6 sm:p-8 shadow-md border border-[#A9D18E]/20 relative overflow-hidden">
+    <div className="bg-gradient-to-br from-[#173D2A] to-[#0B2416] text-white rounded-3xl p-4 sm:p-8 shadow-md border border-[#A9D18E]/20 relative overflow-hidden">
       {/* Decorative background botanicals */}
       <div className="absolute -right-8 -bottom-8 w-48 h-48 rounded-full bg-emerald-700/10 blur-2xl pointer-events-none" />
       <div className="absolute -left-8 -top-8 w-40 h-40 rounded-full bg-[#A9D18E]/10 blur-2xl pointer-events-none" />
 
-      <div className="relative z-10 space-y-6">
+      <div className="relative z-10 space-y-5 sm:space-y-6">
         {/* Card Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -28,7 +28,7 @@ export const ReferralLinkCard = () => {
               <Sparkles size={12} />
               <span>Your Personal Wellness Link</span>
             </div>
-            <h3 className="font-heading tracking-tight text-2xl sm:text-3xl font-bold text-white">
+            <h3 className="font-heading tracking-tight text-xl sm:text-3xl font-bold text-white leading-tight">
               Give {describeFriendOffer(settings)}, Earn {describeReward(settings)}
             </h3>
             <p className="text-xs sm:text-sm text-stone-300 mt-1 max-w-xl leading-relaxed">
@@ -39,9 +39,9 @@ export const ReferralLinkCard = () => {
             </p>
           </div>
 
-          <div className="flex sm:flex-col items-center sm:items-end gap-1.5 text-xs text-stone-300 bg-white/5 p-3 rounded-2xl border border-white/10">
+          <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:items-end gap-1.5 text-xs text-stone-300 bg-white/5 px-3.5 py-2.5 sm:p-3 rounded-2xl border border-white/10 shrink-0">
             <span className="text-[10px] text-stone-400 uppercase tracking-wider">Your Code</span>
-            <span className="font-mono text-base font-extrabold text-[#A9D18E]">
+            <span className="font-mono text-sm sm:text-base font-extrabold text-[#A9D18E] break-all">
               {referralCode}
             </span>
           </div>
@@ -60,14 +60,14 @@ export const ReferralLinkCard = () => {
                 readOnly
                 value={shareUrl}
                 aria-label="Shareable referral link"
-                className="w-full pl-10 pr-4 py-3 bg-white/10 text-stone-100 rounded-2xl text-xs sm:text-sm font-mono border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#A9D18E]/60 select-all cursor-text truncate"
+                className="w-full pl-10 pr-4 py-3 min-w-0 bg-white/10 text-stone-100 rounded-2xl text-xs sm:text-sm font-mono border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#A9D18E]/60 select-all cursor-text truncate"
               />
             </div>
 
             <button
               type="button"
               onClick={() => copyToClipboard(shareUrl, "link")}
-              className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer shrink-0 ${
+              className={`px-5 py-3 min-h-11 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer sm:shrink-0 ${
                 copyFeedback.link
                   ? "bg-emerald-500 text-white"
                   : "bg-[#A9D18E] text-[#0B2416] hover:bg-[#b8dd9e] active:scale-95"
@@ -90,18 +90,18 @@ export const ReferralLinkCard = () => {
 
         {/* Quick Referral Code Box */}
         <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-stone-300">Or share code directly:</span>
             <span className="font-mono text-sm font-bold bg-white/10 px-3 py-1 rounded-xl text-white border border-white/20">
               {referralCode}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => copyToClipboard(referralCode, "code")}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`w-full sm:w-auto justify-center px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                 copyFeedback.code
                   ? "bg-emerald-500 text-white"
                   : "bg-white/10 hover:bg-white/20 text-white border border-white/20 active:scale-95"
@@ -123,8 +123,8 @@ export const ReferralLinkCard = () => {
         </div>
 
         {/* Demo policy disclaimer */}
-        <div className="flex items-center gap-2 text-[11px] text-stone-400 pt-1">
-          <ShieldCheck size={14} className="text-[#A9D18E] shrink-0" />
+        <div className="flex items-start gap-2 text-[11px] text-stone-400 pt-1">
+          <ShieldCheck size={14} className="text-[#A9D18E] shrink-0 mt-0.5" />
           <span>
             Demo environment: Simulated client-side attribution. No real financial transaction occurs.
           </span>

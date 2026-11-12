@@ -7,7 +7,7 @@ import { Users, ShoppingBag, Clock, CheckCircle2, Wallet, Award } from "lucide-r
 import { useReferrals } from "../../context/ReferralContext";
 import { formatINR } from "../../utils/formatters";
 
-export const ReferralStats = () => {
+export const ReferralStats = ({ showTitle = true }) => {
   const { dashboardData, settings } = useReferrals();
   const { stats, tier } = dashboardData;
 
@@ -37,18 +37,20 @@ export const ReferralStats = () => {
 
   return (
     <div className="space-y-3">
-      <h4 className="font-heading tracking-tight text-lg font-bold text-[#171A17] flex items-center gap-2">
-        <Wallet size={18} className="text-[#386B40]" />
-        <span>Referral Performance &amp; Earnings</span>
-      </h4>
+      {showTitle && (
+        <h4 className="font-heading tracking-tight text-lg font-bold text-[#171A17] flex items-center gap-2">
+          <Wallet size={18} className="text-[#386B40]" />
+          <span>Referral Performance &amp; Earnings</span>
+        </h4>
+      )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
             <div
               key={card.id}
-              className={`p-4 rounded-2xl border transition-all ${
+              className={`p-3.5 sm:p-4 rounded-2xl border transition-all min-w-0 ${
                 card.highlight ? "bg-gradient-to-br from-emerald-50/80 to-white border-[#A9D18E]/50 shadow-xs" : "bg-white border-[#E5E7DF] shadow-xs"
               }`}
             >
@@ -58,8 +60,8 @@ export const ReferralStats = () => {
                   <Icon size={14} />
                 </div>
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-[#171A17] tracking-tight">{card.value}</div>
-              <p className="text-[10px] text-stone-500 mt-0.5 truncate">{card.subtext}</p>
+              <div className="text-lg sm:text-2xl font-bold text-[#171A17] tracking-tight truncate">{card.value}</div>
+              <p className="text-[10px] sm:text-[11px] text-stone-500 mt-0.5 leading-snug">{card.subtext}</p>
             </div>
           );
         })}

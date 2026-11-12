@@ -37,7 +37,7 @@ export const ReferralShareActions = () => {
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-[#E5E7DF] p-6 sm:p-8 shadow-xs space-y-4">
+    <div className="bg-white rounded-3xl border border-[#E5E7DF] p-4 sm:p-8 shadow-xs space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h4 className="font-heading tracking-tight text-lg font-bold text-[#171A17]">
@@ -55,12 +55,12 @@ export const ReferralShareActions = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pt-1 sm:pt-2">
         {/* 1. WhatsApp */}
         <button
           type="button"
           onClick={() => shareViaWhatsApp(referralCode, shareUrl)}
-          className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#1E7E34] border border-[#25D366]/30 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center group"
+          className="flex flex-col items-center justify-center gap-2 p-3 sm:p-4 min-h-[104px] rounded-2xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#1E7E34] border border-[#25D366]/30 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center group"
           title="Share referral link via WhatsApp"
         >
           <div className="w-10 h-10 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform">
@@ -76,7 +76,7 @@ export const ReferralShareActions = () => {
         <button
           type="button"
           onClick={() => shareViaEmail(referralCode, shareUrl)}
-          className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center group"
+          className="flex flex-col items-center justify-center gap-2 p-3 sm:p-4 min-h-[104px] rounded-2xl bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center group"
           title="Share referral link via Email"
         >
           <div className="w-10 h-10 rounded-full bg-sky-600 text-white flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform">
@@ -92,7 +92,7 @@ export const ReferralShareActions = () => {
         <button
           type="button"
           onClick={handleNativeShare}
-          className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center group"
+          className="flex flex-col items-center justify-center gap-2 p-3 sm:p-4 min-h-[104px] rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center group"
           title="Open system share options"
         >
           <div className="w-10 h-10 rounded-full bg-amber-600 text-white flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform">
@@ -108,7 +108,7 @@ export const ReferralShareActions = () => {
         <button
           type="button"
           onClick={() => copyToClipboard(shareUrl, "link")}
-          className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-[#FBFAF6] hover:bg-stone-100 text-stone-800 border border-[#E5E7DF] transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center group"
+          className="flex flex-col items-center justify-center gap-2 p-3 sm:p-4 min-h-[104px] rounded-2xl bg-[#FBFAF6] hover:bg-stone-100 text-stone-800 border border-[#E5E7DF] transition-all hover:scale-[1.02] active:scale-95 cursor-pointer text-center group"
           title="Copy referral link to clipboard"
         >
           <div
