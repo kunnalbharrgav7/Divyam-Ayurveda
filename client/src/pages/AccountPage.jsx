@@ -19,6 +19,8 @@ import {
   Gift,
   RotateCcw,
   LifeBuoy,
+  Truck,
+  Receipt,
 } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { useAuth } from "../context/AuthContext";
@@ -27,7 +29,7 @@ import { useReturns } from "../context/ReturnContext";
 import { ReturnRequestModal } from "../components/returns/ReturnRequestModal";
 import { MySupportPanel } from "../components/support/MySupportPanel";
 import { MyReturnsPanel, RETURN_STATUS_LABEL, RETURN_STATUS_STYLE } from "../components/returns/MyReturnsPanel";
-import { formatINR, formatDate } from "../utils/formatters";
+import { formatINR, formatDate, formatDateTime } from "../utils/formatters";
 import { ReferralLinkCard } from "../components/referrals/ReferralLinkCard";
 import { ReferralShareActions } from "../components/referrals/ReferralShareActions";
 import { ReferralStats } from "../components/referrals/ReferralStats";
@@ -84,6 +86,16 @@ export const AccountPage = () => {
 
   // Selected Order for detail modal
   const [selectedOrder, setSelectedOrder] = useState(null);
+
+  // Lock the page behind the order popup so only the popup scrolls
+  useEffect(() => {
+    if (!selectedOrder) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [selectedOrder]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -802,72 +814,205 @@ export const AccountPage = () => {
         />
       )}
 
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E5E7DF]">
-              <div>
-                <span className="text-[11px] font-bold text-[#386B40] uppercase">Order Details</span>
-                <h3 className="font-heading tracking-tight text-lg font-bold font-mono text-[#171A17]">
-                  {selectedOrder.id}
-                </h3>
+      {selectedOrder && (() => {
+        const o = selectedOrder;
+        const p = o.pricing || {};
+        const addr = o.shippingAddress || {};
+        const isDelivered = o.status === "Delivered" || o.orderStatus === "Delivered" || o.rawStatus === "delivered";
+        const isCancelled = ["cancelled", "failed"].includes(String(o.rawStatus || "").toLowerCase());
+        const money = (v) => formatINR(Number(v) || 0);
+        const payStatus = String(o.paymentStatus || "pending").replace(/_/g, " ");
+        const payStatusStyle = /paid|captured|success/i.test(payStatus)
+          ? "bg-emerald-100 text-emerald-800"
+          : /fail|refund/i.test(payStatus)
+            ? "bg-rose-100 text-rose-800"
+            : "bg-amber-100 text-amber-800";
+        const timeline = Array.isArray(o.timeline) ? o.timeline : [];
+        const itemCount = (o.items || []).reduce((n, it) => n + (Number(it.quantity) || 0), 0);
+        const saved = Number(p.discount || 0) + Number(p.referralDiscount || 0) + Number(p.storeCredit || 0);
+        const row = (label, value, valueClass = "text-stone-800") => (
+          <div className="flex justify-between gap-4">
+            <span className="text-stone-500">{label}</span>
+            <span className={`font-medium text-right ${valueClass}`}>{value}</span>
+          </div>
+        );
+        return (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-xs" onClick={() => setSelectedOrder(null)}>
+            <div
+              data-lenis-prevent="true"
+              className="bg-white rounded-t-3xl sm:rounded-3xl max-w-2xl w-full shadow-xl max-h-[92vh] overflow-y-auto overscroll-contain"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 z-10 bg-white flex items-start justify-between gap-3 px-5 sm:px-8 pt-5 sm:pt-7 pb-4 border-b border-[#E5E7DF]">
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold text-[#386B40] uppercase tracking-wider">Order Details</span>
+                  <h3 className="font-heading tracking-tight text-lg font-bold font-mono text-[#171A17] break-all">{o.id}</h3>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Placed on {formatDate(o.createdAt)} &bull; {itemCount} item{itemCount === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${isCancelled ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"}`}>
+                    {o.status}
+                  </span>
+                  <button onClick={() => setSelectedOrder(null)} className="p-1 rounded-lg hover:bg-stone-100 text-stone-500" aria-label="Close">
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="p-1 rounded-lg hover:bg-stone-100 text-stone-500"
-              >
-                <X size={18} />
-              </button>
-            </div>
 
-            <div className="space-y-4 text-xs">
-              <div className="p-3 bg-stone-50 rounded-xl space-y-1">
-                <p><strong>Customer:</strong> {selectedOrder.customer?.name}</p>
-                <p><strong>Shipping To:</strong> {selectedOrder.shippingAddress?.street}, {selectedOrder.shippingAddress?.city} - {selectedOrder.shippingAddress?.pincode}</p>
-                <p><strong>Payment:</strong> {selectedOrder.paymentMethod}</p>
-              </div>
+              <div className="px-5 sm:px-8 py-5 space-y-5 text-xs">
+                {/* Delivery / tracking */}
+                <div className="rounded-2xl border border-[#E5E7DF] bg-[#FBFAF6] p-4 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-stone-800 text-sm">
+                    <Truck size={16} className="text-[#386B40]" /> Delivery
+                  </div>
+                  {isDelivered && o.deliveredAt
+                    ? row("Delivered on", formatDate(o.deliveredAt))
+                    : !isCancelled && o.estimatedDelivery
+                      ? row("Expected by", formatDate(o.estimatedDelivery))
+                      : null}
+                  {row("Method", o.deliveryMethod === "express" ? "Express delivery" : "Standard delivery")}
+                  {o.carrier && row("Courier", o.carrier)}
+                  {o.trackingNumber && row("Tracking / AWB no.", <span className="font-mono">{o.trackingNumber}</span>)}
+                  <div className="pt-1">
+                    <Link
+                      to={`/track-order?orderId=${o.id}`}
+                      onClick={() => setSelectedOrder(null)}
+                      className="inline-flex items-center gap-1 font-semibold text-[#386B40] hover:underline"
+                    >
+                      Track shipment <ArrowRight size={12} />
+                    </Link>
+                    {o.trackingUrl && (
+                      <a href={o.trackingUrl} target="_blank" rel="noopener noreferrer" className="ml-4 font-semibold text-stone-600 hover:underline">
+                        Courier website
+                      </a>
+                    )}
+                  </div>
+                </div>
 
-              <div className="space-y-2">
-                <span className="font-bold block text-stone-700">Formulations:</span>
-                {selectedOrder.items?.map((it, i) => (
-                  <div key={i} className="flex justify-between items-center py-1.5 border-b border-stone-100">
-                    <div>
-                      <span className="font-medium text-stone-900 block">{it.name}</span>
-                      <span className="text-[10px] text-stone-400">({it.size}) × {it.quantity}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold">{formatINR(it.total)}</span>
-                      {(selectedOrder.status === "Delivered" || selectedOrder.orderStatus === "Delivered") && (
-                        <Link
-                          to={`/products/${it.slug || it.productId}?tab=reviews&writeReview=true`}
-                          onClick={() => setSelectedOrder(null)}
-                          className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200"
-                        >
-                          ★ Review
-                        </Link>
-                      )}
+                {/* Items */}
+                <div>
+                  <span className="font-bold block text-stone-800 text-sm mb-1">Items in this order</span>
+                  <div className="divide-y divide-stone-100">
+                    {o.items?.map((it, i) => (
+                      <div key={i} className="flex items-center gap-3 py-3">
+                        <OrderItemImage src={it.image} name={it.name} size={56} className="rounded-xl" />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-semibold text-stone-900 block text-[13px] leading-snug">{it.name}</span>
+                          <span className="text-[11px] text-stone-500 block">
+                            {it.size} &bull; {money(it.price)} &times; {it.quantity}
+                          </span>
+                          {isDelivered && (
+                            <Link
+                              to={`/products/${it.slug || it.productId}?tab=reviews&writeReview=true`}
+                              onClick={() => setSelectedOrder(null)}
+                              className="inline-block mt-1.5 text-[10px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200"
+                            >
+                              ★ Rate &amp; Review
+                            </Link>
+                          )}
+                        </div>
+                        <span className="font-bold text-sm text-[#171A17] shrink-0">{money(it.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Price breakdown */}
+                <div className="rounded-2xl border border-[#E5E7DF] p-4 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-stone-800 text-sm mb-1">
+                    <Receipt size={16} className="text-[#386B40]" /> Payment summary
+                  </div>
+                  {row("Items subtotal", money(p.subtotal))}
+                  {Number(p.discount) > 0 && row(`Coupon discount${p.couponCode ? ` (${p.couponCode})` : ""}`, `− ${money(p.discount)}`, "text-emerald-700")}
+                  {Number(p.referralDiscount) > 0 && row("Referral discount", `− ${money(p.referralDiscount)}`, "text-emerald-700")}
+                  {Number(p.storeCredit) > 0 && row("Store credit used", `− ${money(p.storeCredit)}`, "text-emerald-700")}
+                  {row("Shipping", Number(p.shipping) > 0 ? money(p.shipping) : "Free")}
+                  {Number(p.tax) > 0 && row("GST (included)", money(p.tax))}
+                  <div className="pt-2 mt-1 border-t border-stone-200 flex justify-between font-bold text-sm">
+                    <span>Total paid</span>
+                    <span className="text-[#173D2A]">{money(p.total)}</span>
+                  </div>
+                  {Number(o.refunded) > 0 && row("Refunded to you", money(o.refunded), "text-rose-700")}
+                  {saved > 0 && (
+                    <p className="text-[11px] text-emerald-700 font-medium pt-1">You saved {money(saved)} on this order</p>
+                  )}
+                  <div className="pt-2 mt-1 border-t border-stone-100 space-y-2">
+                    {row("Payment method", o.paymentMethod)}
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500">Payment status</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${payStatusStyle}`}>{payStatus}</span>
                     </div>
                   </div>
-                ))}
+                </div>
+
+                {/* Address & contact */}
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-[#E5E7DF] p-4 space-y-1">
+                    <div className="flex items-center gap-2 font-bold text-stone-800 text-sm mb-1">
+                      <MapPin size={16} className="text-[#386B40]" /> Shipping address
+                    </div>
+                    <p className="font-semibold text-stone-900">{addr.fullName || o.customer?.name}</p>
+                    <p className="text-stone-600 leading-relaxed">
+                      {[addr.street, addr.line2].filter(Boolean).join(", ")}
+                      <br />
+                      {[addr.city, addr.state].filter(Boolean).join(", ")} - {addr.pincode}
+                    </p>
+                    {(addr.phone || o.customer?.phone) && <p className="text-stone-600">Phone: {addr.phone || o.customer?.phone}</p>}
+                  </div>
+                  <div className="rounded-2xl border border-[#E5E7DF] p-4 space-y-1">
+                    <div className="flex items-center gap-2 font-bold text-stone-800 text-sm mb-1">
+                      <User size={16} className="text-[#386B40]" /> Contact
+                    </div>
+                    <p className="font-semibold text-stone-900">{o.customer?.name}</p>
+                    {o.customer?.email && <p className="text-stone-600 break-all">{o.customer.email}</p>}
+                    {o.customer?.phone && <p className="text-stone-600">{o.customer.phone}</p>}
+                  </div>
+                </div>
+
+                {/* Timeline */}
+                {timeline.length > 0 && (
+                  <div>
+                    <span className="font-bold block text-stone-800 text-sm mb-3">Order timeline</span>
+                    <ol className="relative border-l-2 border-[#E5E7DF] ml-2 space-y-4">
+                      {timeline.map((t, i) => (
+                        <li key={i} className="pl-5 relative">
+                          <span className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full border-2 border-white ${t.completed === false ? "bg-stone-300" : "bg-[#386B40]"}`} />
+                          <p className={`font-semibold ${t.completed === false ? "text-stone-400" : "text-stone-800"}`}>{t.status}</p>
+                          {t.time && t.completed !== false && <p className="text-[11px] text-stone-400">{formatDateTime(t.time)}</p>}
+                          {t.note && <p className="text-[11px] text-stone-500">{t.note}</p>}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {o.notes && (
+                  <div className="rounded-xl bg-stone-50 p-3">
+                    <span className="font-bold text-stone-700">Order note: </span>
+                    <span className="text-stone-600">{o.notes}</span>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-2 flex justify-between font-bold text-sm">
-                <span>Total Amount:</span>
-                <span className="text-[#173D2A]">{formatINR(selectedOrder.pricing?.total)}</span>
+              <div className="sticky bottom-0 bg-white px-5 sm:px-8 py-4 border-t border-[#E5E7DF] flex flex-col-reverse sm:flex-row gap-2 sm:justify-between">
+                <Link
+                  to={`/account/support?order=${encodeURIComponent(o.orderNumber || o.id)}`}
+                  onClick={() => setSelectedOrder(null)}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-50 text-xs font-semibold"
+                >
+                  <LifeBuoy size={14} /> Need help with this order?
+                </Link>
+                <button onClick={() => setSelectedOrder(null)} className="px-6 py-2.5 rounded-xl bg-[#173D2A] text-white text-xs font-semibold">
+                  Close
+                </button>
               </div>
-            </div>
-
-            <div className="pt-3">
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="w-full py-2.5 rounded-xl bg-[#173D2A] text-white text-xs font-semibold"
-              >
-                Close
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
