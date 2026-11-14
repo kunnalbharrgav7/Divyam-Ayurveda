@@ -66,9 +66,9 @@ export const ProductQuickViewModal = ({ product, isOpen, onClose }) => {
   const availableStock = Number.isFinite(rawStock) ? rawStock : Infinity;
   const isOutOfStock = availableStock <= 0;
 
-  // Out-of-stock items can't be bought, so a second add would only inflate the cart quantity
+  // Same product and pack size already in the cart: adding again would only keep inflating the quantity
   const alreadyInCart = isInCart(product.id, selectedVariant?.size || product.packSize);
-  const blockedAsInCart = isOutOfStock && alreadyInCart;
+  const blockedAsInCart = alreadyInCart;
 
   const handleAddToCart = () => {
     if (blockedAsInCart) return;
@@ -307,16 +307,16 @@ export const ProductQuickViewModal = ({ product, isOpen, onClose }) => {
                   {/* Add to Cart CTA */}
                   <motion.button
                     onClick={handleAddToCart}
-                    whileTap={{ scale: blockedAsInCart ? 1 : 0.97 }}
+                    whileTap={{ scale: blockedAsInCart && !isAdded ? 1 : 0.97 }}
                     className={`flex-1 py-3 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
-                      blockedAsInCart
+                      blockedAsInCart && !isAdded
                         ? "bg-emerald-50 text-emerald-800 border border-emerald-200 cursor-default"
                         : isAdded
                           ? "bg-[#173D2A] text-white ring-2 ring-[#A9D18E] shadow-md cursor-pointer"
                           : "bg-white text-[#173D2A] border border-[#386B40] hover:bg-emerald-50 cursor-pointer"
                     }`}
                   >
-                    {blockedAsInCart ? (
+                    {blockedAsInCart && !isAdded ? (
                       <>
                         <Check size={17} />
                         <span>Already in Cart</span>

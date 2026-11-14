@@ -260,10 +260,8 @@ export const ProductDetailPage = () => {
   );
   const inWishlist = isInWishlist(product.id);
 
-  // Out-of-stock items can't be bought, so a second add would only inflate the cart quantity
-  const blockedAsInCart =
-    product.stockQuantity === 0 &&
-    isInCart(product.id, selectedVariant ? selectedVariant.size : product.packSize);
+  // Same product and pack size already in the cart: adding again would only keep inflating the quantity
+  const blockedAsInCart = isInCart(product.id, selectedVariant ? selectedVariant.size : product.packSize);
 
   const handleAddToCart = () => {
     if (blockedAsInCart) return;
@@ -689,17 +687,21 @@ export const ProductDetailPage = () => {
                 <button
                   onClick={handleAddToCart}
                   className={`flex-1 py-3.5 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-xs ${
-                    blockedAsInCart
+                    blockedAsInCart && !isAdded
                       ? "bg-emerald-50 text-emerald-800 border border-emerald-200 cursor-default"
                       : isAdded
                         ? "bg-[#173D2A] text-white ring-2 ring-[#A9D18E] cursor-pointer"
                         : "bg-white text-[#173D2A] border border-[#386B40] hover:bg-emerald-50 cursor-pointer"
                   }`}
                 >
-                  {blockedAsInCart ? (
+                  {blockedAsInCart && !isAdded ? (
                     <>
                       <Check size={18} />
-                      <span>Already in Cart &mdash; checkout opens once restocked</span>
+                      <span>
+                        {product.stockQuantity === 0
+                          ? "Already in Cart \u2014 checkout opens once restocked"
+                          : "Already in Cart"}
+                      </span>
                     </>
                   ) : isAdded ? (
                     <>

@@ -34,7 +34,8 @@ const ProductCardImpl = ({ product }) => {
 
   const inWishlist = isInWishlist(product.id);
   const isOutOfStock = Number.isFinite(product.stockQuantity) && product.stockQuantity <= 0;
-  const alreadyInCart = isInCart(product.id);
+  // Same product AND pack size already in the cart: Add to Cart must not add it again
+  const alreadyInCart = isInCart(product.id, product.packSize);
   const discountPercent = getDiscountPercentage(
     product.price,
     product.originalPrice,
@@ -67,10 +68,12 @@ const ProductCardImpl = ({ product }) => {
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // An out-of-stock item can't be bought, so adding it again would only inflate the cart quantity
-    if (isOutOfStock && alreadyInCart) {
-      setShowInCartNotice(true);
-      setTimeout(() => setShowInCartNotice(false), 4000);
+    // Already in the cart: adding again would only keep inflating the quantity (change it in the cart instead)
+    if (alreadyInCart) {
+      if (isOutOfStock) {
+        setShowInCartNotice(true);
+        setTimeout(() => setShowInCartNotice(false), 4000);
+      }
       return;
     }
     addToCart(product, 1);
@@ -276,14 +279,16 @@ const ProductCardImpl = ({ product }) => {
             <motion.button
               onClick={handleAddToCart}
               disabled={isOutOfStock}
-              whileTap={{ scale: isOutOfStock ? 1 : 0.96 }}
-              whileHover={{ scale: isOutOfStock ? 1 : 1.02 }}
+              whileTap={{ scale: isOutOfStock || alreadyInCart ? 1 : 0.96 }}
+              whileHover={{ scale: isOutOfStock || alreadyInCart ? 1 : 1.02 }}
               className={`w-full py-2 sm:py-2.5 px-2 sm:px-4 rounded-xl text-xs sm:text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 ${
                 isOutOfStock
                   ? "bg-stone-200 text-stone-500 cursor-not-allowed"
                   : isAdded
                     ? "bg-[#173D2A] text-white ring-2 ring-[#A9D18E] shadow-sm cursor-pointer"
-                    : "bg-white text-[#173D2A] border border-[#386B40] hover:bg-emerald-50 cursor-pointer"
+                    : alreadyInCart
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200 cursor-default"
+                      : "bg-white text-[#173D2A] border border-[#386B40] hover:bg-emerald-50 cursor-pointer"
               }`}
             >
               {isOutOfStock ? (
@@ -292,6 +297,11 @@ const ProductCardImpl = ({ product }) => {
                 <span className="inline-flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-150 font-semibold">
                   <Check size={16} className="text-[#A9D18E]" />
                   <span>Added to Cart</span>
+                </span>
+              ) : alreadyInCart ? (
+                <span className="inline-flex items-center gap-1.5 font-semibold">
+                  <Check size={16} />
+                  <span>Already in Cart</span>
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5">
