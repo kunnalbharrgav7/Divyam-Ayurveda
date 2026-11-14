@@ -13,7 +13,7 @@ describe("Customers only see their own orders", () => {
   let authA, authB, product, orderNumber;
 
   const register = async (name, email, n) => {
-    const res = await request(app).post("/api/v1/auth/register").send({ name, email, phone: `7${String(stamp + n).slice(-9)}`, password: "Secret123" });
+    const res = await request(app).post("/api/v1/auth/register").send({ name, email, phone: `7${String(stamp + n).slice(-9)}`, phoneCountryCode: "+91", password: "Secret123", confirmPassword: "Secret123" });
     return { Authorization: `Bearer ${res.body.data.tokens.accessToken}` };
   };
 

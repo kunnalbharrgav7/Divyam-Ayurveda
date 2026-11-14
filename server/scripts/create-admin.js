@@ -92,6 +92,8 @@ const createAdmin = async () => {
       name: "Divyam Store Administrator",
       email,
       phone: "+919876500001",
+      phoneCountryCode: "+91",
+      phoneNumber: "9876500001",
       passwordHash: await hashPassword(password),
       isStaff: true,
       isOwner: true,

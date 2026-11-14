@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Heart, ShoppingBag, Check, ShieldCheck, Sparkles, ArrowRight, Minus, Plus } from "lucide-react";
+import { X, Heart, ShoppingBag, Check, ShieldCheck, Sparkles, ArrowRight, Minus, Plus, Zap } from "lucide-react";
 import { RatingStars } from "../common/RatingStars";
 import { formatINR, getDiscountPercentage } from "../../utils/formatters";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 
 export const ProductQuickViewModal = ({ product, isOpen, onClose }) => {
-  const { addToCart, isInCart } = useCart();
+  const { addToCart, isInCart, startBuyNow } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const navigate = useNavigate();
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState(null);
@@ -80,6 +81,22 @@ export const ProductQuickViewModal = ({ product, isOpen, onClose }) => {
     addToCart(itemToAdd, quantity);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
+  };
+
+  // Buy this product (selected pack size and quantity) right away; the cart is not changed
+  const handleBuyNow = () => {
+    if (isOutOfStock) return;
+    startBuyNow(
+      {
+        ...product,
+        price: currentPrice,
+        originalPrice: currentOriginalPrice,
+        packSize: selectedVariant?.size || product.packSize,
+      },
+      quantity
+    );
+    onClose();
+    navigate("/checkout?buyNow=1");
   };
 
   return createPortal(
@@ -296,7 +313,7 @@ export const ProductQuickViewModal = ({ product, isOpen, onClose }) => {
                         ? "bg-emerald-50 text-emerald-800 border border-emerald-200 cursor-default"
                         : isAdded
                           ? "bg-[#173D2A] text-white ring-2 ring-[#A9D18E] shadow-md cursor-pointer"
-                          : "bg-[#386B40] hover:bg-[#173D2A] text-white shadow-md hover:shadow-lg cursor-pointer"
+                          : "bg-white text-[#173D2A] border border-[#386B40] hover:bg-emerald-50 cursor-pointer"
                     }`}
                   >
                     {blockedAsInCart ? (
@@ -334,6 +351,17 @@ export const ProductQuickViewModal = ({ product, isOpen, onClose }) => {
                     <Heart size={18} className={inWishlist ? "fill-rose-500 text-rose-500" : ""} />
                   </button>
                 </div>
+
+                {!isOutOfStock && (
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    className="w-full py-3 px-6 rounded-xl text-sm font-bold flex items-center justify-center gap-2 bg-[#173D2A] hover:bg-[#0B2416] text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
+                  >
+                    <Zap size={17} />
+                    <span>Buy Now</span>
+                  </button>
+                )}
 
                 {/* View Full Product Link */}
                 <div className="text-center pt-1">

@@ -6,8 +6,8 @@ import * as orderController from "../../controllers/order.controller.js";
 import * as cartController from "../../controllers/cart.controller.js";
 import * as returnController from "../../controllers/return.controller.js";
 import * as contentController from "../../controllers/content.controller.js";
-import { ticketLimiter } from "../../middleware/rateLimiter.js";
-import { addressSchema, changePasswordSchema } from "../../validators/auth.validator.js";
+import { ticketLimiter, credentialLimiter } from "../../middleware/rateLimiter.js";
+import { addressSchema, changePasswordSchema, changePhoneSchema } from "../../validators/auth.validator.js";
 import { ticketCreateSchema, ticketMessageSchema } from "../../validators/support.validator.js";
 
 const router = Router();
@@ -18,6 +18,7 @@ router.use(authenticate);
 router.get("/", authController.getProfile);
 router.patch("/", authController.updateProfile);
 router.patch("/password", validate(changePasswordSchema), authController.changePassword);
+router.patch("/phone", credentialLimiter, validate(changePhoneSchema), authController.changePhone);
 
 // Addresses
 router.get("/addresses", authController.getAddresses);

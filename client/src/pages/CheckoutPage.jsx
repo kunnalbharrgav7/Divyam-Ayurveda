@@ -35,6 +35,7 @@ export const CheckoutPage = () => {
     appliedOffer,
     refreshOffers,
     removeCheckedOutItems,
+    buyNowRequested, // true at /checkout?buyNow=1: this page holds one product, the cart is untouched
   } = useCart();
   const { user, addresses, isAuthenticated } = useAuth();
   const { storeCredit, refresh: refreshCredit } = useReturns();
@@ -53,7 +54,7 @@ export const CheckoutPage = () => {
   const [formData, setFormData] = useState({
     fullName: user?.name || defaultAddr.fullName || "",
     email: user?.email || "",
-    phone: user?.phone || defaultAddr.phone || "",
+    phone: user?.phoneNumber || user?.phone || defaultAddr.phone || "",
     street: defaultAddr.street || "",
     city: defaultAddr.city || "",
     state: defaultAddr.state || "Karnataka",
@@ -109,8 +110,10 @@ export const CheckoutPage = () => {
       <Navigate
         to="/login"
         state={{
-          from: "/checkout",
-          message: "Please sign in or create an account to proceed to checkout. Your cart items are saved.",
+          from: buyNowRequested ? "/checkout?buyNow=1" : "/checkout",
+          message: buyNowRequested
+            ? "Please sign in or create an account to complete your purchase."
+            : "Please sign in or create an account to proceed to checkout. Your cart items are saved.",
         }}
         replace
       />
@@ -119,7 +122,8 @@ export const CheckoutPage = () => {
 
   // Guard: Cannot checkout with empty cart unless order was just placed
   if (cartItems.length === 0 && !orderCompleted) {
-    return <Navigate to="/cart" replace />;
+    // Buy Now item expired, sold out or lost: back to the catalog. Otherwise the normal empty-cart redirect.
+    return <Navigate to={buyNowRequested ? "/products" : "/cart"} replace />;
   }
 
   const standardFee = shippingTaxCalc.isFreeEligible ? 0 : Number(shippingTaxCalc.zone?.baseFee || 50);
@@ -728,6 +732,11 @@ export const CheckoutPage = () => {
               <h3 className="font-heading tracking-tight text-xl font-bold text-[#171A17] pb-3 border-b border-[#E5E7DF]">
                 Order Items ({cartItems.length})
               </h3>
+              {buyNowRequested && (
+                <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                  Buying this item directly. Your cart stays as it is.
+                </p>
+              )}
 
               {/* Items List */}
               <div className="space-y-3 max-h-60 overflow-y-auto pr-1">

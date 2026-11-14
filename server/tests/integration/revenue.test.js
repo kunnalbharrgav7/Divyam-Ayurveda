@@ -48,7 +48,7 @@ describe("Revenue reporting", () => {
     if (!role) role = createdRole = await Role.create({ name: ROLES.SUPER_ADMIN, permissions: ALL_PERMISSIONS });
     staff = await User.create({ name: "Rev Admin", email: `revadmin.${stamp}@example.test`, passwordHash: "x", isStaff: true, roles: [role._id], status: "active" });
     adminAuth = { Authorization: `Bearer ${generateAccessToken({ id: staff._id, email: staff.email, isStaff: true })}` };
-    const reg = await request(app).post("/api/v1/auth/register").send({ name: "Rev Customer", email, phone: `5${String(stamp).slice(-9)}`, password: "Secret123" });
+    const reg = await request(app).post("/api/v1/auth/register").send({ name: "Rev Customer", email, phone: `93${String(stamp).slice(-8)}`, phoneCountryCode: "+91", password: "Secret123", confirmPassword: "Secret123" });
     customer = reg.body.data.user;
     custAuth = { Authorization: `Bearer ${reg.body.data.tokens.accessToken}` };
     product = await Product.create({ name: `Rev Prod ${stamp}`, slug: `rev-prod-${stamp}`, sku: `REV-${stamp}`, categoryId: "wellness-essentials", description: "x", status: "active", basePricePaise: 50000 });

@@ -38,9 +38,11 @@ import { ReferralHistory } from "../components/referrals/ReferralHistory";
 import { WalletLedger } from "../components/referrals/WalletLedger";
 import { ListRowsSkeleton } from "../components/common/Skeleton";
 import { OrderItemImage } from "../components/common/OrderItemImage";
+import { PhoneInput } from "../components/common/PhoneInput";
+import { DEFAULT_COUNTRY, validateMobile, displayPhone } from "../utils/phone";
 
 export const AccountPage = () => {
-  const { user, isAuthenticated, logout, updateProfile, addresses, addAddress, deleteAddress, setDefaultAddress } = useAuth();
+  const { user, isAuthenticated, logout, updateProfile, changePhone, addresses, addAddress, deleteAddress, setDefaultAddress } = useAuth();
   const { orders, loading: ordersLoading } = useOrders();
   const ordersPending = ordersLoading && orders.length === 0; // first load of the order list
   const { returns, eligibility, getReturnForOrder, refresh: refreshReturns } = useReturns();
@@ -73,7 +75,7 @@ export const AccountPage = () => {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [newAddr, setNewAddr] = useState({
     fullName: user?.name || "",
-    phone: user?.phone || "",
+    phone: user?.phoneNumber || user?.phone || "",
     street: "",
     city: "",
     state: "Karnataka",
@@ -85,9 +87,16 @@ export const AccountPage = () => {
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
     email: user?.email || "",
-    phone: user?.phone || "",
   });
   const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Mobile number change (a sign-in credential, so it asks for the password)
+  const [phoneEditing, setPhoneEditing] = useState(false);
+  const [phoneForm, setPhoneForm] = useState({ iso: DEFAULT_COUNTRY.iso, countryCode: DEFAULT_COUNTRY.dial, number: "" });
+  const [phonePassword, setPhonePassword] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneSuccess, setPhoneSuccess] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [addressError, setAddressError] = useState("");
   const [savingAddress, setSavingAddress] = useState(false);
@@ -131,6 +140,34 @@ export const AccountPage = () => {
     }
   };
 
+  const handlePhoneChange = async (e) => {
+    e.preventDefault();
+    if (phoneSaving) return;
+    setPhoneError("");
+    const check = validateMobile(phoneForm.countryCode, phoneForm.number);
+    if (!check.ok) {
+      setPhoneError(check.message);
+      return;
+    }
+    if (!phonePassword) {
+      setPhoneError("Enter your current password to confirm this change.");
+      return;
+    }
+    setPhoneSaving(true);
+    try {
+      await changePhone({ phoneCountryCode: phoneForm.countryCode, phone: phoneForm.number, currentPassword: phonePassword });
+      setPhoneEditing(false);
+      setPhonePassword("");
+      setPhoneForm({ iso: DEFAULT_COUNTRY.iso, countryCode: DEFAULT_COUNTRY.dial, number: "" });
+      setPhoneSuccess(true);
+      setTimeout(() => setPhoneSuccess(false), 3500);
+    } catch (err) {
+      setPhoneError(err.message || "Could not change your mobile number.");
+    } finally {
+      setPhoneSaving(false);
+    }
+  };
+
   const handleCreateAddress = async (e) => {
     e.preventDefault();
     if (!newAddr.street || !newAddr.city || !newAddr.pincode || savingAddress) return;
@@ -141,7 +178,7 @@ export const AccountPage = () => {
       setShowAddressModal(false);
       setNewAddr({
         fullName: user?.name || "",
-        phone: user?.phone || "",
+        phone: user?.phoneNumber || user?.phone || "",
         street: "",
         city: "",
         state: "Karnataka",
@@ -679,14 +716,28 @@ export const AccountPage = () => {
 
                   <div>
                     <label className="block font-semibold text-[#171A17] mb-1">
-                      Contact Phone
+                      Mobile Number
                     </label>
-                    <input
-                      type="tel"
-                      value={profileForm.phone}
-                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                      className="w-full p-2.5 bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40]"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={displayPhone(user) || "Not added yet"}
+                        readOnly
+                        className="flex-1 min-w-0 p-2.5 bg-stone-100 text-stone-600 border border-[#E5E7DF] rounded-xl cursor-not-allowed focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhoneEditing((v) => !v);
+                          setPhoneError("");
+                        }}
+                        className="px-3.5 py-2.5 rounded-xl border border-[#E5E7DF] bg-white hover:bg-stone-50 font-semibold text-[#173D2A] cursor-pointer shrink-0"
+                      >
+                        {phoneEditing ? "Cancel" : user?.phone ? "Change" : "Add"}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-stone-400 mt-1">You can also sign in with this number. Changing it needs your password.</p>
+                    {phoneSuccess && <p className="text-[11px] text-emerald-700 mt-1">Mobile number updated.</p>}
                   </div>
 
                   <button
@@ -696,6 +747,36 @@ export const AccountPage = () => {
                     Save Changes
                   </button>
                 </form>
+
+                {phoneEditing && (
+                  <form onSubmit={handlePhoneChange} className="mt-5 p-4 rounded-2xl border border-[#E5E7DF] bg-[#FBFAF6] space-y-3 text-xs">
+                    <h4 className="font-bold text-[#171A17] text-sm">Change mobile number</h4>
+                    <div>
+                      <label htmlFor="new-mobile" className="block font-semibold text-[#171A17] mb-1">New mobile number</label>
+                      <PhoneInput id="new-mobile" value={phoneForm} onChange={setPhoneForm} disabled={phoneSaving} invalid={Boolean(phoneError)} />
+                    </div>
+                    <div>
+                      <label htmlFor="phone-change-password" className="block font-semibold text-[#171A17] mb-1">Current password</label>
+                      <input
+                        id="phone-change-password"
+                        type="password"
+                        autoComplete="current-password"
+                        value={phonePassword}
+                        onChange={(e) => setPhonePassword(e.target.value)}
+                        disabled={phoneSaving}
+                        className="w-full p-2.5 bg-white border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40]"
+                      />
+                    </div>
+                    {phoneError && <p role="alert" className="text-[11px] text-rose-600">{phoneError}</p>}
+                    <button
+                      type="submit"
+                      disabled={phoneSaving}
+                      className="px-5 py-2.5 bg-[#173D2A] hover:bg-[#0B2416] text-white font-semibold rounded-xl disabled:opacity-70 cursor-pointer"
+                    >
+                      {phoneSaving ? "Saving..." : "Save mobile number"}
+                    </button>
+                  </form>
+                )}
               </div>
             )}
           </main>

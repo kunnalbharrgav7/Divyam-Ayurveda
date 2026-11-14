@@ -49,11 +49,28 @@ const userSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    // Canonical international number (E.164, e.g. "+919876543210"). Unique, so the same digits under a different
+    // country code are a different identity. Always written through utils/phone.js, never typed text.
     phone: {
       type: String,
       sparse: true,
       unique: true,
       trim: true,
+    },
+    phoneCountryCode: {
+      type: String,
+      trim: true,
+      default: undefined, // "+91"
+    },
+    phoneNumber: {
+      type: String,
+      trim: true,
+      default: undefined, // national digits only, "9876543210"
+    },
+    // Reserved for SMS (OTP) verification. Nothing sets it to true yet.
+    phoneVerified: {
+      type: Boolean,
+      default: false,
     },
     passwordHash: {
       type: String,

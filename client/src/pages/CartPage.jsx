@@ -24,6 +24,7 @@ export const CartPage = () => {
     toggleItemSelected,
     setAllItemsSelected,
     checkoutItems,
+    clearBuyNow,
     checkoutSubtotal: subtotal, // what the customer pays for the items (already after product discounts)
     checkoutOriginalSubtotal: mrpSubtotal, // the same items at their original (MRP) prices
     checkoutDiscountTotal: discountTotal, // mrpSubtotal - subtotal
@@ -52,6 +53,7 @@ export const CartPage = () => {
 
   const handleProceedToCheckout = () => {
     if (checkoutItems.length === 0) return;
+    clearBuyNow(); // the cart checks out the cart, never an earlier Buy Now item
     if (!isAuthenticated) {
       navigate("/login", {
         state: {

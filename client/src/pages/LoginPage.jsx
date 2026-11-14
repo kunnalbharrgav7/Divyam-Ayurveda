@@ -3,9 +3,13 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Lock, Mail, ArrowRight, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
+import { PhoneInput } from "../components/common/PhoneInput";
+import { DEFAULT_COUNTRY, validateMobile } from "../utils/phone";
 
 export const LoginPage = () => {
+  const [method, setMethod] = useState("email"); // "email" | "mobile"
   const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState({ iso: DEFAULT_COUNTRY.iso, countryCode: DEFAULT_COUNTRY.dial, number: "" });
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,18 +21,29 @@ export const LoginPage = () => {
     e.preventDefault();
     setError("");
 
-    if (!email || !email.includes("@")) {
-      setError("Please enter a valid email address.");
-      return;
+    if (method === "email") {
+      if (!email || !email.includes("@")) {
+        setError("Please enter a valid email address.");
+        return;
+      }
+    } else {
+      const check = validateMobile(mobile.countryCode, mobile.number);
+      if (!check.ok) {
+        setError(check.message);
+        return;
+      }
     }
-    if (!password || password.length < 4) {
-      setError("Password must be at least 4 characters.");
+    if (!password) {
+      setError("Please enter your password.");
       return;
     }
 
     setLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await login(
+        method === "email" ? email : { phoneCountryCode: mobile.countryCode, phone: mobile.number },
+        password
+      );
 
       if (result.success) {
         // If the authenticated user is an administrator, redirect straight to the Admin Dashboard
@@ -40,7 +55,7 @@ export const LoginPage = () => {
           navigate(redirectPath, { replace: true });
         }
       } else {
-        setError(result.error || "Invalid email address or password.");
+        setError(result.error || (method === "email" ? "Invalid email address or password." : "Invalid mobile number or password."));
       }
     } catch (err) {
       setError("An unexpected error occurred during sign in. Please try again.");
@@ -67,7 +82,7 @@ export const LoginPage = () => {
               Sign In
             </h1>
             <p className="text-xs sm:text-sm text-[#666B64] mt-1">
-              Sign in with your email and password to access your account.
+              Sign in with your email or mobile number and password to access your account.
             </p>
           </div>
 
@@ -85,24 +100,58 @@ export const LoginPage = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold text-[#171A17] mb-1">
-                Email Address
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  autoComplete="email"
-                  required
+            <div role="tablist" aria-label="Sign in with" className="grid grid-cols-2 gap-1 p-1 bg-stone-100 rounded-xl">
+              {[
+                { id: "email", label: "Email" },
+                { id: "mobile", label: "Mobile number" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={method === tab.id}
+                  onClick={() => {
+                    setMethod(tab.id);
+                    setError("");
+                  }}
                   disabled={loading}
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40] disabled:opacity-60"
-                />
-                <Mail size={16} className="absolute left-3 top-3 text-stone-400" />
-              </div>
+                  className={`py-2 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    method === tab.id ? "bg-white text-[#173D2A] shadow-xs" : "text-stone-500 hover:text-stone-800"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+
+            {method === "email" ? (
+              <div>
+                <label htmlFor="login-email" className="block font-semibold text-[#171A17] mb-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <input
+                    id="login-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    autoComplete="email"
+                    required
+                    disabled={loading}
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-[#E5E7DF] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#386B40] disabled:opacity-60"
+                  />
+                  <Mail size={16} className="absolute left-3 top-3 text-stone-400" />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label htmlFor="login-mobile" className="block font-semibold text-[#171A17] mb-1">
+                  Mobile Number
+                </label>
+                <PhoneInput id="login-mobile" value={mobile} onChange={setMobile} disabled={loading} />
+              </div>
+            )}
 
             <div>
               <div className="flex items-center justify-between mb-1">

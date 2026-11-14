@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
 import {
   Heart,
   ShoppingBag,
@@ -13,6 +13,7 @@ import {
   MapPin,
   CheckCircle2,
   Clock,
+  Zap,
 } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { Seo } from "../components/common/Seo";
@@ -95,7 +96,8 @@ export const ProductDetailPage = () => {
   const [pinResult, setPinResult] = useState(null);
   const [pinChecking, setPinChecking] = useState(false);
 
-  const { addToCart, isInCart } = useCart();
+  const { addToCart, isInCart, startBuyNow } = useCart();
+  const navigate = useNavigate();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   useEffect(() => {
@@ -259,6 +261,15 @@ export const ProductDetailPage = () => {
     addToCart(product, quantity, selectedVariant);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
+  };
+
+  // Buy this product (selected pack size and quantity) right away; the cart is not changed
+  const buyStock = Number.isFinite(selectedVariant?.stock) ? selectedVariant.stock : product.stockQuantity;
+  const canBuyNow = !(Number.isFinite(buyStock) && buyStock <= 0);
+  const handleBuyNow = () => {
+    if (!canBuyNow) return;
+    startBuyNow(product, quantity, selectedVariant);
+    navigate("/checkout?buyNow=1");
   };
 
   const handlePinCheck = async (e) => {
@@ -666,15 +677,16 @@ export const ProductDetailPage = () => {
                   </button>
                 </div>
 
+                <div className="flex-1 flex flex-col sm:flex-row gap-3">
                 {/* Add to Cart Button */}
                 <button
                   onClick={handleAddToCart}
-                  className={`flex-1 py-3.5 px-6 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-xs ${
+                  className={`flex-1 py-3.5 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-xs ${
                     blockedAsInCart
                       ? "bg-emerald-50 text-emerald-800 border border-emerald-200 cursor-default"
                       : isAdded
                         ? "bg-[#173D2A] text-white ring-2 ring-[#A9D18E] cursor-pointer"
-                        : "bg-[#386B40] hover:bg-[#173D2A] text-white hover:shadow-md cursor-pointer"
+                        : "bg-white text-[#173D2A] border border-[#386B40] hover:bg-emerald-50 cursor-pointer"
                   }`}
                 >
                   {blockedAsInCart ? (
@@ -696,6 +708,18 @@ export const ProductDetailPage = () => {
                     </>
                   )}
                 </button>
+
+                {canBuyNow && (
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    className="flex-1 py-3.5 px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 bg-[#173D2A] hover:bg-[#0B2416] text-white shadow-xs hover:shadow-md transition-all cursor-pointer"
+                  >
+                    <Zap size={18} />
+                    <span>Buy Now</span>
+                  </button>
+                )}
+                </div>
               </div>
 
               {/* PIN Code Delivery Checker */}

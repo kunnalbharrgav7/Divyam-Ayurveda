@@ -185,7 +185,7 @@ describe.sequential("Admin profile & security", () => {
   describe("existing behaviour stays as it was", () => {
     it("a customer changing their own password keeps working and is not signed out of the access token", async () => {
       const email = `creds.shopper.${stamp}@example.test`;
-      const reg = await request(app).post("/api/v1/auth/register").send({ name: "Shopper One", email, phone: `98${String(stamp).slice(-8)}`, password: "Shopper123" });
+      const reg = await request(app).post("/api/v1/auth/register").send({ name: "Shopper One", email, phone: `98${String(stamp).slice(-8)}`, phoneCountryCode: "+91", password: "Shopper123", confirmPassword: "Shopper123" });
       expect(reg.status).toBe(201);
       created.push(reg.body.data.user.id);
       const token = reg.body.data.tokens.accessToken;

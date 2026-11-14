@@ -8,37 +8,52 @@ import { config } from "../config/index.js";
 import { generateReferralCode } from "../utils/referralCode.js";
 import { referralService } from "./referral.service.js";
 import { logAudit } from "./audit.service.js";
+import { parsePhone } from "../utils/phone.js";
+
+// A throwaway hash so sign-ins for accounts that do not exist cost the same time as real ones
+let dummyHashPromise = null;
+const dummyHash = () => (dummyHashPromise ||= hashPassword(`not-a-real-password-${Date.now()}`));
 
 export class AuthService {
   /**
    * Register a new customer
    */
-  async register({ name, email, phone, password, referralCode: invitedByCode = null }) {
+  async register({ name, email, phoneCountryCode, phone, password, referralCode: invitedByCode = null }) {
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
       throw ApiError.conflict("An account with this email address already exists.");
     }
 
-    if (phone) {
-      const existingPhone = await User.findOne({ phone });
-      if (existingPhone) {
-        throw ApiError.conflict("An account with this mobile phone number already exists.");
-      }
+    // The schema already proved this is a real number for the country; this gives the canonical stored form
+    const parsedPhone = parsePhone(phoneCountryCode, phone);
+    if (!parsedPhone) throw ApiError.badRequest("Enter a valid mobile number for the selected country.");
+    if (await User.exists({ phone: parsedPhone.phone })) {
+      throw ApiError.conflict("An account with this mobile number already exists.");
     }
 
     const passwordHash = await hashPassword(password);
     const referralCode = await generateReferralCode(name);
 
-    const user = await User.create({
-      name,
-      email: email.toLowerCase(),
-      phone: phone || undefined,
-      passwordHash,
-      referralCode,
-      isStaff: false,
-      status: "active",
-      addresses: [],
-    });
+    let user;
+    try {
+      user = await User.create({
+        name,
+        email: email.toLowerCase(),
+        phone: parsedPhone.phone,
+        phoneCountryCode: parsedPhone.phoneCountryCode,
+        phoneNumber: parsedPhone.phoneNumber,
+        phoneVerified: false,
+        passwordHash,
+        referralCode,
+        isStaff: false,
+        status: "active",
+        addresses: [],
+      });
+    } catch (err) {
+      // Two sign-ups racing for the same email or number: the unique indexes decide
+      if (err.code === 11000) throw ApiError.conflict("An account with this email address or mobile number already exists.");
+      throw err;
+    }
 
     const accessToken = generateAccessToken({ id: user._id, email: user.email, isStaff: false, tv: user.tokenVersion ?? 0 });
     const refreshToken = generateRefreshToken({ id: user._id, tv: user.tokenVersion ?? 0 });
@@ -63,13 +78,32 @@ export class AuthService {
   /**
    * Authenticate customer or staff user
    */
-  async login({ email, password, isStaffRequired = false }) {
-    const user = await User.findOne({ email: email.toLowerCase() })
-      .select("+passwordHash +refreshTokenHash")
-      .populate("roles");
+  async login({ email, phoneCountryCode, phone, password, isStaffRequired = false }) {
+    const byPhone = Boolean(phone);
+    // One message for every failure (unknown account, wrong country code, wrong password) so nobody can probe
+    // which emails or numbers have accounts
+    const invalid = () =>
+      ApiError.unauthorized(byPhone ? "Invalid mobile number or password." : "Invalid email address or password.");
 
-    if (!user) {
-      throw ApiError.unauthorized("Invalid email address or password.");
+    let query;
+    if (byPhone) {
+      // Staff sign in with email only, and the country code is part of the identity
+      const parsed = isStaffRequired ? null : parsePhone(phoneCountryCode, phone);
+      if (!parsed) {
+        await comparePassword(String(password || ""), await dummyHash());
+        throw invalid();
+      }
+      query = { phone: parsed.phone };
+    } else {
+      query = { email: String(email || "").toLowerCase() };
+    }
+
+    const user = await User.findOne(query).select("+passwordHash +refreshTokenHash").populate("roles");
+
+    if (!user || (byPhone && user.isStaff)) {
+      // Same work as a real check, so the response time does not reveal whether the account exists
+      await comparePassword(String(password || ""), await dummyHash());
+      throw invalid();
     }
 
     if (user.status !== "active") {
@@ -91,7 +125,7 @@ export class AuthService {
         user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 min lock
       }
       await user.save();
-      throw ApiError.unauthorized("Invalid email address or password.");
+      throw invalid();
     }
 
     // Reset failed login attempts on success
@@ -188,16 +222,62 @@ export class AuthService {
     if (!user) throw ApiError.notFound("User not found");
 
     if (data.name) user.name = data.name.trim();
-    if (data.phone) user.phone = data.phone.trim();
+    // The mobile number is a sign-in credential, so it is changed only through changePhone (needs the password)
     if (data.avatarUrl) user.avatarUrl = data.avatarUrl;
 
+    await user.save();
+    return user.toJSON();
+  }
+
+  /**
+   * Change the mobile number of the signed-in account. Needs the current password (the number can be used to sign
+   * in). The new number starts unverified.
+   */
+  async changePhone(userId, { phoneCountryCode, phone, currentPassword }) {
+    const user = await this.#verifyCurrentPassword(userId, currentPassword);
+
+    const parsed = parsePhone(phoneCountryCode, phone);
+    if (!parsed) throw ApiError.badRequest("Enter a valid mobile number for the selected country.");
+    if (parsed.phone === user.phone) throw ApiError.badRequest("That is already the mobile number on this account.");
+
+    const unavailable = () => ApiError.conflict("This mobile number cannot be used. Please choose a different one.");
+    if (await User.exists({ phone: parsed.phone, _id: { $ne: user._id } })) throw unavailable();
+
     try {
-      await user.save();
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            phone: parsed.phone,
+            phoneCountryCode: parsed.phoneCountryCode,
+            phoneNumber: parsed.phoneNumber,
+            phoneVerified: false,
+            failedLoginAttempts: 0,
+            lockUntil: null,
+          },
+        }
+      );
     } catch (err) {
-      if (err.code === 11000) throw ApiError.conflict("This phone number is already used by another account.");
+      if (err.code === 11000) throw unavailable();
       throw err;
     }
-    return user.toJSON();
+
+    try {
+      await logAudit({
+        actorId: user._id,
+        actorName: user.name,
+        actorRole: user.isStaff ? "Staff" : "Customer",
+        action: "auth.phone_change",
+        module: "Account",
+        targetId: String(user._id),
+        details: `Changed their sign-in mobile number from ${user.phone || "none"} to ${parsed.phone}.`,
+      });
+    } catch (_) {
+      // the audit trail must never block the change itself
+    }
+
+    const fresh = await User.findById(user._id);
+    return fresh.toJSON();
   }
 
   /**
@@ -319,6 +399,8 @@ export class AuthService {
       name: user.name,
       email: user.email,
       phone: user.phone || "",
+      phoneCountryCode: user.phoneCountryCode || "",
+      phoneNumber: user.phoneNumber || "",
       roles: (user.roles || []).map((r) => r.name),
       status: user.status,
       lastLoginAt: user.lastLoginAt || null,

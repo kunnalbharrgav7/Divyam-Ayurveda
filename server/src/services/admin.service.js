@@ -18,6 +18,7 @@ import { StoreSettings } from "../models/StoreSettings.js";
 import { HomepageConfig } from "../models/HomepageConfig.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { logAudit } from "./audit.service.js";
+import { readPhoneInput } from "../utils/phone.js";
 import { ApiError } from "../utils/apiError.js";
 import { toRupees, toPaise } from "../utils/currency.js";
 import { hashPassword, generateTemporaryPassword } from "../utils/crypto.js";
@@ -245,6 +246,8 @@ const serializeCustomer = (user, stats = {}) => {
     name: user.name,
     email: user.email,
     phone: user.phone || "",
+    phoneCountryCode: user.phoneCountryCode || "",
+    phoneNumber: user.phoneNumber || "",
     avatarUrl: user.avatarUrl || "",
     status: user.status === "suspended" ? "Blocked" : "Active",
     accountStatus: user.status,
@@ -715,13 +718,22 @@ export class AdminService {
   async createAdminUser(data, staffUser) {
     const name = String(data.name || "").trim();
     const email = String(data.email || "").trim().toLowerCase();
-    const phone = String(data.phone || "").trim();
     if (name.length < 2) throw ApiError.badRequest("Enter the staff member's full name.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw ApiError.badRequest("Enter a valid email address.");
-    if (phone && phone.replace(/\D/g, "").length < 10) throw ApiError.badRequest("Enter a valid phone number, or leave it blank.");
+
+    // Optional for staff. Accepts a country code + number, or one "+91 ..." string; stored in the canonical form
+    let phoneFields = null;
+    try {
+      phoneFields = readPhoneInput(data);
+    } catch (err) {
+      if (err.invalid) throw ApiError.badRequest("Enter a valid mobile number for the selected country, or leave it blank.");
+      throw err;
+    }
 
     if (await User.exists({ email })) throw ApiError.conflict("An account with this email address already exists.");
-    if (phone && (await User.exists({ phone }))) throw ApiError.conflict("This phone number is already used by another account.");
+    if (phoneFields && (await User.exists({ phone: phoneFields.phone }))) {
+      throw ApiError.conflict("This phone number is already used by another account.");
+    }
 
     // Everyone on the team is an administrator with full access. A temporary password is generated unless the admin
     // typed one (which must meet the same rules as any password); either way the person must replace it at first sign-in.
@@ -741,7 +753,9 @@ export class AdminService {
       user = await User.create({
         name,
         email,
-        phone: phone || undefined,
+        ...(phoneFields
+          ? { phone: phoneFields.phone, phoneCountryCode: phoneFields.phoneCountryCode, phoneNumber: phoneFields.phoneNumber }
+          : {}),
         passwordHash: await hashPassword(temporaryPassword),
         isStaff: true,
         roles: [role._id],
@@ -889,12 +903,27 @@ export class AdminService {
 
     if (data.name !== undefined && String(data.name).trim()) user.name = String(data.name).trim();
     if (data.phone !== undefined) {
-      const phone = String(data.phone || "").trim();
-      if (phone && phone.replace(/\D/g, "").length < 10) throw ApiError.badRequest("Enter a valid phone number, or leave it blank.");
-      if (phone && phone !== user.phone && (await User.exists({ phone, _id: { $ne: user._id } }))) {
+      let phoneFields = null;
+      try {
+        phoneFields = readPhoneInput(data);
+      } catch (err) {
+        if (err.invalid) throw ApiError.badRequest("Enter a valid mobile number for the selected country, or leave it blank.");
+        throw err;
+      }
+      if (phoneFields && phoneFields.phone !== user.phone && (await User.exists({ phone: phoneFields.phone, _id: { $ne: user._id } }))) {
         throw ApiError.conflict("This phone number is already used by another account.");
       }
-      user.phone = phone || undefined;
+      if (phoneFields) {
+        if (phoneFields.phone !== user.phone) user.phoneVerified = false;
+        user.phone = phoneFields.phone;
+        user.phoneCountryCode = phoneFields.phoneCountryCode;
+        user.phoneNumber = phoneFields.phoneNumber;
+      } else {
+        user.phone = undefined;
+        user.phoneCountryCode = undefined;
+        user.phoneNumber = undefined;
+        user.phoneVerified = false;
+      }
     }
     if (data.status !== undefined) {
       if (data.status !== user.status && data.status !== "active") {

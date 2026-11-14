@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { storage } from "../utils/storage";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useLiveStock, getAvailableUnits } from "../hooks/useLiveStock";
 import { compactCartItems } from "../utils/productSnapshot";
@@ -21,10 +22,49 @@ const getCartStorageKey = (user) => {
   return `divyam_ayurveda_cart_${identifier}`;
 };
 
+// "Buy Now" buys one product on its own, without touching the cart. The item is kept in sessionStorage so it
+// survives the sign-in / sign-up redirect and a page refresh, and expires so it can never linger for long.
+const BUY_NOW_KEY = "divyam_ayurveda_buy_now";
+const BUY_NOW_TTL_MS = 30 * 60 * 1000;
+
+const readBuyNow = () => {
+  try {
+    const raw = sessionStorage.getItem(BUY_NOW_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (!saved?.item || Date.now() - Number(saved.savedAt || 0) > BUY_NOW_TTL_MS) {
+      sessionStorage.removeItem(BUY_NOW_KEY);
+      return null;
+    }
+    return saved.item;
+  } catch (e) {
+    return null; // storage blocked or unreadable: Buy Now still works from memory
+  }
+};
+
+const writeBuyNow = (item) => {
+  try {
+    if (item) sessionStorage.setItem(BUY_NOW_KEY, JSON.stringify({ item, savedAt: Date.now() }));
+    else sessionStorage.removeItem(BUY_NOW_KEY);
+  } catch (e) {
+    // ignore
+  }
+};
+
 export const CartProvider = ({ children }) => {
   const { user } = useAuth();
+  const location = useLocation();
   const currentKey = getCartStorageKey(user);
   const prevUserKeyRef = useRef(currentKey);
+
+  const [buyNowItem, setBuyNowItem] = useState(readBuyNow);
+  const clearBuyNow = () => {
+    setBuyNowItem(null);
+    writeBuyNow(null);
+  };
+  // Checkout is in Buy Now mode only at /checkout?buyNow=1, so the normal cart flow can never pick it up
+  const buyNowRequested =
+    location.pathname === "/checkout" && new URLSearchParams(location.search).get("buyNow") === "1";
 
   // Initialize cart state from current user (or guest) storage
   const [cartItems, setCartItems] = useState(() => {
@@ -87,6 +127,7 @@ export const CartProvider = ({ children }) => {
         // Clear active session cart and clean up guest storage
         storage.remove("divyam_ayurveda_cart_guest");
         setCartItems([]);
+        clearBuyNow();
       } else {
         // CASE 3: Switched between different users (e.g. Customer 1 -> Customer 2)
         const userCart = readCartItems(activeKey);
@@ -138,6 +179,23 @@ export const CartProvider = ({ children }) => {
     });
   };
 
+  // Start a single-item purchase (does not change the cart). Same item shape as a cart line.
+  const startBuyNow = (product, quantity = 1, variant = null) => {
+    const selectedSize = variant ? variant.size : product.packSize;
+    const limit = Math.max(1, product.stockQuantity || 99);
+    const item = compactCartItems([
+      {
+        product,
+        selectedSize,
+        price: variant ? variant.price : product.price,
+        originalPrice: variant ? variant.originalPrice : product.originalPrice,
+        quantity: Math.min(Math.max(1, Number(quantity) || 1), limit),
+      },
+    ])[0];
+    setBuyNowItem(item);
+    writeBuyNow(item);
+  };
+
   // True when the product (optionally a specific pack size) is already in the cart
   const isInCart = (productId, selectedSize) =>
     cartItems.some(
@@ -181,7 +239,10 @@ export const CartProvider = ({ children }) => {
   };
 
   // Live stock for everything in the cart (cart items only hold a snapshot from when they were added)
-  const { stockMap, refresh: refreshStock } = useLiveStock(cartItems.map((item) => item.product));
+  const { stockMap, refresh: refreshStock } = useLiveStock([
+    ...cartItems.map((item) => item.product),
+    ...(buyNowItem ? [buyNowItem.product] : []),
+  ]);
 
   const getItemStock = (item) =>
     getAvailableUnits(item.product, item.selectedSize, stockMap[item.product?.id]);
@@ -216,7 +277,12 @@ export const CartProvider = ({ children }) => {
     setCartItems((prev) => prev.map((item) => ({ ...item, unselected: !selected })));
   };
 
-  const checkoutItems = cartItems.filter(isItemSelected);
+  // In Buy Now mode checkout holds only the Buy Now item (and nothing if it is gone or out of stock, never the cart)
+  const checkoutItems = buyNowRequested
+    ? buyNowItem && getItemStockStatus(buyNowItem).status === "ok"
+      ? [buyNowItem]
+      : []
+    : cartItems.filter(isItemSelected);
   const checkoutSubtotal = checkoutItems.reduce(
     (acc, item) => acc + (item.price || 0) * (item.quantity || 1),
     0
@@ -294,6 +360,11 @@ export const CartProvider = ({ children }) => {
   // After an order is placed only the purchased (selected) items leave the cart
   const removeCheckedOutItems = () => {
     setCouponCode("");
+    if (buyNowRequested) {
+      // A Buy Now order leaves the cart exactly as it was
+      clearBuyNow();
+      return;
+    }
     const keys = new Set(checkoutItems.map((item) => `${item.product?.id}|${item.selectedSize}`));
     setCartItems((prev) =>
       prev.filter((item) => !keys.has(`${item.product?.id}|${item.selectedSize}`))
@@ -326,6 +397,10 @@ export const CartProvider = ({ children }) => {
         cartItems,
         addToCart,
         isInCart,
+        buyNowItem,
+        buyNowRequested,
+        startBuyNow,
+        clearBuyNow,
         removeFromCart,
         updateQuantity,
         clearCart,

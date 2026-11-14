@@ -182,7 +182,10 @@ describe.sequential("Admin staff management", () => {
 
       const ok = await as(ownerToken, request(app).patch(`/api/v1/admin/users/${a.id}`)).send({ name: "Renamed Member", phone: phoneA });
       expect(ok.status).toBe(200);
-      expect((await User.findById(a.id)).phone).toBe(phoneA);
+      const saved = await User.findById(a.id);
+      expect(saved.phone).toBe(`+91${phoneA}`); // stored in the canonical international form
+      expect(saved.phoneCountryCode).toBe("+91");
+      expect(saved.phoneNumber).toBe(phoneA);
 
       const clash = await as(ownerToken, request(app).patch(`/api/v1/admin/users/${b.id}`)).send({ phone: phoneA });
       expect(clash.status).toBe(409);

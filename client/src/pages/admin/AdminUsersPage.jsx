@@ -349,7 +349,7 @@ export const AdminUsersPage = () => {
 
           <div>
             <label htmlFor="staff-phone" className="block text-xs font-semibold text-stone-700 mb-1">Phone <span className="font-normal text-stone-400">(optional)</span></label>
-            <input id="staff-phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="e.g. 9876543210" autoComplete="off" className={`${inputClass} ${fieldErrors.phone ? "border-rose-400" : ""}`} />
+            <input id="staff-phone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="e.g. +91 9876543210" autoComplete="off" className={`${inputClass} ${fieldErrors.phone ? "border-rose-400" : ""}`} />
             {fieldErrors.phone && <p role="alert" className="text-[11px] text-rose-600 mt-1">{fieldErrors.phone}</p>}
           </div>
 

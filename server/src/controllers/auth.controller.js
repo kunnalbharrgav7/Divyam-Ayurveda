@@ -21,6 +21,8 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const result = await authService.login({
     email: req.body.email,
+    phoneCountryCode: req.body.phoneCountryCode,
+    phone: req.body.phone,
     password: req.body.password,
     isStaffRequired: false,
   });
@@ -105,6 +107,11 @@ export const getProfile = asyncHandler(async (req, res) => {
 
 export const updateProfile = asyncHandler(async (req, res) => {
   const updated = await authService.updateProfile(req.user._id, req.body);
+  return sendSuccess(res, updated);
+});
+
+export const changePhone = asyncHandler(async (req, res) => {
+  const updated = await authService.changePhone(req.user._id, req.body);
   return sendSuccess(res, updated);
 });
 

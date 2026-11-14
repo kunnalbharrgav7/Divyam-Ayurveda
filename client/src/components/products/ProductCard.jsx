@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, useMotionValue, useSpring } from "framer-motion";
-import { Heart, ShoppingBag, Check, Eye } from "lucide-react";
+import { Heart, ShoppingBag, Check, Eye, Zap } from "lucide-react";
 import { RatingStars } from "../common/RatingStars";
 import { formatINR, getDiscountPercentage } from "../../utils/formatters";
 import { useCart } from "../../context/CartContext";
@@ -15,8 +15,9 @@ const glowBackground = (x, y) =>
   `radial-gradient(circle 240px at ${x}% ${y}%, rgba(212, 175, 55, 0.12), transparent 70%)`;
 
 const ProductCardImpl = ({ product }) => {
-  const { addToCart, isInCart } = useCart();
+  const { addToCart, isInCart, startBuyNow } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const navigate = useNavigate();
 
   const cardRef = useRef(null);
   // Hover tilt/glow are driven by motion values and a ref, so moving the mouse never re-renders the card
@@ -75,6 +76,14 @@ const ProductCardImpl = ({ product }) => {
     addToCart(product, 1);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 1800);
+  };
+
+  // Buy this one product right away; the cart is not changed. Guests are sent to sign in first by checkout.
+  const handleBuyNow = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startBuyNow(product, 1);
+    navigate("/checkout?buyNow=1");
   };
 
   const handleWishlistToggle = (e) => {
@@ -274,7 +283,7 @@ const ProductCardImpl = ({ product }) => {
                   ? "bg-stone-200 text-stone-500 cursor-not-allowed"
                   : isAdded
                     ? "bg-[#173D2A] text-white ring-2 ring-[#A9D18E] shadow-sm cursor-pointer"
-                    : "bg-[#386B40] hover:bg-[#173D2A] text-white shadow-xs hover:shadow-md cursor-pointer"
+                    : "bg-white text-[#173D2A] border border-[#386B40] hover:bg-emerald-50 cursor-pointer"
               }`}
             >
               {isOutOfStock ? (
@@ -291,6 +300,18 @@ const ProductCardImpl = ({ product }) => {
                 </span>
               )}
             </motion.button>
+
+            {!isOutOfStock && (
+              <motion.button
+                type="button"
+                onClick={handleBuyNow}
+                whileTap={{ scale: 0.96 }}
+                className="w-full py-2 sm:py-2.5 px-2 sm:px-4 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 bg-[#173D2A] hover:bg-[#0B2416] text-white shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer"
+              >
+                <Zap size={15} />
+                <span>Buy Now</span>
+              </motion.button>
+            )}
           </div>
         </div>
       </motion.div>

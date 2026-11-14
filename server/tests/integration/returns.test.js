@@ -26,7 +26,7 @@ describe("Returns, refunds and store credit", () => {
     if (!role) role = createdRole = await Role.create({ name: ROLES.SUPER_ADMIN, permissions: ALL_PERMISSIONS });
     staff = await User.create({ name: "Return Admin", email: `retadmin.${stamp}@example.test`, passwordHash: "x", isStaff: true, roles: [role._id], status: "active" });
     adminAuth = { Authorization: `Bearer ${generateAccessToken({ id: staff._id, email: staff.email, isStaff: true })}` };
-    const reg = await request(app).post("/api/v1/auth/register").send({ name: "Rita Return", email, phone: `7${String(stamp).slice(-9)}`, password: "Secret123" });
+    const reg = await request(app).post("/api/v1/auth/register").send({ name: "Rita Return", email, phone: `7${String(stamp).slice(-9)}`, phoneCountryCode: "+91", password: "Secret123", confirmPassword: "Secret123" });
     customer = reg.body.data.user;
     custAuth = { Authorization: `Bearer ${reg.body.data.tokens.accessToken}` };
     product = await Product.create({ name: `Ret Prod ${stamp}`, slug: `ret-prod-${stamp}`, sku: `RET-${stamp}`, categoryId: "wellness-essentials", description: "x", status: "active", basePricePaise: 50000 });

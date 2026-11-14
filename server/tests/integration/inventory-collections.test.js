@@ -400,7 +400,7 @@ describe("Admin inventory updates & collections", () => {
     const email = `cust.${stamp}@example.test`;
     const register = await request(app)
       .post("/api/v1/auth/register")
-      .send({ name: "Real Customer", email, phone: `9${String(stamp).slice(-9)}`, password: "Secret123" });
+      .send({ name: "Real Customer", email, phoneCountryCode: "+91", phone: `9${String(stamp).slice(-9)}`, password: "Secret123", confirmPassword: "Secret123" });
     expect(register.status).toBe(201);
     expect(register.body.data.user.addresses).toEqual([]);
     expect(register.body.data.user).not.toHaveProperty("adminNotes");
@@ -701,7 +701,7 @@ describe("Admin inventory updates & collections", () => {
 
   it("saves customer reviews to the database and lets admins moderate them (rating follows approved reviews)", async () => {
     const email = `rev.${stamp}@example.test`;
-    const reg = await request(app).post("/api/v1/auth/register").send({ name: "Rita Reviewer", email, phone: `8${String(stamp).slice(-9)}`, password: "Secret123" });
+    const reg = await request(app).post("/api/v1/auth/register").send({ name: "Rita Reviewer", email, phone: `8${String(stamp).slice(-9)}`, phoneCountryCode: "+91", password: "Secret123", confirmPassword: "Secret123" });
     expect(reg.status).toBe(201);
     const asCustomer = { Authorization: `Bearer ${reg.body.data.tokens.accessToken}` };
     const pid = String(product._id);

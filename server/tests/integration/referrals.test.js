@@ -24,7 +24,7 @@ describe("Refer & earn", () => {
     n += 1;
     const email = `ref.${stamp}.${n}@example.test`;
     emails.push(email);
-    const res = await request(app).post("/api/v1/auth/register").send({ name, email, phone: `6${String(stamp + n).slice(-9)}`, password: "Secret123", referralCode });
+    const res = await request(app).post("/api/v1/auth/register").send({ name, email, phone: `6${String(stamp + n).slice(-9)}`, phoneCountryCode: "+91", password: "Secret123", confirmPassword: "Secret123", referralCode });
     return { id: res.body.data.user.id, email, code: res.body.data.user.referralCode, auth: { Authorization: `Bearer ${res.body.data.tokens.accessToken}` }, referral: res.body.data.referral };
   };
 

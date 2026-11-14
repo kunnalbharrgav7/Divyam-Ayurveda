@@ -159,12 +159,17 @@ export const AuthProvider = ({ children }) => {
     : null;
 
   // Unified Single Login: authenticates via backend API or dev fallback
-  const login = async (email, password) => {
+  // identifier: an email address (string), or { phoneCountryCode: "+91", phone: "9876543210" } for mobile sign-in
+  const login = async (identifier, password) => {
     try {
+      const credentials_ =
+        typeof identifier === "string"
+          ? { email: identifier.trim() }
+          : { phoneCountryCode: identifier.phoneCountryCode, phone: identifier.phone };
       const response = await fetch(apiUrl("/api/v1/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ ...credentials_, password }),
         credentials: "include",
       });
 
@@ -189,7 +194,10 @@ export const AuthProvider = ({ children }) => {
       } else {
         return {
           success: false,
-          error: json.error?.message || "Invalid email address or password.",
+          error:
+            json.error?.details?.[0]?.message ||
+            json.error?.message ||
+            (typeof identifier === "string" ? "Invalid email address or password." : "Invalid mobile number or password."),
         };
       }
     } catch (networkErr) {
@@ -206,8 +214,10 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({
           name: userData.name,
           email: userData.email.trim(),
-          phone: userData.phone || undefined,
+          phoneCountryCode: userData.phoneCountryCode,
+          phone: userData.phone,
           password: userData.password,
+          confirmPassword: userData.confirmPassword,
           referralCode: userData.referralCode?.trim() || undefined,
         }),
         credentials: "include",
@@ -233,7 +243,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         return {
           success: false,
-          error: json.error?.message || "Failed to create account.",
+          error: json.error?.details?.[0]?.message || json.error?.message || "Failed to create account.",
         };
       }
     } catch (networkErr) {
@@ -273,7 +283,8 @@ export const AuthProvider = ({ children }) => {
     return isAdmin;
   };
 
-  // Name and phone are saved to the account; the email address is fixed once registered.
+  // The name is saved to the account; the email address is fixed once registered and the mobile number is
+  // changed with changePhone (it is a sign-in credential, so it needs the password).
   const updateProfile = async (updatedData) => {
     if (!hasBackendSession) {
       setUser((prev) => ({ ...prev, ...updatedData }));
@@ -281,12 +292,30 @@ export const AuthProvider = ({ children }) => {
     }
     const res = await authFetch("/api/v1/me", {
       method: "PATCH",
-      body: JSON.stringify({ name: updatedData.name, phone: updatedData.phone }),
+      body: JSON.stringify({ name: updatedData.name }),
     });
     if (!res.ok) throw new Error(await readApiError(res));
     const json = await res.json();
     const saved = json.data || {};
-    setUser((prev) => ({ ...prev, name: saved.name ?? prev.name, phone: saved.phone ?? prev.phone }));
+    setUser((prev) => ({ ...prev, name: saved.name ?? prev.name }));
+  };
+
+  // Change the sign-in mobile number. Needs the current password; throws with a readable message on failure.
+  const changePhone = async ({ phoneCountryCode, phone, currentPassword }) => {
+    const res = await authFetch("/api/v1/me/phone", {
+      method: "PATCH",
+      body: JSON.stringify({ phoneCountryCode, phone, currentPassword }),
+    });
+    if (!res.ok) throw new Error(await readApiError(res));
+    const json = await res.json();
+    const saved = json.data || {};
+    setUser((prev) => ({
+      ...prev,
+      phone: saved.phone ?? prev.phone,
+      phoneCountryCode: saved.phoneCountryCode ?? prev.phoneCountryCode,
+      phoneNumber: saved.phoneNumber ?? prev.phoneNumber,
+      phoneVerified: saved.phoneVerified ?? false,
+    }));
   };
 
   // The owner / temporary-password flags come from the server. A session saved before they existed (or changed
@@ -369,6 +398,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         updateProfile,
+        changePhone,
         syncStaffFlags,
         authFetch,
         hasBackendSession,
