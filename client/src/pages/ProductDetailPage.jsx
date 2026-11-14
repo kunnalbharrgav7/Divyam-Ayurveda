@@ -31,6 +31,7 @@ import {
   formatDate,
 } from "../utils/formatters";
 import { useCart } from "../context/CartContext";
+import { useLiveStock, getAvailableUnits } from "../hooks/useLiveStock";
 import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
 import { useAdmin } from "../context/AdminContext";
@@ -97,6 +98,14 @@ export const ProductDetailPage = () => {
   const [pinChecking, setPinChecking] = useState(false);
 
   const { addToCart, isInCart, startBuyNow } = useCart();
+
+  // Related / recently viewed cards hold a saved copy of each product; overlay live stock so a sold-out
+  // product shows "Out of Stock" instead of Add to Cart / Buy Now
+  const { stockMap: cardStockMap } = useLiveStock([...relatedProducts, ...recentlyViewed]);
+  const withLiveStock = (item) => {
+    const units = getAvailableUnits(item, undefined, cardStockMap[item.id]);
+    return Number.isFinite(units) ? { ...item, stockQuantity: units } : item;
+  };
   const navigate = useNavigate();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
@@ -634,13 +643,11 @@ export const ProductDetailPage = () => {
               <div className="flex items-center gap-2 text-xs">
                 {product.stockQuantity > 10 ? (
                   <span className="inline-flex items-center gap-1.5 font-medium text-emerald-700">
-                    <CheckCircle2 size={15} /> In Stock ({product.stockQuantity}{" "}
-                    available)
+                    <CheckCircle2 size={15} /> In Stock
                   </span>
                 ) : product.stockQuantity > 0 ? (
                   <span className="inline-flex items-center gap-1.5 font-medium text-amber-700">
-                    <Clock size={15} /> Only {product.stockQuantity} left in
-                    stock - order soon
+                    <Clock size={15} /> Limited stock - order soon
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 font-medium text-rose-600">
@@ -1260,9 +1267,9 @@ export const ProductDetailPage = () => {
                 View Category &rarr;
               </Link>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
               {relatedProducts.map((p) => (
-                <ProductCard key={p.id} product={p} />
+                <ProductCard key={p.id} product={withLiveStock(p)} />
               ))}
             </div>
           </div>
@@ -1274,9 +1281,9 @@ export const ProductDetailPage = () => {
             <h2 className="font-heading tracking-tight text-xl font-bold text-[#171A17] mb-6">
               Recently Viewed
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
               {recentlyViewed.map((p) => (
-                <ProductCard key={p.id} product={p} />
+                <ProductCard key={p.id} product={withLiveStock(p)} />
               ))}
             </div>
           </div>

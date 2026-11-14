@@ -302,14 +302,41 @@ export class CatalogService {
       .limit(limit)
       .lean();
 
-    return related.map((p) => ({
-      ...p,
-      id: p._id.toString(),
-      price: toRupees(p.basePricePaise),
-      originalPrice: toRupees(p.compareAtPricePaise),
-      images: toPublicImages(p),
-      image: toPublicImages(p)[0] || "",
-    }));
+    // Same stock fields as the product list, so cards can show "Out of Stock" instead of Add to Cart / Buy Now
+    const variants = await ProductVariant.find({
+      productId: { $in: related.map((p) => p._id) },
+      isActive: true,
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+    const variantsByProduct = {};
+    variants.forEach((v) => {
+      const pId = v.productId.toString();
+      (variantsByProduct[pId] ||= []).push({
+        id: v._id.toString(),
+        sku: v.sku,
+        size: v.label,
+        label: v.label,
+        price: toRupees(v.pricePaise),
+        originalPrice: toRupees(v.compareAtPricePaise),
+        stock: Math.max(0, (v.stockOnHand || 0) - (v.reservedStock || 0)),
+        weightGrams: v.weightGrams,
+      });
+    });
+
+    return related.map((p) => {
+      const pVariants = variantsByProduct[p._id.toString()] || [];
+      return {
+        ...p,
+        id: p._id.toString(),
+        price: toRupees(p.basePricePaise),
+        originalPrice: toRupees(p.compareAtPricePaise),
+        images: toPublicImages(p),
+        image: toPublicImages(p)[0] || "",
+        stockQuantity: pVariants.reduce((sum, v) => sum + v.stock, 0),
+        variants: pVariants,
+      };
+    });
   }
 
   /**
