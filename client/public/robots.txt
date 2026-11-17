@@ -9,6 +9,7 @@ Disallow: /register
 Disallow: /forgot-password
 Disallow: /order-confirmation
 Disallow: /track-order
+Disallow: /track/
 Disallow: /wishlist
 Disallow: /api/
 

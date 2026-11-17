@@ -1,3 +1,4 @@
+import { marketingService } from "./marketing.service.js";
 import mongoose from "mongoose";
 import { Order } from "../models/Order.js";
 import { Payment } from "../models/Payment.js";
@@ -7,6 +8,7 @@ import { cashfree } from "../integrations/cashfree/cashfree.adapter.js";
 import { orderService } from "./order.service.js";
 import { shipmentService } from "./shipment.service.js";
 import { Refund } from "../models/Refund.js";
+import { OrderCancellation } from "../models/OrderCancellation.js";
 import { inventoryService } from "./inventory.service.js";
 import { couponService } from "./coupon.service.js";
 import { referralService } from "./referral.service.js";
@@ -174,6 +176,8 @@ export class PaymentService {
 
     // Book the courier in the background; the webhook response must not wait for Shiprocket
     setImmediate(() => shipmentService.autoCreateForOrder(confirmed.orderNumber));
+    // Report the purchase to Meta Ads once (server side; deduplicated with the browser Pixel by event id)
+    setImmediate(() => marketingService.sendPurchase(confirmed.orderNumber));
     return true;
   }
 
@@ -195,18 +199,36 @@ export class PaymentService {
     if (!refund) return { updated: false };
 
     if (finalStatus === "succeeded") {
+      const order = await Order.findOne({ orderNumber: refund.orderNumber });
+      const isPartial = order?.status === ORDER_STATUS.PARTIALLY_CANCELLED || order?.cancellationStatus === "partially_cancelled";
       await Order.updateOne(
         { orderNumber: refund.orderNumber },
         {
-          $set: { paymentStatus: PAYMENT_STATUS.REFUNDED },
+          $set: {
+            paymentStatus: isPartial ? PAYMENT_STATUS.PARTIALLY_REFUNDED : PAYMENT_STATUS.REFUNDED,
+            refundStatus: "completed",
+          },
           $push: { timeline: { status: "Refund completed", time: new Date(), note: `₹${refund.amountPaise / 100} reached the original payment method.`, completed: true } },
         }
       );
+      if (refund.cancellationId) {
+        await OrderCancellation.findByIdAndUpdate(refund.cancellationId, {
+          $push: {
+            timeline: {
+              status: "Refund Completed",
+              note: `₹${refund.amountPaise / 100} settled via Cashfree.`,
+              by: "webhook",
+              at: new Date(),
+            },
+          },
+        });
+      }
     } else {
       await Order.updateOne(
         { orderNumber: refund.orderNumber },
         {
           $inc: { refundedPaise: -refund.amountPaise },
+          $set: { refundStatus: "failed" },
           $push: {
             timeline: {
               status: "Refund failed",
@@ -217,6 +239,18 @@ export class PaymentService {
           },
         }
       );
+      if (refund.cancellationId) {
+        await OrderCancellation.findByIdAndUpdate(refund.cancellationId, {
+          $push: {
+            timeline: {
+              status: "Refund Failed",
+              note: `Cashfree reported refund failure (${cfStatus}).`,
+              by: "webhook",
+              at: new Date(),
+            },
+          },
+        });
+      }
       logger.error({ orderNumber: refund.orderNumber, refundId, status: cfStatus }, "Refund for cancelled order failed at Cashfree");
     }
     return { updated: true, status: finalStatus };

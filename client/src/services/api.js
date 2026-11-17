@@ -6,6 +6,30 @@
 import { storage } from "../utils/storage";
 import { apiUrl } from "../config/api";
 import { cached } from "./requestCache";
+import { getGuestOrder, saveGuestOrder } from "../utils/guestOrders";
+
+// API status -> label shown to customers
+const displayStatusOf = (rawValue) => {
+  const rawStatus = String(rawValue || "confirmed").toLowerCase();
+  if (rawStatus === "delivered") return "Delivered";
+  if (rawStatus === "dispatched" || rawStatus === "shipped") return "Dispatched";
+  if (rawStatus === "out_for_delivery") return "Out for Delivery";
+  if (rawStatus === "processing" || rawStatus === "packed") return "Processing";
+  if (rawStatus === "cancelled") return "Cancelled";
+  if (rawStatus === "return_requested") return "Return Requested";
+  if (rawStatus === "returned") return "Returned";
+  if (rawStatus === "pending_payment" || rawStatus === "pending") return "Pending";
+  return "Confirmed";
+};
+
+const readError = async (response, fallback) => {
+  try {
+    const json = await response.json();
+    return json?.error?.details?.[0]?.message || json?.error?.message || fallback;
+  } catch (_) {
+    return fallback;
+  }
+};
 
 export const normalizeProductImages = (p) => {
   if (!p) return p;
@@ -599,6 +623,18 @@ export const orderService = {
     // Keep it in memory only: localStorage is shared by every account in this browser (and by the admin panel)
     recentOrders.set(created.orderNumber, created);
 
+    // Guest checkout: remember the private tracking code (and one-time claim token) on this device only
+    if (created.guestAccess?.trackingCode) {
+      saveGuestOrder({
+        orderNumber: created.orderNumber,
+        trackingCode: created.guestAccess.trackingCode,
+        claimToken: created.guestAccess.claimToken,
+        claimExpiresAt: created.guestAccess.claimExpiresAt,
+        total: created.pricing?.total,
+        placedAt: created.createdAt,
+      });
+    }
+
     // Notify all listening contexts (OrderContext, AdminContext)
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("divyam_order_created", { detail: created }));
@@ -638,21 +674,12 @@ export const orderService = {
         const json = await response.json();
         if (json.success && json.data) {
           const raw = json.data;
-          const rawStatus = String(raw.status || raw.orderStatus || "confirmed").toLowerCase();
-          let displayStatus = "Confirmed";
-          if (rawStatus === "delivered") displayStatus = "Delivered";
-          else if (rawStatus === "dispatched" || rawStatus === "shipped") displayStatus = "Dispatched";
-          else if (rawStatus === "out_for_delivery") displayStatus = "Out for Delivery";
-          else if (rawStatus === "processing" || rawStatus === "packed") displayStatus = "Processing";
-          else if (rawStatus === "cancelled") displayStatus = "Cancelled";
-          else if (rawStatus === "pending_payment" || rawStatus === "pending") displayStatus = "Pending";
-
           const fetched = {
             ...localMatch,
             ...raw,
             id: raw.orderNumber || raw.id || orderId,
             orderNumber: raw.orderNumber || raw.id || orderId,
-            status: displayStatus,
+            status: displayStatusOf(raw.status || raw.orderStatus),
             rawStatus: raw.status,
             timeline: raw.timeline || localMatch?.timeline,
           };
@@ -663,8 +690,64 @@ export const orderService = {
       console.warn("Could not retrieve order from backend:", e);
     }
 
+    // Not this account's order (or signed out): an order placed as a guest on this device is read with its
+    // private tracking code. Contact details stay masked by the server; this tab may still hold the full ones.
+    const guest = getGuestOrder(orderId);
+    if (guest) {
+      try {
+        const tracked = await this.trackOrder({ code: guest.trackingCode, orderNumber: guest.orderNumber });
+        return {
+          ...localMatch,
+          ...tracked,
+          customer: localMatch?.customer || tracked.customer,
+          shippingAddress: localMatch?.shippingAddress || tracked.shippingAddress,
+          guestTrackingCode: guest.trackingCode,
+        };
+      } catch (e) {
+        console.warn("Could not retrieve guest order:", e.message);
+      }
+    }
+
     // Fallback to local storage only if offline or backend unavailable
     return localMatch || null;
+  },
+
+  /**
+   * Private tracking (guest orders): tracking code, optionally with the order number as an extra check.
+   * Throws with the server's message when nothing matches.
+   */
+  async trackOrder({ code, orderNumber = null }) {
+    const response = await fetch("/api/v1/orders/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ code: String(code || "").trim(), orderNumber: orderNumber ? String(orderNumber).trim() : null }),
+    });
+    if (!response.ok) {
+      throw new Error(await readError(response, "We couldn't find an order with these details. Check the order ID and tracking code."));
+    }
+    const json = await response.json();
+    const raw = json.data;
+    return {
+      ...raw,
+      id: raw.orderNumber,
+      status: displayStatusOf(raw.status),
+      rawStatus: raw.status,
+      isGuestView: true,
+    };
+  },
+
+  /** City / state for a PIN code (pre-fills checkout; returns { found: false } when unknown or offline) */
+  async lookupPincode(pincode) {
+    if (!/^[1-9]\d{5}$/.test(String(pincode || ""))) return { found: false };
+    try {
+      const response = await fetch(`/api/v1/checkout/pincode/${encodeURIComponent(pincode)}`);
+      if (!response.ok) return { found: false };
+      const json = await response.json();
+      return json.success && json.data ? json.data : { found: false };
+    } catch (_) {
+      return { found: false };
+    }
   },
 
   /**
@@ -720,3 +803,128 @@ export const orderService = {
     }
   },
 };
+
+/**
+ * Cancellation & Refund Management Service (Customer & Admin)
+ */
+export const cancellationService = {
+  // Customer methods
+  async checkEligibility(orderNumber) {
+    const res = await fetch(`/api/v1/orders/${encodeURIComponent(orderNumber)}/cancellation-eligibility`, {
+      credentials: "include",
+    });
+    return res.json();
+  },
+
+  async cancelOrder(orderNumber, { reason, notes } = {}) {
+    const res = await fetch(`/api/v1/orders/${encodeURIComponent(orderNumber)}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ reason, notes }),
+    });
+    return res.json();
+  },
+
+  async cancelOrderItems(orderNumber, { items, reason, notes } = {}) {
+    const res = await fetch(`/api/v1/orders/${encodeURIComponent(orderNumber)}/cancel-items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ items, reason, notes }),
+    });
+    return res.json();
+  },
+
+  async getOrderCancellation(orderNumber) {
+    const res = await fetch(`/api/v1/orders/${encodeURIComponent(orderNumber)}/cancellation`, {
+      credentials: "include",
+    });
+    return res.json();
+  },
+
+  async getRefundStatus(orderNumber) {
+    const res = await fetch(`/api/v1/orders/${encodeURIComponent(orderNumber)}/refund-status`, {
+      credentials: "include",
+    });
+    return res.json();
+  },
+
+  async getMyCancellations() {
+    const res = await fetch("/api/v1/me/cancellations", {
+      credentials: "include",
+    });
+    return res.json();
+  },
+
+  // Admin methods
+  async listAdminCancellations(params = {}) {
+    const sp = new URLSearchParams();
+    if (params.page) sp.set("page", params.page);
+    if (params.limit) sp.set("limit", params.limit);
+    if (params.status && params.status !== "all") sp.set("status", params.status);
+    if (params.type && params.type !== "all") sp.set("type", params.type);
+    if (params.search) sp.set("search", params.search);
+
+    const qs = sp.toString();
+    const res = await fetch(`/api/v1/admin/cancellations${qs ? `?${qs}` : ""}`, {
+      credentials: "include",
+    });
+    return res.json();
+  },
+
+  async getAdminCancellation(id) {
+    const res = await fetch(`/api/v1/admin/cancellations/${encodeURIComponent(id)}`, {
+      credentials: "include",
+    });
+    return res.json();
+  },
+
+  async approveCancellation(id, notes = "") {
+    const res = await fetch(`/api/v1/admin/cancellations/${encodeURIComponent(id)}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ notes }),
+    });
+    return res.json();
+  },
+
+  async rejectCancellation(id, rejectionReason) {
+    const res = await fetch(`/api/v1/admin/cancellations/${encodeURIComponent(id)}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ rejectionReason }),
+    });
+    return res.json();
+  },
+
+  async retryRefund(id) {
+    const res = await fetch(`/api/v1/admin/cancellations/${encodeURIComponent(id)}/retry-refund`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({}),
+    });
+    return res.json();
+  },
+
+  async getPolicy() {
+    const res = await fetch("/api/v1/admin/settings/cancellation-policy", {
+      credentials: "include",
+    });
+    return res.json();
+  },
+
+  async updatePolicy(policy) {
+    const res = await fetch("/api/v1/admin/settings/cancellation-policy", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(policy),
+    });
+    return res.json();
+  },
+};
+

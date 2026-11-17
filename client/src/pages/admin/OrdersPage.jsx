@@ -151,8 +151,16 @@ export const OrdersPage = () => {
       header: "Customer",
       render: (row) => (
         <div>
-          <div className="font-semibold text-stone-900 text-xs sm:text-sm">
-            {row.customerName}
+          <div className="font-semibold text-stone-900 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
+            <span>{row.customerName}</span>
+            {row.isGuest && (
+              <span
+                className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold uppercase tracking-wide"
+                title={row.userId ? "Placed as a guest, later linked to an account" : "Placed without an account"}
+              >
+                Guest
+              </span>
+            )}
           </div>
           <div className="text-[11px] text-stone-400">
             {row.email} • {row.phone}

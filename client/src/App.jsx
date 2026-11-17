@@ -58,6 +58,7 @@ const InventoryPage = lazyPage(() => import("./pages/admin/InventoryPage"), "Inv
 const IngredientsAdminPage = lazyPage(() => import("./pages/admin/IngredientsAdminPage"), "IngredientsAdminPage");
 const OrdersPage = lazyPage(() => import("./pages/admin/OrdersPage"), "OrdersPage");
 const OrderDetailsPage = lazyPage(() => import("./pages/admin/OrderDetailsPage"), "OrderDetailsPage");
+const CancellationsPage = lazyPage(() => import("./pages/admin/CancellationsPage"), "CancellationsPage");
 const ReturnsRefundsPage = lazyPage(() => import("./pages/admin/ReturnsRefundsPage"), "ReturnsRefundsPage");
 const CouponsPage = lazyPage(() => import("./pages/admin/CouponsPage"), "CouponsPage");
 const CustomersPage = lazyPage(() => import("./pages/admin/CustomersPage"), "CustomersPage");
@@ -76,6 +77,7 @@ const ProfileSecurityPage = lazyPage(() => import("./pages/admin/ProfileSecurity
 import { SmoothScroll } from "./animations/SmoothScroll";
 import { LiveOrderToast } from "./components/common/LiveOrderToast";
 import { RouteSeo } from "./components/common/RouteSeo";
+import { MarketingTracker } from "./components/common/MarketingTracker";
 
 export const App = () => {
   return (
@@ -91,6 +93,7 @@ export const App = () => {
                   <HeroNavProvider>
                     <SmoothScroll>
                     <RouteSeo />
+                    <MarketingTracker />
                     <Routes>
                   {/* ======================================================== */}
                   {/* ADMIN AUTHENTICATION (Redirects to unified /login) */}
@@ -124,6 +127,7 @@ export const App = () => {
                     {/* Sales & Orders */}
                     <Route path="orders" element={<OrdersPage />} />
                     <Route path="orders/:orderId" element={<OrderDetailsPage />} />
+                    <Route path="cancellations" element={<CancellationsPage />} />
                     <Route path="returns-refunds" element={<ReturnsRefundsPage />} />
                     <Route path="coupons" element={<CouponsPage />} />
 
@@ -172,6 +176,7 @@ export const App = () => {
                     <Route path="checkout" element={<CheckoutPage />} />
                     <Route path="order-confirmation/:orderId" element={<OrderConfirmationPage />} />
                     <Route path="track-order" element={<TrackOrderPage />} />
+                    <Route path="track/:code" element={<TrackOrderPage />} />
 
                     {/* Account & Auth */}
                     <Route path="login" element={<LoginPage />} />

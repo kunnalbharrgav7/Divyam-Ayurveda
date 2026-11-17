@@ -7,6 +7,7 @@ import { orderService } from "./services/order.service.js";
 import { paymentService } from "./services/payment.service.js";
 import { shipmentService } from "./services/shipment.service.js";
 import { Shipment } from "./models/Shipment.js";
+import { Order } from "./models/Order.js";
 
 const startServer = async () => {
   try {
@@ -16,6 +17,12 @@ const startServer = async () => {
     // Older databases hold a plain orderNumber index; replace it with the unique one that stops double shipments
     await Shipment.syncIndexes().catch((err) =>
       logger.error({ err: err.message }, "Could not enforce one shipment per order; remove duplicate shipments and restart")
+    );
+
+    // Production does not auto-build indexes: create any missing Order indexes (e.g. the guest tracking-code
+    // lookups). createIndexes only adds; it never drops an existing index.
+    await Order.createIndexes().catch((err) =>
+      logger.error({ err: err.message }, "Could not create order indexes (guest tracking lookups may be slow)")
     );
 
     // Pay referral rewards once their orders are delivered and past the return window

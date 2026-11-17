@@ -138,7 +138,7 @@ export const PhoneInput = ({
               </div>
             </div>
 
-            <ul role="listbox" data-lenis-prevent="true" className="overflow-y-auto overscroll-contain pb-3 sm:pb-1">
+            <ul role="listbox" data-lenis-prevent="true" className="overflow-y-auto overscroll-contain pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-1">
               {countries.length === 0 && <li className="px-4 py-6 text-center text-stone-400">No country found</li>}
               {countries.map((c) => {
                 const active = c.iso === selected?.iso;

@@ -12,6 +12,7 @@ router.get("/coupons/public", checkoutController.listPublicCoupons);
 router.post("/discounts", optionalAuthenticate, validate(discountPreviewSchema), checkoutController.previewDiscounts);
 router.post("/coupons/validate", optionalAuthenticate, validate(couponValidateSchema), checkoutController.validateCoupon);
 router.get("/shipping/serviceability", checkoutLimiter, checkoutController.checkServiceability);
+router.get("/pincode/:pincode", checkoutLimiter, checkoutController.lookupPincode);
 
 export default router;
 

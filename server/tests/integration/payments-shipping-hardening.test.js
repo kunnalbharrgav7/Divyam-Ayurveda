@@ -499,34 +499,35 @@ describe.sequential("Payment and shipping hardening", () => {
       return { order, shipment, awb };
     };
 
-    it("S2: a signed-out visitor never gets the label or Shiprocket ids", async () => {
+    it("S2: a signed-out visitor with only the order number gets nothing", async () => {
       const { order } = await withShipment();
       const res = await request(app).get(`/api/v1/orders/${order.orderNumber}`);
+      expect(res.status).toBe(404);
+      const body = JSON.stringify(res.body);
+      expect(body).not.toContain("secret-label");
+      expect(body).not.toContain("Hardening Customer");
+    });
+
+    it("S2: private tracking (tracking code) hides the label and Shiprocket ids", async () => {
+      const { order, awb } = await withShipment();
+      const { trackingCode } = await orderService.regenerateTrackingCode(order.orderNumber, staff());
+      const res = await request(app).post("/api/v1/orders/track").send({ code: trackingCode, orderNumber: order.orderNumber });
       expect(res.status).toBe(200);
       const body = JSON.stringify(res.body);
       expect(body).not.toContain("secret-label");
       expect(body).not.toContain("SR-ORD-");
       expect(body).not.toContain("SR-SHIP-");
-      expect(res.body.data.shipment.courierName).toBe("Delhivery");
-      expect(res.body.data.shipment.trackingEvents).toHaveLength(1);
-      expect(res.body.data.shippingAddress.street).toBeUndefined();
-    });
-
-    it("S2: guest tracking by order number and email also hides the label and ids", async () => {
-      const { order, awb } = await withShipment();
-      const res = await request(app).get("/api/v1/orders/track").query({ orderNumber: order.orderNumber, email: "hardening@example.test" });
-      expect(res.status).toBe(200);
-      const body = JSON.stringify(res.body);
-      expect(body).not.toContain("secret-label");
-      expect(body).not.toContain("SR-ORD-");
       expect(res.body.data.shipment.awbCode).toBe(awb);
+      expect(res.body.data.shipment.trackingEvents).toHaveLength(1);
     });
 
-    it("guest tracking by order number and email does not repeat the street address or the full phone number", async () => {
+    it("private tracking does not repeat the street address, the full phone number or the email", async () => {
       const { order } = await withShipment();
-      const res = await request(app).get("/api/v1/orders/track").query({ orderNumber: order.orderNumber, email: "hardening@example.test" });
+      const { trackingCode } = await orderService.regenerateTrackingCode(order.orderNumber, staff());
+      const res = await request(app).post("/api/v1/orders/track").send({ code: trackingCode });
       expect(res.status).toBe(200);
       expect(res.body.data.customer.phone).toBe("******3210");
+      expect(res.body.data.customer.email).not.toContain("hardening@");
       expect(res.body.data.shippingAddress).toEqual({ city: "Bengaluru", state: "Karnataka", pincode: "560001" });
       expect(JSON.stringify(res.body)).not.toContain("1 Test Street");
     });

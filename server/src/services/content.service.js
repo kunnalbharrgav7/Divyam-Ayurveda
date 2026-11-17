@@ -268,11 +268,9 @@ export class ContentService {
   async createTicket(user, data) {
     const orderNumber = clean(data.orderNumber, 40);
     if (orderNumber) {
-      const order = await Order.findOne({ orderNumber }).select("userId customer.email").lean();
-      const owns =
-        order &&
-        ((order.userId && String(order.userId) === String(user._id)) ||
-          (order.customer?.email && order.customer.email.toLowerCase() === String(user.email).toLowerCase()));
+      // Orders belong to the account they are linked to (a guest order is linked by its one-time claim link)
+      const order = await Order.findOne({ orderNumber }).select("userId").lean();
+      const owns = Boolean(order?.userId && String(order.userId) === String(user._id));
       if (!owns) throw ApiError.badRequest("That order isn't on your account. Choose one of your own orders, or leave it blank.");
     }
 

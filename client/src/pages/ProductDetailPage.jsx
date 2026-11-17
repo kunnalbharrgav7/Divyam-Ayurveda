@@ -36,6 +36,7 @@ import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
 import { useAdmin } from "../context/AdminContext";
 import { storage } from "../utils/storage";
+import { trackEvent, contentParams } from "../utils/metaPixel";
 import {
   Star,
   ThumbsUp,
@@ -97,6 +98,19 @@ export const ProductDetailPage = () => {
   const [pinResult, setPinResult] = useState(null);
   const [pinChecking, setPinChecking] = useState(false);
 
+  // Mobile sticky Add to Cart / Buy Now bar: shown only while the main buttons are off screen
+  const [mainActionsEl, setMainActionsEl] = useState(null);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  useEffect(() => {
+    if (!mainActionsEl || typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyBar(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(mainActionsEl);
+    return () => observer.disconnect();
+  }, [mainActionsEl]);
+
   const { addToCart, isInCart, startBuyNow } = useCart();
 
   // Related / recently viewed cards hold a saved copy of each product; overlay live stock so a sold-out
@@ -130,6 +144,10 @@ export const ProductDetailPage = () => {
           setSelectedVariant(item.variants?.[0] || null);
           setActiveImageIndex(0);
           setQuantity(1);
+
+          // Meta Ads: product viewed
+          const viewPrice = Number(item.variants?.[0]?.price ?? item.price) || 0;
+          trackEvent("ViewContent", { ...contentParams([{ productId: item.id, price: viewPrice, quantity: 1 }], viewPrice), content_name: item.name });
 
           // Track recently viewed
           const recent = storage.get(RECENTLY_VIEWED_KEY, []);
@@ -266,6 +284,7 @@ export const ProductDetailPage = () => {
   const handleAddToCart = () => {
     if (blockedAsInCart) return;
     addToCart(product, quantity, selectedVariant);
+    trackEvent("AddToCart", { ...contentParams([{ productId: product.id, price: currentPrice, quantity }], currentPrice * quantity), content_name: product.name });
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
   };
@@ -412,7 +431,62 @@ export const ProductDetailPage = () => {
   };
 
   return (
-    <div className="bg-[#FBFAF6] min-h-screen py-6 sm:py-8">
+    <div className="bg-[#FBFAF6] min-h-screen py-6 sm:py-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-8">
+      {/* Mobile sticky actions: same handlers and states as the main buttons */}
+      <div
+        aria-hidden={!showStickyBar}
+        className={`sm:hidden fixed inset-x-0 bottom-0 z-30 bg-white/95 backdrop-blur border-t border-[#E5E7DF] shadow-[0_-6px_20px_rgba(0,0,0,0.08)] px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] transition-transform duration-300 ${
+          showStickyBar ? "translate-y-0" : "translate-y-full pointer-events-none"
+        }`}
+      >
+        <div className="flex gap-3">
+          <button
+            type="button"
+            tabIndex={showStickyBar ? 0 : -1}
+            onClick={handleAddToCart}
+            className={`flex-1 py-3 px-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 transition-all ${
+              blockedAsInCart && !isAdded
+                ? "bg-emerald-50 text-emerald-800 border border-emerald-200 cursor-default"
+                : isAdded
+                  ? "bg-[#173D2A] text-white ring-2 ring-[#A9D18E]"
+                  : "bg-white text-[#173D2A] border border-[#386B40] active:bg-emerald-50"
+            }`}
+          >
+            {blockedAsInCart && !isAdded ? (
+              <>
+                <Check size={17} />
+                <span>Already in Cart</span>
+              </>
+            ) : isAdded ? (
+              <>
+                <Check size={17} className="text-[#A9D18E]" />
+                <span>Added!</span>
+              </>
+            ) : (
+              <>
+                <ShoppingBag size={17} />
+                <span>Add to Cart</span>
+              </>
+            )}
+          </button>
+          {canBuyNow ? (
+            <button
+              type="button"
+              tabIndex={showStickyBar ? 0 : -1}
+              onClick={handleBuyNow}
+              className="flex-1 py-3 px-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 bg-[#173D2A] active:bg-[#0B2416] text-white"
+            >
+              <Zap size={17} />
+              <span>Buy Now</span>
+            </button>
+          ) : (
+            <span className="flex-1 py-3 px-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 bg-stone-100 text-stone-500">
+              <AlertCircle size={17} />
+              <span>Out of Stock</span>
+            </span>
+          )}
+        </div>
+      </div>
       <Seo
         title={product.seo?.metaTitle?.trim() || withBrand(product.name)}
         description={product.seo?.metaDescription?.trim() || product.shortDescription || product.description}
@@ -682,7 +756,7 @@ export const ProductDetailPage = () => {
                   </button>
                 </div>
 
-                <div className="flex-1 flex flex-col sm:flex-row gap-3">
+                <div ref={setMainActionsEl} className="flex-1 flex flex-col sm:flex-row gap-3">
                 {/* Add to Cart Button */}
                 <button
                   onClick={handleAddToCart}

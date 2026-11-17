@@ -9,6 +9,8 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: CLIENT_ORIGIN
         value: https://divyam-ayurveda-dgha.onrender.com
 

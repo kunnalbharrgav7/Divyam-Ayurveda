@@ -23,6 +23,99 @@ import { settingsService } from "./settings.service.js";
 import { computeShipping, computeTax } from "../utils/shippingRules.js";
 import { ApiError } from "../utils/apiError.js";
 import { logger } from "../config/logger.js";
+import {
+  issueGuestCredentials,
+  formatTrackingCode,
+  normalizeTrackingCode,
+  hashToken,
+  isWellFormedClaimToken,
+  maskPhone,
+  maskEmail,
+} from "../utils/guestAccess.js";
+import { marketingService } from "./marketing.service.js";
+
+// Attribution the storefront captured (Meta click ids, UTM tags), trimmed to sane lengths
+const cleanAttribution = (raw = {}, request = {}) => {
+  const pick = (v, max = 300) => String(v ?? "").trim().slice(0, max);
+  const src = raw && typeof raw === "object" ? raw : {};
+  const req = request && typeof request === "object" ? request : {};
+  return {
+    fbp: pick(src.fbp, 200),
+    fbc: pick(src.fbc, 300),
+    utmSource: pick(src.utmSource, 120),
+    utmMedium: pick(src.utmMedium, 120),
+    utmCampaign: pick(src.utmCampaign, 200),
+    utmContent: pick(src.utmContent, 200),
+    utmTerm: pick(src.utmTerm, 200),
+    landingUrl: pick(src.landingUrl, 500),
+    clientIp: pick(req.ip, 64),
+    userAgent: pick(req.userAgent, 400),
+  };
+};
+
+// The plain guest credentials, returned once in the order-placement response and never stored
+const guestAccessResponse = (credentials) =>
+  credentials
+    ? {
+        trackingCode: formatTrackingCode(credentials.plain.trackingCode),
+        claimToken: credentials.plain.claimToken,
+        claimExpiresAt: credentials.plain.claimExpiresAt,
+      }
+    : undefined;
+
+// What anyone holding a private tracking code may see: enough to follow the parcel, nothing to edit,
+// and no full address, phone or email (the buyer already has them)
+const toTrackingView = (order, shipment) => {
+  const json = order.toJSON();
+  return {
+    orderNumber: json.orderNumber,
+    id: json.orderNumber,
+    createdAt: json.createdAt,
+    status: json.status,
+    fulfilmentStatus: json.fulfilmentStatus,
+    paymentStatus: json.paymentStatus,
+    paymentMethod: json.paymentMethod,
+    estimatedDelivery: json.estimatedDelivery,
+    deliveredAt: json.deliveredAt,
+    timeline: (json.timeline || []).map((t) => ({ status: t.status, time: t.time, completed: t.completed })),
+    items: (json.items || []).map((it) => ({
+      name: it.name,
+      size: it.size,
+      image: it.image,
+      quantity: it.quantity,
+      price: it.price,
+      total: it.total,
+    })),
+    pricing: {
+      subtotal: json.pricing.subtotal,
+      discount: json.pricing.discount,
+      referralDiscount: json.pricing.referralDiscount,
+      shipping: json.pricing.shipping,
+      tax: json.pricing.tax,
+      storeCredit: json.pricing.storeCredit,
+      total: json.pricing.total,
+    },
+    trackingNumber: json.trackingNumber,
+    carrier: json.carrier,
+    trackingUrl: json.trackingUrl,
+    shipment: toPublicShipment(shipment),
+    customer: {
+      name: json.customer?.name,
+      phone: maskPhone(json.customer?.phone),
+      email: maskEmail(json.customer?.email),
+    },
+    shippingAddress: {
+      city: json.shippingAddress?.city,
+      state: json.shippingAddress?.state,
+      pincode: json.shippingAddress?.pincode,
+    },
+    isGuest: json.isGuest,
+    linkedToAccount: Boolean(order.userId),
+  };
+};
+
+const ownsOrder = (order, user) =>
+  Boolean(order && user?._id && order.userId && order.userId.toString() === user._id.toString());
 
 export class OrderService {
   /**
@@ -64,6 +157,8 @@ export class OrderService {
       assertCodWithinLimit(quote.totalPaise);
       await shipmentService.assertDeliverable({ pincode: quote.shippingAddress?.pincode, cod: isCOD });
       const orderNumber = generateOrderNumber();
+      const quoteOwnerId = user?._id || user?.id || quote.userId || null;
+      const quoteGuest = quoteOwnerId ? null : issueGuestCredentials();
 
       // 1. Atomically reserve stock for all items
       await inventoryService.reserveStock(quote.items, orderNumber, user?.id || "checkout");
@@ -92,7 +187,10 @@ export class OrderService {
 
       const order = await Order.create({
         orderNumber,
-        userId: user?._id || user?.id || quote.userId || null,
+        userId: quoteOwnerId,
+        checkoutType: quoteGuest ? "guest" : "account",
+        ...(quoteGuest ? { guestAccess: quoteGuest.stored } : {}),
+        attribution: cleanAttribution(payload.attribution, payload.requestMeta),
         customer: {
           name: quote.shippingAddress.fullName,
           email: (user?.email || quote.guestEmail || "guest@divyamayurveda.test").toLowerCase(),
@@ -148,7 +246,10 @@ export class OrderService {
         await referralService.recordOrder(order, user);
       }
 
-      if (isCOD) setImmediate(() => shipmentService.autoCreateForOrder(order.orderNumber));
+      if (isCOD) {
+        setImmediate(() => shipmentService.autoCreateForOrder(order.orderNumber));
+        setImmediate(() => marketingService.sendPurchase(order.orderNumber));
+      }
 
       let paymentSession = null;
       if (isOnline) {
@@ -170,6 +271,7 @@ export class OrderService {
       if (paymentSession) {
         orderJson.paymentSession = paymentSession;
       }
+      if (quoteGuest) orderJson.guestAccess = guestAccessResponse(quoteGuest);
       return orderJson;
     }
 
@@ -297,7 +399,11 @@ export class OrderService {
         mappedItems.reduce((sum, it) => sum + it.lineTotalPaise, 0),
         user?._id || null,
         [],
-        { items: mappedItems.map((it) => ({ productId: it.productId, unitPricePaise: it.unitPricePaise, quantity: it.quantity })) }
+        {
+          items: mappedItems.map((it) => ({ productId: it.productId, unitPricePaise: it.unitPricePaise, quantity: it.quantity })),
+          // Without an account, "once per customer" offers are counted against this email / mobile number
+          guestContact: user?._id ? null : { email: customerEmail, phone: customerPhone },
+        }
       );
       const claimedPaise = toPaise(Number(payload.pricing?.offerDiscount || 0));
       if (Math.abs(verified.discountPaise - claimedPaise) > 100) {
@@ -381,6 +487,9 @@ export class OrderService {
       }
     }
 
+    // Placed without an account: private tracking code + one-time claim token for this buyer
+    const guestCredentials = user?._id || user?.id ? null : issueGuestCredentials();
+
     let order;
     let stockReserved = false;
     try {
@@ -390,6 +499,9 @@ export class OrderService {
       stockState: reservations.length > 0 ? "reserved" : "none",
       orderNumber,
       userId: user?._id || user?.id || null,
+      checkoutType: guestCredentials ? "guest" : "account",
+      ...(guestCredentials ? { guestAccess: guestCredentials.stored } : {}),
+      attribution: cleanAttribution(payload.attribution, payload.requestMeta),
       customer: {
         name: customerName,
         email: customerEmail,
@@ -447,6 +559,7 @@ export class OrderService {
       if (verifiedReferralCode) await referralService.recordOrder(order, user);
       // Cash on delivery is confirmed on placement, so the courier can be booked right away
       setImmediate(() => shipmentService.autoCreateForOrder(order.orderNumber));
+      setImmediate(() => marketingService.sendPurchase(order.orderNumber));
     }
 
     let paymentSession = null;
@@ -473,11 +586,13 @@ export class OrderService {
     if (paymentSession) {
       orderJson.paymentSession = paymentSession;
     }
+    if (guestCredentials) orderJson.guestAccess = guestAccessResponse(guestCredentials);
     return orderJson;
   }
 
   /**
-   * Get single order by orderNumber with ownership verification or safe tracking view
+   * One order. Staff see everything; a customer sees their own order (linked to their account) in full.
+   * Anyone else gets 404, so order numbers reveal nothing. Guests use their private tracking code instead.
    */
   async getOrder(orderNumber, user = null) {
     const isObjectId = mongoose.Types.ObjectId.isValid(orderNumber);
@@ -488,48 +603,24 @@ export class OrderService {
       ],
     });
     if (!order) throw ApiError.notFound("Order not found.");
+    if (!user?.isStaff && !ownsOrder(order, user)) throw ApiError.notFound("Order not found.");
 
     const shipment = await Shipment.findOne({ orderNumber: order.orderNumber }).lean();
-
-    // Staff see everything; everyone else (including signed-out visitors) only sees their own orders in full
-    if (!user || !user.isStaff) {
-      const isOwner =
-        !!user &&
-        ((order.userId && order.userId.toString() === user._id.toString()) ||
-          (order.customer?.email && order.customer.email.toLowerCase() === user.email.toLowerCase()));
-
-      if (!isOwner) {
-        // Return public tracking view (masked customer data)
-        const json = order.toJSON();
-        return {
-          orderNumber: json.orderNumber,
-          id: json.orderNumber,
-          status: json.status,
-          fulfilmentStatus: json.fulfilmentStatus,
-          paymentStatus: json.paymentStatus,
-          timeline: json.timeline,
-          items: json.items,
-          estimatedDelivery: json.estimatedDelivery,
-          createdAt: json.createdAt,
-          trackingNumber: json.trackingNumber,
-          carrier: json.carrier,
-          trackingUrl: json.trackingUrl,
-          shipment: toPublicShipment(shipment),
-          shippingAddress: {
-            city: json.shippingAddress?.city,
-            state: json.shippingAddress?.state,
-            pincode: json.shippingAddress?.pincode,
-          },
-          customer: {
-            name: json.customer?.name || "Customer",
-          },
-        };
-      }
-    }
-
     const fullOrder = order.toJSON();
     if (user?.isStaff) {
       fullOrder.shipment = shipment || null;
+      fullOrder.adminNotes = (order.adminNotes || []).map((n) => ({
+        id: n._id.toString(),
+        text: n.text,
+        authorName: n.authorName,
+        createdAt: n.createdAt,
+      }));
+      fullOrder.guestTracking = {
+        active: Boolean(order.guestAccess?.trackingTokenHash) && !order.guestAccess?.trackingRevokedAt,
+        issuedAt: order.guestAccess?.trackingIssuedAt || null,
+        revokedAt: order.guestAccess?.trackingRevokedAt || null,
+        claimedAt: order.guestAccess?.claimedAt || null,
+      };
     } else {
       delete fullOrder.shippingLabelUrl;
       fullOrder.shipment = toPublicShipment(shipment);
@@ -538,18 +629,11 @@ export class OrderService {
   }
 
   /**
-   * Guest order tracking requiring BOTH orderNumber AND email
-   */
-  /**
    * An order the signed-in customer owns (404 for anyone else's, so existence isn't revealed)
    */
   async getOwnedOrder(orderNumber, user) {
     const order = await Order.findOne({ orderNumber });
-    const owns =
-      order &&
-      ((order.userId && order.userId.toString() === user._id.toString()) ||
-        (order.customer?.email && order.customer.email.toLowerCase() === user.email.toLowerCase()));
-    if (!owns) throw ApiError.notFound("Order not found.");
+    if (!ownsOrder(order, user)) throw ApiError.notFound("Order not found.");
 
     const shipment = await Shipment.findOne({ orderNumber: order.orderNumber }).lean();
     const res = order.toJSON();
@@ -558,49 +642,143 @@ export class OrderService {
     return res;
   }
 
-  async trackOrder(orderNumber, email) {
-    if (!orderNumber || !email) {
-      throw ApiError.badRequest("Order number and customer email are both required for tracking.");
-    }
+  /**
+   * Private tracking for orders placed without an account. The tracking code is the proof (it is random and
+   * unrelated to the order number, phone or email); when an order number is also given it must match.
+   * Every failure looks the same, so nothing can be learnt by guessing.
+   */
+  async trackByCode({ code, orderNumber = null }) {
+    const normalized = normalizeTrackingCode(code);
+    const notFound = () => ApiError.notFound("We couldn't find an order with these details. Check the order ID and tracking code.");
+    if (!normalized) throw notFound();
 
-    const order = await Order.findOne({
-      orderNumber: orderNumber.trim(),
-      "customer.email": email.trim().toLowerCase(),
-    });
-
-    if (!order) {
-      throw ApiError.notFound("No matching order found for this order number and email address.");
-    }
+    const order = await Order.findOne({ "guestAccess.trackingTokenHash": hashToken(normalized) });
+    if (!order || order.guestAccess?.trackingRevokedAt) throw notFound();
+    if (orderNumber && String(orderNumber).trim().toUpperCase() !== order.orderNumber.toUpperCase()) throw notFound();
 
     const shipment = await Shipment.findOne({ orderNumber: order.orderNumber }).lean();
-    const result = order.toJSON();
-    delete result.shippingLabelUrl;
-    result.shipment = toPublicShipment(shipment);
-
-    // Order number + email is a weak proof of ownership (emails are easy to guess), so the street address and the
-    // full phone number are not repeated back; the customer already has them.
-    const phone = String(result.customer?.phone || "").replace(/\D/g, "");
-    result.customer = {
-      name: result.customer?.name,
-      email: result.customer?.email,
-      phone: phone ? `${"*".repeat(Math.max(0, phone.length - 4))}${phone.slice(-4)}` : "",
-    };
-    result.shippingAddress = {
-      city: result.shippingAddress?.city,
-      state: result.shippingAddress?.state,
-      pincode: result.shippingAddress?.pincode,
-    };
-    return result;
+    const view = toTrackingView(order, shipment);
+    // Can this order still be linked to an account? (The claim token itself is never echoed back)
+    view.claimable =
+      !order.userId &&
+      Boolean(order.guestAccess?.claimTokenHash) &&
+      Boolean(order.guestAccess?.claimExpiresAt) &&
+      order.guestAccess.claimExpiresAt > new Date();
+    return view;
   }
 
   /**
-   * List customer's own orders
+   * Link a guest order to the signed-in customer's account with its one-time claim token.
+   * Atomic: the token is consumed in the same write that sets the owner, so two accounts can never both
+   * claim it, and a used, expired or unknown token gets the same answer.
    */
-  async getCustomerOrders(userId, email) {
-    const orders = await Order.find({
-      $or: [{ userId }, { "customer.email": email?.toLowerCase() }],
-    }).sort({ createdAt: -1 });
+  async claimGuestOrder({ claimToken, user }) {
+    if (!user?._id) throw ApiError.unauthorized("Please sign in to add this order to your account.");
+    if (user.isStaff) throw ApiError.forbidden("Staff accounts cannot take ownership of customer orders.");
+    const invalid = () => ApiError.badRequest("This link has expired or was already used. Your order is safe; you can still track it with your tracking code.");
+    if (!isWellFormedClaimToken(claimToken)) throw invalid();
 
+    const now = new Date();
+    const order = await Order.findOneAndUpdate(
+      {
+        "guestAccess.claimTokenHash": hashToken(claimToken),
+        "guestAccess.claimExpiresAt": { $gt: now },
+        "guestAccess.claimedAt": null,
+        userId: null,
+      },
+      {
+        $set: { userId: user._id, "guestAccess.claimedAt": now, "guestAccess.claimedBy": user._id },
+        $unset: { "guestAccess.claimTokenHash": "" },
+        $push: { timeline: { status: "Linked to customer account", time: now, completed: true, note: "" } },
+      },
+      { new: true }
+    );
+    if (!order) throw invalid();
+
+    await logAudit({
+      actorId: user._id,
+      actorName: user.name || user.email,
+      actorRole: "Customer",
+      action: "order.claimed",
+      module: "orders",
+      targetId: order.orderNumber,
+      details: `Guest order ${order.orderNumber} linked to the customer's account with its one-time claim link`,
+      after: { userId: String(user._id) },
+    }).catch(() => {});
+    return order.toJSON();
+  }
+
+  /**
+   * Staff: replace an order's private tracking code (the old link stops working at once).
+   * Returns the new code so it can be shared with the customer.
+   */
+  async regenerateTrackingCode(orderNumber, staffUser) {
+    const order = await Order.findOne({ orderNumber });
+    if (!order) throw ApiError.notFound("Order not found.");
+    const { plain, stored } = issueGuestCredentials({ withClaim: false });
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "guestAccess.trackingTokenHash": stored.trackingTokenHash,
+          "guestAccess.trackingIssuedAt": stored.trackingIssuedAt,
+          "guestAccess.trackingRevokedAt": null,
+        },
+      }
+    );
+    await logAudit({
+      actorId: staffUser?._id || null,
+      actorName: staffUser?.name || staffUser?.email || "Staff",
+      actorRole: staffUser?.role || "Staff",
+      action: "order.tracking_code_regenerated",
+      module: "orders",
+      targetId: order.orderNumber,
+      details: `New private tracking link issued for ${order.orderNumber}; the previous link no longer works`,
+    }).catch(() => {});
+    return { orderNumber: order.orderNumber, trackingCode: formatTrackingCode(plain.trackingCode) };
+  }
+
+  /** Staff: switch off an order's private tracking link without issuing a new one */
+  async revokeTrackingCode(orderNumber, staffUser) {
+    const order = await Order.findOneAndUpdate(
+      { orderNumber },
+      { $set: { "guestAccess.trackingRevokedAt": new Date() } },
+      { new: true }
+    );
+    if (!order) throw ApiError.notFound("Order not found.");
+    await logAudit({
+      actorId: staffUser?._id || null,
+      actorName: staffUser?.name || staffUser?.email || "Staff",
+      actorRole: staffUser?.role || "Staff",
+      action: "order.tracking_code_revoked",
+      module: "orders",
+      targetId: order.orderNumber,
+      details: `Private tracking link for ${order.orderNumber} switched off`,
+    }).catch(() => {});
+    return { orderNumber: order.orderNumber, revokedAt: order.guestAccess.trackingRevokedAt };
+  }
+
+  /** Staff: add a private note to an order (never shown to the customer) */
+  async addAdminNote(orderNumber, text, staffUser) {
+    const clean = String(text || "").trim();
+    if (!clean) throw ApiError.badRequest("Please write a note.");
+    if (clean.length > 2000) throw ApiError.badRequest("Notes can be at most 2000 characters.");
+    const note = { text: clean, authorId: staffUser?._id || null, authorName: staffUser?.name || staffUser?.email || "Staff", createdAt: new Date() };
+    const order = await Order.findOneAndUpdate(
+      { orderNumber },
+      { $push: { adminNotes: { $each: [note], $position: 0 } } },
+      { new: true }
+    );
+    if (!order) throw ApiError.notFound("Order not found.");
+    const saved = order.adminNotes[0];
+    return { id: saved._id.toString(), text: saved.text, authorName: saved.authorName, createdAt: saved.createdAt };
+  }
+
+  /**
+   * List customer's own orders (linked to their account; never matched by email alone)
+   */
+  async getCustomerOrders(userId) {
+    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
     return orders.map((o) => o.toJSON());
   }
 
@@ -1018,6 +1196,14 @@ export class OrderService {
     const beforeStatus = order.status;
     await this.cancelCourierShipment(order);
     order.status = ORDER_STATUS.CANCELLED;
+    order.cancellationStatus = "cancelled";
+    order.cancelledAt = new Date();
+    order.cancellationReason = reason || "Cancelled by request";
+    for (const it of order.items || []) {
+      it.cancelledQuantity = it.quantity;
+      it.isCancelled = true;
+      it.cancelledAt = new Date();
+    }
     order.timeline.push({
       status: "Order Cancelled",
       time: new Date(),

@@ -34,7 +34,7 @@ export class CouponService {
    * `items` lets product-specific coupons discount only their eligible products; without items the
    * whole `subtotalPaise` is the base (legacy callers), which product-specific coupons cannot use.
    */
-  async validateCoupon(code, subtotalPaise, userId = null, categoryIds = [], { items = null } = {}) {
+  async validateCoupon(code, subtotalPaise, userId = null, categoryIds = [], { items = null, guestContact = null } = {}) {
     if (!code || typeof code !== "string") {
       throw ApiError.badRequest("Coupon code is required");
     }
@@ -66,6 +66,24 @@ export class CouponService {
 
       if (userRedemptions >= coupon.usageLimitPerUser) {
         throw ApiError.badRequest("You have already used this offer.");
+      }
+    } else if (!userId && coupon.usageLimitPerUser && guestContact) {
+      // No account: count earlier redemptions by the same email or mobile number (anti-abuse only;
+      // this never links orders to anyone)
+      const email = String(guestContact.email || "").trim().toLowerCase();
+      const phone = String(guestContact.phone || "").trim();
+      const or = [];
+      if (email) or.push({ "customer.email": email });
+      if (phone) or.push({ "customer.phone": phone });
+      if (or.length > 0) {
+        const redemptions = await Order.countDocuments({
+          $or: or,
+          "pricing.appliedCoupon": coupon.code,
+          status: { $ne: "cancelled" },
+        });
+        if (redemptions >= coupon.usageLimitPerUser) {
+          throw ApiError.badRequest("This offer has already been used with these contact details.");
+        }
       }
     }
 

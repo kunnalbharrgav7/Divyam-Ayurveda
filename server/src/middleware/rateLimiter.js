@@ -102,3 +102,27 @@ export const ticketLimiter = rateLimit({
     error: { code: "TOO_MANY_REQUESTS", message: "Too many support messages. Please try again later." },
   },
 });
+
+// Private order tracking codes: 80 random bits make guessing hopeless, and this keeps scripts from even trying
+export const trackLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: config.NODE_ENV === "test" ? 5000 : 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: { code: "TOO_MANY_REQUESTS", message: "Too many tracking attempts. Please wait a few minutes and try again." },
+  },
+});
+
+// Linking a guest order to an account
+export const claimLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: config.NODE_ENV === "test" ? 5000 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: { code: "TOO_MANY_REQUESTS", message: "Too many attempts. Please wait a few minutes and try again." },
+  },
+});

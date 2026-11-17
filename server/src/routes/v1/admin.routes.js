@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as adminController from "../../controllers/admin.controller.js";
 import * as returnController from "../../controllers/return.controller.js";
+import * as cancellationController from "../../controllers/cancellation.controller.js";
 import { authenticate, requireStaff } from "../../middleware/auth.js";
 import { requirePermission, requirePasswordChanged, requireOwner } from "../../middleware/rbac.js";
 import { PERMISSIONS } from "../../constants/permissions.js";
@@ -72,6 +73,9 @@ router.patch("/orders/:orderNumber/tracking", requirePermission(PERMISSIONS.ORDE
 router.get("/orders/:orderNumber/shipment", requirePermission(PERMISSIONS.ORDERS_VIEW), adminController.getOrderShipment);
 router.get("/orders/:orderNumber/shipment/live", requirePermission(PERMISSIONS.ORDERS_VIEW), adminController.getLiveShipmentTracking);
 router.post("/orders/:orderNumber/cancel", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.cancelOrder);
+router.post("/orders/:orderNumber/notes", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.addOrderNote);
+router.post("/orders/:orderNumber/tracking-code", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.regenerateOrderTrackingCode);
+router.delete("/orders/:orderNumber/tracking-code", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.revokeOrderTrackingCode);
 
 // Returns & Refunds
 router.get("/returns", requirePermission(PERMISSIONS.REFUNDS_MANAGE), returnController.listAdminReturns);
@@ -81,6 +85,16 @@ router.post("/returns/:id/reject", requirePermission(PERMISSIONS.REFUNDS_MANAGE)
 router.post("/returns/:id/receive", requirePermission(PERMISSIONS.REFUNDS_MANAGE), returnController.receiveReturn);
 router.post("/returns/:id/refund", requirePermission(PERMISSIONS.REFUNDS_MANAGE), returnController.refundReturn);
 router.post("/returns/:id/refund/refresh", requirePermission(PERMISSIONS.REFUNDS_MANAGE), returnController.refreshReturnRefund);
+
+// Order Cancellations & Gateway Refunds
+router.get("/cancellations", requirePermission(PERMISSIONS.ORDERS_VIEW), cancellationController.listAdminCancellations);
+router.get("/cancellations/:id", requirePermission(PERMISSIONS.ORDERS_VIEW), cancellationController.getAdminCancellation);
+router.post("/cancellations/:id/approve", requirePermission(PERMISSIONS.ORDERS_UPDATE), cancellationController.approveCancellation);
+router.post("/cancellations/:id/reject", requirePermission(PERMISSIONS.ORDERS_UPDATE), cancellationController.rejectCancellation);
+router.get("/refunds", requirePermission(PERMISSIONS.REFUNDS_MANAGE), cancellationController.listAdminRefunds);
+router.post("/refunds/:id/retry", requirePermission(PERMISSIONS.REFUNDS_MANAGE), cancellationController.retryAdminRefund);
+router.get("/cancellation-settings", requirePermission(PERMISSIONS.SETTINGS_MANAGE), cancellationController.getCancellationSettings);
+router.patch("/cancellation-settings", requirePermission(PERMISSIONS.SETTINGS_MANAGE), cancellationController.updateCancellationSettings);
 
 // Coupons
 router.get("/coupons", requirePermission(PERMISSIONS.DISCOUNTS_MANAGE), adminController.listCoupons);

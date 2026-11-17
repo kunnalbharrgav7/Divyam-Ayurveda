@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { config } from "../../config/index.js";
+import { config, IS_DEPLOYED } from "../../config/index.js";
 import { logger } from "../../config/logger.js";
 import { ApiError } from "../../utils/apiError.js";
 import { ShiprocketMock } from "./shiprocket.mock.js";
@@ -29,10 +29,11 @@ export class ShiprocketAdapter {
       this.email.includes(".test") ||
       this.email === "shipping@divyamayurveda.test";
 
-    if (config.NODE_ENV === "production" && this.isMock) {
+    // Live server (NODE_ENV=production, or on Render): never fall back to fake results
+    if (IS_DEPLOYED && this.isMock) {
       throw new Error("Cannot run Shiprocket mock courier adapter in production environment. Valid SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD required.");
     }
-    if (config.NODE_ENV === "production" && this.webhookSecret === "test_shiprocket_webhook_secret_999") {
+    if (IS_DEPLOYED && this.webhookSecret === "test_shiprocket_webhook_secret_999") {
       throw new Error("SHIPROCKET_WEBHOOK_SECRET must be set to a private value in production; the built-in default is public.");
     }
 

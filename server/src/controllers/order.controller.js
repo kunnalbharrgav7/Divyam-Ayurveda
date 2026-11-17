@@ -8,15 +8,23 @@ import { sendSuccess } from "../utils/response.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 
+// The visitor's address as seen by Meta: the first X-Forwarded-For hop (Render sits in front of the app).
+// Used only for ad matching, never for security decisions.
+const clientIpOf = (req) => String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip || "";
+
 export const createOrder = asyncHandler(async (req, res) => {
+  // Guest and signed-in checkout share this one path; ownership comes only from the session, never the body
+  const { user: _ignoredUser, userId: _ignoredUserId, ...body } = req.body || {};
   const order = await orderService.createOrder({
-    ...req.body,
-    quoteId: req.body.quoteId,
-    paymentMethod: req.body.paymentMethod || "cod",
-    notes: req.body.notes || "",
+    ...body,
+    quoteId: body.quoteId,
+    paymentMethod: body.paymentMethod || "cod",
+    notes: body.notes || "",
     user: req.user || null,
+    requestMeta: { ip: clientIpOf(req), userAgent: req.get("user-agent") || "" },
   });
 
+  res.set("Cache-Control", "no-store, private"); // carries one-time guest credentials
   return sendSuccess(res, order, undefined, 201);
 });
 
@@ -32,13 +40,20 @@ export const getMyOrder = asyncHandler(async (req, res) => {
 });
 
 export const getMyOrders = asyncHandler(async (req, res) => {
-  const orders = await orderService.getCustomerOrders(req.user._id, req.user.email);
+  const orders = await orderService.getCustomerOrders(req.user._id);
   return sendSuccess(res, orders);
 });
 
+// Private tracking for guest orders (code in the body, so it stays out of URLs and access logs)
 export const trackOrder = asyncHandler(async (req, res) => {
-  const { orderNumber, email } = req.query;
-  const order = await orderService.trackOrder(orderNumber, email);
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  const order = await orderService.trackByCode({ code: req.body.code, orderNumber: req.body.orderNumber || null });
+  return sendSuccess(res, order);
+});
+
+// Link a guest order to the signed-in account (one-time claim token)
+export const claimOrder = asyncHandler(async (req, res) => {
+  const order = await orderService.claimGuestOrder({ claimToken: req.body.claimToken, user: req.user });
   return sendSuccess(res, order);
 });
 

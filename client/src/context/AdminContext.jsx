@@ -197,6 +197,7 @@ export const normalizeOrder = (o) => {
     typeof o.shippingAddress === "object" && o.shippingAddress !== null
       ? {
           street: o.shippingAddress.street || street,
+          line2: o.shippingAddress.line2 || "",
           city: o.shippingAddress.city || city,
           state: o.shippingAddress.state || state,
           pincode: o.shippingAddress.pincode || pincode,
@@ -1505,6 +1506,37 @@ export const AdminProvider = ({ children }) => {
     return freshOrder;
   };
 
+  // Full order as staff see it (private notes, tracking-link status)
+  const fetchAdminOrderDetail = async (orderId) => {
+    try {
+      const res = await adminApiFetch(`/api/v1/admin/orders/${encodeURIComponent(orderId)}`);
+      return res.data || null;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const addOrderNote = async (orderId, text) => {
+    const res = await adminApiFetch(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    return res.data;
+  };
+
+  // Private tracking link: a new code replaces the old one at once; "revoke" switches the link off
+  const regenerateOrderTrackingCode = async (orderId) => {
+    const res = await adminApiFetch(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/tracking-code`, { method: "POST" });
+    logAction("Issued Tracking Link", "Orders", `New private tracking link for order ${orderId}`);
+    return res.data;
+  };
+
+  const revokeOrderTrackingCode = async (orderId) => {
+    const res = await adminApiFetch(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/tracking-code`, { method: "DELETE" });
+    logAction("Revoked Tracking Link", "Orders", `Private tracking link switched off for order ${orderId}`);
+    return res.data;
+  };
+
   const getOrderShipment = async (orderId) => {
     try {
       const res = await adminApiFetch(
@@ -1871,6 +1903,9 @@ export const AdminProvider = ({ children }) => {
   const pendingReviewsCount = reviews.filter(
     (r) => (r.status || "").toLowerCase() === "pending"
   ).length;
+  const pendingCancellationsCount = orders.filter(
+    (o) => (o.cancellationStatus || "").toLowerCase() === "requested"
+  ).length;
   // Tickets still waiting on the team: Open (nobody has answered) and In Progress
   const openTicketsCount = supportTickets.filter((t) => ["open", "in progress"].includes((t.status || "").toLowerCase())).length;
   const newEnquiriesCount = contactEnquiries.filter((e) => (e.status || "").toLowerCase() === "new").length;
@@ -1883,6 +1918,7 @@ export const AdminProvider = ({ children }) => {
     totalProductsCount,
     pendingOrders: pendingOrdersCount,
     pendingOrdersCount,
+    pendingCancellationsCount,
     lowStockCount,
     pendingReviews: pendingReviewsCount,
     pendingReviewsCount,
@@ -2047,6 +2083,7 @@ export const AdminProvider = ({ children }) => {
         metrics: kpis,
         lowStockCount,
         pendingOrdersCount,
+        pendingCancellationsCount,
         pendingReviewsCount,
         openTicketsCount,
 
@@ -2110,6 +2147,10 @@ export const AdminProvider = ({ children }) => {
         advanceShipment,
         updateTrackingInfo,
         getOrderShipment,
+        fetchAdminOrderDetail,
+        addOrderNote,
+        regenerateOrderTrackingCode,
+        revokeOrderTrackingCode,
 
         updateCustomerStatus,
         fetchAdminCustomer,

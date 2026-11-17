@@ -27,6 +27,7 @@ import { useAuth } from "../context/AuthContext";
 import { useOrders } from "../context/OrderContext";
 import { useReturns } from "../context/ReturnContext";
 import { ReturnRequestModal } from "../components/returns/ReturnRequestModal";
+import { CancellationModal } from "../components/orders/CancellationModal";
 import { MySupportPanel } from "../components/support/MySupportPanel";
 import { MyReturnsPanel, RETURN_STATUS_LABEL, RETURN_STATUS_STYLE } from "../components/returns/MyReturnsPanel";
 import { formatINR, formatDate, formatDateTime } from "../utils/formatters";
@@ -43,10 +44,12 @@ import { DEFAULT_COUNTRY, validateMobile, displayPhone } from "../utils/phone";
 
 export const AccountPage = () => {
   const { user, isAuthenticated, logout, updateProfile, changePhone, addresses, addAddress, deleteAddress, setDefaultAddress } = useAuth();
-  const { orders, loading: ordersLoading } = useOrders();
+  const { orders, loading: ordersLoading, refreshOrders } = useOrders();
   const ordersPending = ordersLoading && orders.length === 0; // first load of the order list
   const { returns, eligibility, getReturnForOrder, refresh: refreshReturns } = useReturns();
   const [returnOrder, setReturnOrder] = useState(null);
+  const [cancelOrder, setCancelOrder] = useState(null);
+  const [cancelItem, setCancelItem] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -534,6 +537,33 @@ export const AccountPage = () => {
                             {(() => {
                               const ret = getReturnForOrder(ord.id);
                               const el = eligibility[ord.id];
+                              const isDelivered = ord.status === "Delivered" || ord.orderStatus === "Delivered" || ord.rawStatus === "delivered";
+                              const isCancelled = ["cancelled", "failed"].includes(String(ord.rawStatus || ord.status || "").toLowerCase());
+                              const isPostHandover = ["shipped", "dispatched", "out_for_delivery"].includes(String(ord.rawStatus || "").toLowerCase());
+                              const isCancellable = !isDelivered && !isCancelled && !isPostHandover;
+
+                              if (ord.cancellationStatus === "requested") {
+                                return (
+                                  <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                    Cancel Requested
+                                  </span>
+                                );
+                              }
+
+                              if (isCancellable) {
+                                return (
+                                  <button
+                                    onClick={() => {
+                                      setCancelOrder(ord);
+                                      setCancelItem(null);
+                                    }}
+                                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors"
+                                  >
+                                    Cancel Order
+                                  </button>
+                                );
+                              }
+
                               if (ret) {
                                 return (
                                   <button
@@ -914,7 +944,10 @@ export const AccountPage = () => {
         const p = o.pricing || {};
         const addr = o.shippingAddress || {};
         const isDelivered = o.status === "Delivered" || o.orderStatus === "Delivered" || o.rawStatus === "delivered";
-        const isCancelled = ["cancelled", "failed"].includes(String(o.rawStatus || "").toLowerCase());
+        const isCancelled = ["cancelled", "failed"].includes(String(o.rawStatus || o.status || "").toLowerCase());
+        const isPartiallyCancelled = o.status === "partially_cancelled" || o.cancellationStatus === "partially_cancelled";
+        const isPostHandover = ["shipped", "dispatched", "out_for_delivery"].includes(String(o.rawStatus || "").toLowerCase());
+        const isCancellable = !isDelivered && !isCancelled && !isPostHandover;
         const money = (v) => formatINR(Number(v) || 0);
         const payStatus = String(o.paymentStatus || "pending").replace(/_/g, " ");
         const payStatusStyle = /paid|captured|success/i.test(payStatus)
@@ -947,8 +980,30 @@ export const AccountPage = () => {
                     Placed on {formatDate(o.createdAt)} &bull; {itemCount} item{itemCount === 1 ? "" : "s"}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${isCancelled ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"}`}>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                  {o.cancellationStatus === "requested" && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      Cancel Pending
+                    </span>
+                  )}
+                  {o.refundStatus && o.refundStatus !== "not_applicable" && (
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                      o.refundStatus === "completed"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : o.refundStatus === "failed"
+                          ? "bg-rose-100 text-rose-800"
+                          : "bg-purple-100 text-purple-800"
+                    }`}>
+                      Refund: {o.refundStatus}
+                    </span>
+                  )}
+                  <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${
+                    isCancelled
+                      ? "bg-rose-100 text-rose-800"
+                      : isPartiallyCancelled
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-emerald-100 text-emerald-800"
+                  }`}>
                     {o.status}
                   </span>
                   <button onClick={() => setSelectedOrder(null)} className="p-1 rounded-lg hover:bg-stone-100 text-stone-500" aria-label="Close">
@@ -991,27 +1046,55 @@ export const AccountPage = () => {
                 <div>
                   <span className="font-bold block text-stone-800 text-sm mb-1">Items in this order</span>
                   <div className="divide-y divide-stone-100">
-                    {o.items?.map((it, i) => (
-                      <div key={i} className="flex items-center gap-3 py-3">
-                        <OrderItemImage src={it.image} name={it.name} size={56} className="rounded-xl" />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-semibold text-stone-900 block text-[13px] leading-snug">{it.name}</span>
-                          <span className="text-[11px] text-stone-500 block">
-                            {it.size} &bull; {money(it.price)} &times; {it.quantity}
-                          </span>
-                          {isDelivered && (
-                            <Link
-                              to={`/products/${it.slug || it.productId}?tab=reviews&writeReview=true`}
-                              onClick={() => setSelectedOrder(null)}
-                              className="inline-block mt-1.5 text-[10px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200"
-                            >
-                              ★ Rate &amp; Review
-                            </Link>
-                          )}
+                    {o.items?.map((it, i) => {
+                      const remaining = Math.max(0, (it.quantity || 0) - (it.cancelledQuantity || 0));
+                      const itemIsCancelled = Boolean(it.isCancelled) || remaining === 0;
+                      return (
+                        <div key={i} className="flex items-center gap-3 py-3">
+                          <OrderItemImage src={it.image} name={it.name} size={56} className="rounded-xl" />
+                          <div className="flex-1 min-w-0">
+                            <span className="font-semibold text-stone-900 block text-[13px] leading-snug">{it.name}</span>
+                            <span className="text-[11px] text-stone-500 block">
+                              {it.size} &bull; {money(it.price)} &times; {it.quantity}
+                              {it.cancelledQuantity > 0 && (
+                                <span className="ml-2 text-rose-700 font-semibold">
+                                  ({it.cancelledQuantity} cancelled)
+                                </span>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {itemIsCancelled && (
+                                <span className="text-[10px] font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                  Cancelled
+                                </span>
+                              )}
+                              {isCancellable && !itemIsCancelled && remaining > 0 && o.items.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCancelOrder(o);
+                                    setCancelItem(it);
+                                  }}
+                                  className="text-[10px] font-semibold text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded border border-rose-200 transition-colors"
+                                >
+                                  Cancel product
+                                </button>
+                              )}
+                              {isDelivered && (
+                                <Link
+                                  to={`/products/${it.slug || it.productId}?tab=reviews&writeReview=true`}
+                                  onClick={() => setSelectedOrder(null)}
+                                  className="inline-block text-[10px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200"
+                                >
+                                  ★ Rate &amp; Review
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                          <span className="font-bold text-sm text-[#171A17] shrink-0">{money(it.total)}</span>
                         </div>
-                        <span className="font-bold text-sm text-[#171A17] shrink-0">{money(it.total)}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1092,7 +1175,7 @@ export const AccountPage = () => {
                 )}
               </div>
 
-              <div className="sticky bottom-0 bg-white px-5 sm:px-8 py-4 border-t border-[#E5E7DF] flex flex-col-reverse sm:flex-row gap-2 sm:justify-between">
+              <div className="sticky bottom-0 bg-white px-5 sm:px-8 py-4 border-t border-[#E5E7DF] flex flex-col-reverse sm:flex-row gap-2 sm:justify-between sm:items-center">
                 <Link
                   to={`/account/support?order=${encodeURIComponent(o.orderNumber || o.id)}`}
                   onClick={() => setSelectedOrder(null)}
@@ -1100,14 +1183,45 @@ export const AccountPage = () => {
                 >
                   <LifeBuoy size={14} /> Need help with this order?
                 </Link>
-                <button onClick={() => setSelectedOrder(null)} className="px-6 py-2.5 rounded-xl bg-[#173D2A] text-white text-xs font-semibold">
-                  Close
-                </button>
+                <div className="flex items-center gap-2 justify-end">
+                  {isCancellable && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCancelOrder(o);
+                        setCancelItem(null);
+                      }}
+                      className="px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-semibold transition-colors"
+                    >
+                      Cancel Order
+                    </button>
+                  )}
+                  <button onClick={() => setSelectedOrder(null)} className="px-6 py-2.5 rounded-xl bg-[#173D2A] text-white text-xs font-semibold">
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         );
       })()}
+
+      {cancelOrder && (
+        <CancellationModal
+          order={cancelOrder}
+          initialItem={cancelItem}
+          onClose={() => {
+            setCancelOrder(null);
+            setCancelItem(null);
+          }}
+          onCancelled={(res) => {
+            refreshOrders?.();
+            if (res?.order) {
+              setSelectedOrder(res.order);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

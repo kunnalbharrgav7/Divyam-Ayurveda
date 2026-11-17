@@ -81,7 +81,7 @@ const ProductCardImpl = ({ product }) => {
     setTimeout(() => setIsAdded(false), 1800);
   };
 
-  // Buy this one product right away; the cart is not changed. Guests are sent to sign in first by checkout.
+  // Buy this one product right away; the cart is not changed. Works for guests too (no account needed).
   const handleBuyNow = (e) => {
     e.preventDefault();
     e.stopPropagation();

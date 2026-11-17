@@ -43,7 +43,36 @@ export const OrderDetailsPage = () => {
     advanceShipment,
     updateTrackingInfo,
     getOrderShipment,
+    fetchAdminOrderDetail,
+    addOrderNote,
+    regenerateOrderTrackingCode,
+    revokeOrderTrackingCode,
   } = useAdmin();
+
+  // Staff-only details that the order list does not carry: private notes and the guest tracking link
+  const [detail, setDetail] = useState(null);
+  const [trackingLinkResult, setTrackingLinkResult] = useState(null);
+  const [trackingLinkBusy, setTrackingLinkBusy] = useState(false);
+  const [noteSaving, setNoteSaving] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchAdminOrderDetail(orderId).then((d) => {
+      if (cancelled || !d) return;
+      setDetail(d);
+      setInternalNotes(
+        (d.adminNotes || []).map((n) => ({
+          id: n.id,
+          text: n.text,
+          author: n.authorName,
+          time: new Date(n.createdAt).toLocaleString(),
+        }))
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
 
   useEffect(() => {
     if (refreshOrders) {
@@ -76,16 +105,7 @@ export const OrderDetailsPage = () => {
     };
     fetchShipment();
   }, [orderId]);
-  const [internalNotes, setInternalNotes] = useState(
-    order?.internalNotes || [
-      {
-        id: 1,
-        text: "Order placed by customer via website storefront.",
-        author: "System",
-        time: order?.date || "2026-10-12 10:30 AM",
-      },
-    ]
-  );
+  const [internalNotes, setInternalNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
 
   if (!order && hasAdminLoadError("orders")) {
@@ -158,13 +178,6 @@ This cancels the courier shipment${paidOnline ? " and automatically refunds the 
       await updateOrderStatus(order.id, newStatus);
       setActionNotice(`Order status updated to "${newStatus}" in database.`);
       setTimeout(() => setActionNotice(""), 3500);
-      const addedNote = {
-        id: Date.now(),
-        text: `Order status updated to "${newStatus}".`,
-        author: "Admin Staff",
-        time: new Date().toLocaleString(),
-      };
-      setInternalNotes((prev) => [addedNote, ...prev]);
     } catch (err) {
       alert(`Status update failed: ${err.message}`);
     }
@@ -175,13 +188,6 @@ This cancels the courier shipment${paidOnline ? " and automatically refunds the 
       await updatePaymentStatus(order.id, newPayStatus);
       setActionNotice(`Payment status updated to "${newPayStatus}".`);
       setTimeout(() => setActionNotice(""), 3500);
-      const addedNote = {
-        id: Date.now(),
-        text: `Payment status updated to "${newPayStatus}".`,
-        author: "Admin Staff",
-        time: new Date().toLocaleString(),
-      };
-      setInternalNotes((prev) => [addedNote, ...prev]);
     } catch (err) {
       alert(`Payment update failed: ${err.message}`);
     }
@@ -262,18 +268,55 @@ This books a courier and requests a pickup. Make sure the parcel is packed and r
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleAddNote = (e) => {
+  // Saved on the order (staff only; customers never see these)
+  const handleAddNote = async (e) => {
     e.preventDefault();
-    if (!newNote.trim()) return;
+    if (!newNote.trim() || noteSaving) return;
+    setNoteSaving(true);
+    try {
+      const saved = await addOrderNote(order.id, newNote.trim());
+      setInternalNotes((prev) => [
+        { id: saved.id, text: saved.text, author: saved.authorName, time: new Date(saved.createdAt).toLocaleString() },
+        ...prev,
+      ]);
+      setNewNote("");
+    } catch (err) {
+      alert(`Could not save the note: ${err.message}`);
+    } finally {
+      setNoteSaving(false);
+    }
+  };
 
-    const added = {
-      id: Date.now(),
-      text: newNote.trim(),
-      author: "Admin Staff",
-      time: new Date().toLocaleString(),
-    };
-    setInternalNotes((prev) => [added, ...prev]);
-    setNewNote("");
+  const handleRegenerateTrackingLink = async () => {
+    const ok = window.confirm(
+      "Create a new private tracking link for this order?\n\nThe customer's current link stops working immediately. Share the new link with the customer (for example on WhatsApp)."
+    );
+    if (!ok) return;
+    setTrackingLinkBusy(true);
+    try {
+      const res = await regenerateOrderTrackingCode(order.id);
+      const link = `${window.location.origin}/track/${res.trackingCode.replace(/-/g, "")}`;
+      setTrackingLinkResult({ code: res.trackingCode, link });
+      setDetail((d) => (d ? { ...d, guestTracking: { ...(d.guestTracking || {}), active: true, issuedAt: new Date().toISOString(), revokedAt: null } } : d));
+    } catch (err) {
+      alert(`Could not create a new link: ${err.message}`);
+    } finally {
+      setTrackingLinkBusy(false);
+    }
+  };
+
+  const handleRevokeTrackingLink = async () => {
+    if (!window.confirm("Switch off this order's private tracking link? Anyone using it will no longer see the order.")) return;
+    setTrackingLinkBusy(true);
+    try {
+      await revokeOrderTrackingCode(order.id);
+      setTrackingLinkResult(null);
+      setDetail((d) => (d ? { ...d, guestTracking: { ...(d.guestTracking || {}), active: false, revokedAt: new Date().toISOString() } } : d));
+    } catch (err) {
+      alert(`Could not switch off the link: ${err.message}`);
+    } finally {
+      setTrackingLinkBusy(false);
+    }
   };
 
   const handlePrint = () => {
@@ -558,14 +601,18 @@ This books a courier and requests a pickup. Make sure the parcel is packed and r
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#173D2A] text-white rounded-xl text-xs font-semibold hover:bg-[#0B2416] transition-colors inline-flex items-center gap-1.5"
+                  disabled={noteSaving}
+                  className="px-4 py-2 bg-[#173D2A] text-white rounded-xl text-xs font-semibold hover:bg-[#0B2416] transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Add Note</span>
+                  <span>{noteSaving ? "Saving..." : "Add Note"}</span>
                 </button>
               </form>
 
               <div className="space-y-2.5 pt-2">
+                {internalNotes.length === 0 && (
+                  <p className="text-[11px] text-stone-400">No staff notes yet. Notes are private and never shown to the customer.</p>
+                )}
                 {internalNotes.map((note) => (
                   <div
                     key={note.id}
@@ -606,8 +653,15 @@ This books a courier and requests a pickup. Make sure the parcel is packed and r
                   <span className="font-medium text-stone-800">{customerPhone}</span>
                 </div>
                 <div>
-                  <span className="text-stone-500">Customer Group: </span>
-                  <span className="font-medium text-stone-800">Verified Buyer</span>
+                  <span className="text-stone-500">Checkout: </span>
+                  {order.isGuest ? (
+                    <span className="font-medium text-amber-800">
+                      Guest (no account)
+                      {order.userId ? ` · linked to an account${order.linkedToAccountAt ? ` on ${formatDate(order.linkedToAccountAt)}` : ""}` : ""}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-stone-800">Registered account</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -655,8 +709,63 @@ This books a courier and requests a pickup. Make sure the parcel is packed and r
               <div>
                 <p className="font-semibold text-stone-900">{customerName}</p>
                 <p>{streetAddress}</p>
+                {order.shippingAddress?.line2 && <p>{order.shippingAddress.line2}</p>}
                 <p>{city}, {state} - {pincode}</p>
                 <p>India</p>
+              </div>
+            </div>
+          </AdminCard>
+
+          {/* Private tracking link (guest orders, or any order a customer needs a link for) */}
+          <AdminCard title="Private Tracking Link" subtitle="Lets the customer follow this order without an account">
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500">Status:</span>
+                <span className={`font-semibold ${detail?.guestTracking?.active ? "text-emerald-700" : "text-stone-500"}`}>
+                  {detail?.guestTracking?.active ? "Active" : detail?.guestTracking?.revokedAt ? "Switched off" : "No link issued"}
+                </span>
+              </div>
+              {detail?.guestTracking?.issuedAt && (
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500">Issued:</span>
+                  <span className="text-stone-700">{formatDate(detail.guestTracking.issuedAt)}</span>
+                </div>
+              )}
+              {trackingLinkResult && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1">
+                  <p className="font-semibold text-emerald-900">New link (shown once, copy it now):</p>
+                  <p className="font-mono text-emerald-900 break-all">{trackingLinkResult.link}</p>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(trackingLinkResult.link)}
+                    className="text-[#173D2A] font-semibold underline"
+                  >
+                    Copy link
+                  </button>
+                </div>
+              )}
+              <p className="text-[11px] text-stone-400">
+                The link is never stored in readable form, so a lost link can't be looked up, only replaced.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleRegenerateTrackingLink}
+                  disabled={trackingLinkBusy}
+                  className="px-3 py-2 bg-[#173D2A] text-white rounded-xl font-semibold hover:bg-[#0B2416] disabled:opacity-60"
+                >
+                  {detail?.guestTracking?.active ? "Replace link" : "Create link"}
+                </button>
+                {detail?.guestTracking?.active && (
+                  <button
+                    type="button"
+                    onClick={handleRevokeTrackingLink}
+                    disabled={trackingLinkBusy}
+                    className="px-3 py-2 border border-stone-300 text-stone-700 rounded-xl font-semibold hover:bg-stone-50 disabled:opacity-60"
+                  >
+                    Switch off
+                  </button>
+                )}
               </div>
             </div>
           </AdminCard>

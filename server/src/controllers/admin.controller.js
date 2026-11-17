@@ -363,8 +363,23 @@ export const listAdminOrders = asyncHandler(async (req, res) => {
 });
 
 export const getAdminOrder = asyncHandler(async (req, res) => {
-  const order = await orderService.getOrder(req.params.orderNumber);
+  const order = await orderService.getOrder(req.params.orderNumber, req.user);
   return sendSuccess(res, order);
+});
+
+// Private tracking link for an order: issue a new code (the old link stops working) or switch it off
+export const regenerateOrderTrackingCode = asyncHandler(async (req, res) => {
+  res.set("Cache-Control", "no-store, private");
+  return sendSuccess(res, await orderService.regenerateTrackingCode(req.params.orderNumber, req.user));
+});
+
+export const revokeOrderTrackingCode = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await orderService.revokeTrackingCode(req.params.orderNumber, req.user));
+});
+
+// Staff-only notes on an order
+export const addOrderNote = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await orderService.addAdminNote(req.params.orderNumber, req.body?.text, req.user), undefined, 201);
 });
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {

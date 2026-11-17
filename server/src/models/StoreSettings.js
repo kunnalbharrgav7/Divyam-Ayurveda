@@ -58,6 +58,19 @@ const storeSettingsSchema = new mongoose.Schema(
       lowStockAlerts: { type: Boolean, default: true },
       dailySalesDigest: { type: Boolean, default: false },
     },
+    cancellationPolicy: {
+      enabled: { type: Boolean, default: true },
+      allowFullCancellation: { type: Boolean, default: true },
+      allowPartialCancellation: { type: Boolean, default: true },
+      cancellationCutoff: {
+        type: String,
+        enum: ["before_shipped", "before_packed", "before_pickup"],
+        default: "before_shipped",
+      },
+      requireAdminApproval: { type: Boolean, default: false },
+      automaticOnlineRefund: { type: Boolean, default: true },
+      allowCancellationForCOD: { type: Boolean, default: true },
+    },
     appearance: {
       primaryColor: { type: String, default: "#173D2A" },
       secondaryColor: { type: String, default: "#386B40" },

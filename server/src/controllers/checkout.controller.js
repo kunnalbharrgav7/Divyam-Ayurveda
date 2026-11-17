@@ -1,6 +1,7 @@
 import { quoteService } from "../services/quote.service.js";
 import { couponService } from "../services/coupon.service.js";
 import { shipmentService } from "../services/shipment.service.js";
+import { pincodeService } from "../services/pincode.service.js";
 import { sendSuccess } from "../utils/response.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { toPaise } from "../utils/currency.js";
@@ -54,3 +55,9 @@ export const checkServiceability = asyncHandler(async (req, res) => {
   return sendSuccess(res, result);
 });
 
+
+// City / state for a PIN code, to pre-fill the checkout address (never blocks checkout)
+export const lookupPincode = asyncHandler(async (req, res) => {
+  res.set("Cache-Control", "public, max-age=86400");
+  return sendSuccess(res, await pincodeService.lookup(req.params.pincode));
+});

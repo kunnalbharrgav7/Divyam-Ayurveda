@@ -15,6 +15,9 @@ const orderItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 1 },
   lineTotalPaise: { type: Number, required: true },
   weightGrams: { type: Number, default: 250 },
+  cancelledQuantity: { type: Number, default: 0, min: 0 },
+  isCancelled: { type: Boolean, default: false },
+  cancelledAt: { type: Date, default: null },
 });
 
 const timelineEntrySchema = new mongoose.Schema({
@@ -24,8 +27,43 @@ const timelineEntrySchema = new mongoose.Schema({
   completed: { type: Boolean, default: true },
 });
 
+const adminNoteSchema = new mongoose.Schema({
+  text: { type: String, required: true, maxlength: 2000 },
+  authorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  authorName: { type: String, default: "Staff" },
+  createdAt: { type: Date, default: Date.now },
+});
+
 const orderSchema = new mongoose.Schema(
   {
+    // How the order was placed. Stays "guest" after the buyer later links it to an account.
+    checkoutType: { type: String, enum: ["guest", "account"], default: "account", index: true },
+    // Private access for guest orders: only SHA-256 hashes of the tracking code / claim token (see utils/guestAccess.js)
+    guestAccess: {
+      trackingTokenHash: { type: String, default: undefined },
+      trackingIssuedAt: { type: Date, default: null },
+      trackingRevokedAt: { type: Date, default: null },
+      claimTokenHash: { type: String, default: undefined },
+      claimExpiresAt: { type: Date, default: null },
+      claimedAt: { type: Date, default: null },
+      claimedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    },
+    // Staff-only notes (never sent to customers)
+    adminNotes: { type: [adminNoteSchema], default: [] },
+    // Ad attribution captured at checkout, for Meta Conversions API matching (never sent to customers)
+    attribution: {
+      fbp: { type: String, default: "" },
+      fbc: { type: String, default: "" },
+      utmSource: { type: String, default: "" },
+      utmMedium: { type: String, default: "" },
+      utmCampaign: { type: String, default: "" },
+      utmContent: { type: String, default: "" },
+      utmTerm: { type: String, default: "" },
+      landingUrl: { type: String, default: "" },
+      clientIp: { type: String, default: "" },
+      userAgent: { type: String, default: "" },
+    },
+    metaPurchaseSentAt: { type: Date, default: null },
     orderNumber: {
       type: String,
       required: true,
@@ -77,6 +115,26 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["none", "reserved", "committed", "released"],
       default: "none",
+    },
+    cancellationStatus: {
+      type: String,
+      enum: ["none", "requested", "approved", "rejected", "partially_cancelled", "cancelled"],
+      default: "none",
+      index: true,
+    },
+    cancellationReason: {
+      type: String,
+      default: "",
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    refundStatus: {
+      type: String,
+      enum: ["not_applicable", "pending", "initiated", "processing", "completed", "failed"],
+      default: "not_applicable",
+      index: true,
     },
     status: {
       type: String,
@@ -145,6 +203,14 @@ const orderSchema = new mongoose.Schema(
     toJSON: {
       virtuals: true,
       transform(doc, ret) {
+        // Placed without an account (older orders predate checkoutType, so a missing account also counts)
+        ret.isGuest = ret.checkoutType === "guest" || !ret.userId;
+        ret.linkedToAccountAt = ret.guestAccess?.claimedAt || null;
+        // Secrets, staff notes and ad data never leave the server through the default projection
+        delete ret.guestAccess;
+        delete ret.adminNotes;
+        delete ret.attribution;
+        delete ret.metaPurchaseSentAt;
         ret.id = ret.orderNumber || ret._id.toString();
         ret.orderNumber = ret.orderNumber || ret.id;
         ret._id = ret._id.toString();
@@ -166,10 +232,17 @@ const orderSchema = new mongoose.Schema(
           ...ret.pricing,
         };
         ret.refunded = toRupees(ret.refundedPaise || 0);
+        ret.cancellationStatus = ret.cancellationStatus || "none";
+        ret.cancellationReason = ret.cancellationReason || "";
+        ret.cancelledAt = ret.cancelledAt || null;
+        ret.refundStatus = ret.refundStatus || "not_applicable";
         ret.items = (ret.items || []).map((it) => ({
           ...it,
           price: toRupees(it.unitPricePaise),
           total: toRupees(it.lineTotalPaise),
+          cancelledQuantity: it.cancelledQuantity || 0,
+          isCancelled: Boolean(it.isCancelled),
+          remainingQuantity: Math.max(0, (it.quantity || 0) - (it.cancelledQuantity || 0)),
         }));
         delete ret._id;
         delete ret.__v;
@@ -184,6 +257,9 @@ orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ "customer.email": 1, orderNumber: 1 });
+// Tracking codes and claim tokens are looked up by hash; unique so two orders can never share one
+orderSchema.index({ "guestAccess.trackingTokenHash": 1 }, { unique: true, sparse: true });
+orderSchema.index({ "guestAccess.claimTokenHash": 1 }, { unique: true, sparse: true });
 
 export const Order = mongoose.model("Order", orderSchema);
 

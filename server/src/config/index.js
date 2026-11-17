@@ -51,6 +51,12 @@ const envSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
   SMTP_URL: z.string().optional(),
+
+  // Meta Ads Conversions API (optional; off when either value is missing)
+  META_PIXEL_ID: z.string().optional(),
+  META_CAPI_ACCESS_TOKEN: z.string().optional(),
+  META_TEST_EVENT_CODE: z.string().optional(), // only while testing in Events Manager > Test events
+  META_GRAPH_VERSION: z.string().default("v21.0"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -64,3 +70,29 @@ if (!parsed.success) {
 
 export const config = parsed.success ? parsed.data : envSchema.parse({});
 
+
+// A real deployment: NODE_ENV=production, or running on Render (which sets RENDER=true) even if NODE_ENV was
+// forgotten. Safety checks key off this so a missing setting can never quietly turn the live shop into a
+// test shop (fake payments, fake courier bookings, publicly known signing keys).
+export const IS_DEPLOYED = config.NODE_ENV === "production" || (process.env.RENDER === "true" && config.NODE_ENV !== "test");
+
+if (IS_DEPLOYED) {
+  if (config.NODE_ENV !== "production") {
+    logger.error(
+      "Running on Render without NODE_ENV=production: set NODE_ENV=production so error details stay private and the unpaid-order, tracking and refund jobs run"
+    );
+  }
+  // Login tokens signed with the built-in keys (published in this repository) could be forged by anyone
+  const defaultJwt = [
+    "divyam_ayurveda_local_dev_access_secret_key_108_with_extra_entropy_for_security_2026",
+    "divyam_ayurveda_local_dev_refresh_secret_key_108_with_extra_entropy_for_security_2026",
+  ];
+  if (defaultJwt.includes(config.JWT_ACCESS_SECRET) || defaultJwt.includes(config.JWT_REFRESH_SECRET)) {
+    logger.fatal("JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be set to private random values on the live server");
+    process.exit(1);
+  }
+  // Not fatal: changing these on a live shop would break every existing password / encrypted value
+  if (config.PASSWORD_PEPPER === "divyam_ayurveda_local_pepper_secret_108") {
+    logger.error("PASSWORD_PEPPER is the built-in default. Plan a password-rehash migration before changing it.");
+  }
+}

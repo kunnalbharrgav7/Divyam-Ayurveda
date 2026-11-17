@@ -32,6 +32,7 @@ export const orderCreateSchema = z.object({
       quoteId: z.string().min(1, "quoteId is required"),
       paymentMethod: z.string().optional().default("cod"),
       notes: z.string().optional(),
+      attribution: z.record(z.any()).optional(),
     }),
     z.object({
       items: z.array(z.any()).min(1, "items cannot be empty"),
@@ -41,9 +42,26 @@ export const orderCreateSchema = z.object({
       deliveryMethod: z.string().optional(),
       paymentMethod: z.string().optional(),
       paymentStatus: z.string().optional(),
-      notes: z.string().optional(),
+      notes: z.string().max(500).optional(),
+      // Ad attribution captured by the storefront (Meta click ids, UTM tags); trimmed again in the service
+      attribution: z.record(z.any()).optional(),
     }),
   ]),
+});
+
+// Private order tracking: the tracking code is required; the order number is an optional extra check
+export const trackOrderSchema = z.object({
+  body: z.object({
+    code: z.string().trim().min(1, "Please enter your tracking code.").max(40),
+    orderNumber: z.string().trim().max(40).optional().nullable(),
+  }),
+});
+
+// Linking a guest order to the signed-in account with its one-time claim token
+export const claimOrderSchema = z.object({
+  body: z.object({
+    claimToken: z.string().trim().min(1, "Claim token is required.").max(100),
+  }),
 });
 
 export const couponValidateSchema = z.object({

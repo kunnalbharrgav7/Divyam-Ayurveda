@@ -201,6 +201,24 @@ export class SettingsService {
       changed.push("notifications");
     }
 
+    if (patch.cancellationPolicy) {
+      const cp = patch.cancellationPolicy;
+      if (!settings.cancellationPolicy) settings.cancellationPolicy = {};
+      if (cp.enabled !== undefined) settings.cancellationPolicy.enabled = Boolean(cp.enabled);
+      if (cp.allowFullCancellation !== undefined) settings.cancellationPolicy.allowFullCancellation = Boolean(cp.allowFullCancellation);
+      if (cp.allowPartialCancellation !== undefined) settings.cancellationPolicy.allowPartialCancellation = Boolean(cp.allowPartialCancellation);
+      if (cp.cancellationCutoff !== undefined) {
+        if (!["before_shipped", "before_packed", "before_pickup"].includes(cp.cancellationCutoff)) {
+          throw ApiError.badRequest("Invalid cancellation cutoff option.");
+        }
+        settings.cancellationPolicy.cancellationCutoff = cp.cancellationCutoff;
+      }
+      if (cp.requireAdminApproval !== undefined) settings.cancellationPolicy.requireAdminApproval = Boolean(cp.requireAdminApproval);
+      if (cp.automaticOnlineRefund !== undefined) settings.cancellationPolicy.automaticOnlineRefund = Boolean(cp.automaticOnlineRefund);
+      if (cp.allowCancellationForCOD !== undefined) settings.cancellationPolicy.allowCancellationForCOD = Boolean(cp.allowCancellationForCOD);
+      changed.push("cancellationPolicy");
+    }
+
     await settings.save();
     return { settings, changed };
   }
@@ -235,6 +253,15 @@ export class SettingsService {
         standardGstRate: json.tax.standardGstRate,
       },
       appearance: { bannerAnnouncementText: json.appearance.bannerAnnouncementText },
+      cancellationPolicy: json.cancellationPolicy || {
+        enabled: true,
+        allowFullCancellation: true,
+        allowPartialCancellation: true,
+        cancellationCutoff: "before_shipped",
+        requireAdminApproval: false,
+        automaticOnlineRefund: true,
+        allowCancellationForCOD: true,
+      },
     };
   }
 }

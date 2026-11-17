@@ -54,15 +54,7 @@ export const CartPage = () => {
   const handleProceedToCheckout = () => {
     if (checkoutItems.length === 0) return;
     clearBuyNow(); // the cart checks out the cart, never an earlier Buy Now item
-    if (!isAuthenticated) {
-      navigate("/login", {
-        state: {
-          from: "/checkout",
-          message: "Please sign in or create an account to proceed to checkout.",
-        },
-      });
-      return;
-    }
+    // Guests check out directly (no account needed); signed-in customers get their details pre-filled
     navigate("/checkout");
   };
 
@@ -467,9 +459,7 @@ export const CartPage = () => {
               <span>
                 {!hasSelection
                   ? "Select Items to Checkout"
-                  : isAuthenticated
-                    ? `Proceed to Checkout (${checkoutItems.length})`
-                    : "Sign In to Checkout"}
+                  : `Proceed to Checkout (${checkoutItems.length})`}
               </span>
               {hasSelection && (
                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -484,7 +474,7 @@ export const CartPage = () => {
             )}
             {hasSelection && !isAuthenticated && (
               <p className="text-[11px] text-center text-stone-500 mt-2">
-                Sign in is required to proceed with your order.
+                No account needed: check out as a guest, or sign in at checkout for saved addresses.
               </p>
             )}
 

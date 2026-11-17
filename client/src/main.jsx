@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { API_BASE_URL } from './config/api'
+import { initMarketing } from './utils/metaPixel'
 
 // Direct all relative /api/ requests to the configured backend URL
 if (typeof window !== "undefined" && API_BASE_URL) {
@@ -18,6 +19,9 @@ if (typeof window !== "undefined" && API_BASE_URL) {
     return nativeFetch(input, init);
   };
 }
+
+// Remember how the visitor arrived (Meta ad click / UTM tags) and load the Meta Pixel if configured
+initMarketing()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

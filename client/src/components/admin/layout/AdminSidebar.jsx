@@ -28,6 +28,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Gift,
+  Ban,
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { useAdmin } from "../../../context/AdminContext";
@@ -43,6 +44,7 @@ export const AdminSidebar = ({
   const {
     lowStockCount,
     pendingOrdersCount,
+    pendingCancellationsCount,
     pendingReviewsCount,
     newEnquiriesCount,
     openTicketsCount,
@@ -144,6 +146,13 @@ export const AdminSidebar = ({
           icon: ShoppingBag,
           badge: pendingOrdersCount > 0 ? pendingOrdersCount : null,
           badgeVariant: "emerald",
+        },
+        {
+          label: "Cancellations",
+          to: "/admin/cancellations",
+          icon: Ban,
+          badge: pendingCancellationsCount > 0 ? pendingCancellationsCount : null,
+          badgeVariant: "amber",
         },
         {
           label: "Returns & Refunds",

@@ -5,6 +5,7 @@ import * as authController from "../../controllers/auth.controller.js";
 import * as orderController from "../../controllers/order.controller.js";
 import * as cartController from "../../controllers/cart.controller.js";
 import * as returnController from "../../controllers/return.controller.js";
+import * as cancellationController from "../../controllers/cancellation.controller.js";
 import * as contentController from "../../controllers/content.controller.js";
 import { ticketLimiter, credentialLimiter } from "../../middleware/rateLimiter.js";
 import { addressSchema, changePasswordSchema, changePhoneSchema } from "../../validators/auth.validator.js";
@@ -52,6 +53,7 @@ router.get("/store-credit", returnController.getStoreCredit);
 // Customer Orders
 router.get("/orders", orderController.getMyOrders);
 router.get("/orders/:orderNumber", orderController.getMyOrder);
+router.get("/cancellations", cancellationController.listMyCancellations);
 
 // Customer Cart
 router.get("/cart", cartController.getCart);

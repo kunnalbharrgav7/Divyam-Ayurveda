@@ -36,7 +36,7 @@ export const STATIC_SEO = {
 };
 
 // Private, transactional or utility routes that should stay out of search results.
-const NOINDEX_PREFIXES = ["/admin", "/cart", "/checkout", "/account", "/login", "/register", "/forgot-password", "/order-confirmation", "/track-order", "/wishlist"];
+const NOINDEX_PREFIXES = ["/admin", "/cart", "/checkout", "/account", "/login", "/register", "/forgot-password", "/order-confirmation", "/track-order", "/track", "/wishlist"];
 
 export const isNoindexPath = (pathname) => NOINDEX_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 export const isDynamicSeoPath = (pathname) => /^\/(products|product|category|blog)\/[^/]+/.test(pathname);

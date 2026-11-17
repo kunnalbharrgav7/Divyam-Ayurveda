@@ -20,7 +20,7 @@ export const ReferralBanner = () => {
     return (
       <aside
         aria-label="Referral link notice"
-        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 max-w-md bg-stone-900 text-white rounded-2xl p-4 shadow-2xl border border-stone-700 animate-in fade-in slide-in-from-bottom-4 duration-300"
+        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 sm:bottom-6 sm:right-6 z-50 max-w-md bg-stone-900 text-white rounded-2xl p-4 shadow-2xl border border-stone-700 animate-in fade-in slide-in-from-bottom-4 duration-300"
       >
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
@@ -48,7 +48,7 @@ export const ReferralBanner = () => {
   return (
     <aside
       aria-label="Referral discount notification"
-      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 max-w-md bg-[#173D2A] text-white rounded-3xl p-5 shadow-2xl border border-[#A9D18E]/30 animate-in fade-in slide-in-from-bottom-5 duration-300 ring-4 ring-emerald-950/20"
+      className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 sm:bottom-6 sm:right-6 z-50 max-w-md bg-[#173D2A] text-white rounded-3xl p-5 shadow-2xl border border-[#A9D18E]/30 animate-in fade-in slide-in-from-bottom-5 duration-300 ring-4 ring-emerald-950/20"
     >
       <div className="flex items-start gap-3.5">
         <div className="w-10 h-10 rounded-2xl bg-[#A9D18E]/20 text-[#A9D18E] flex items-center justify-center shrink-0 border border-[#A9D18E]/30">

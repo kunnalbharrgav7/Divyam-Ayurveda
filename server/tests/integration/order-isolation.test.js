@@ -50,12 +50,11 @@ describe("Customers only see their own orders", () => {
     expect(owner.body.data.customer.email).toBe(emailA);
     expect(owner.body.data.pricing.total).toBe(500);
 
+    // An order number alone reveals nothing: other customers and signed-out visitors get a plain 404
     for (const res of [await request(app).get(`/api/v1/orders/${orderNumber}`).set(authB), await request(app).get(`/api/v1/orders/${orderNumber}`)]) {
-      expect(res.status).toBe(200);
-      expect(res.body.data.customer).toEqual({ name: "Alice Owner" });
-      expect(res.body.data.pricing).toBeUndefined();
-      expect(JSON.stringify(res.body.data)).not.toContain(emailA);
-      expect(res.body.data.shippingAddress.street).toBeUndefined();
+      expect(res.status).toBe(404);
+      expect(JSON.stringify(res.body)).not.toContain(emailA);
+      expect(JSON.stringify(res.body)).not.toContain("Alice");
     }
   });
 

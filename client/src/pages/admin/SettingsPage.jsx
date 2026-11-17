@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Save, Check, CreditCard, Truck, Bell, Building, Plus, Trash2, Info, AlertTriangle } from "lucide-react";
+import { Save, Check, CreditCard, Truck, Bell, Building, Plus, Trash2, Info, AlertTriangle, Ban } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
 import { INDIAN_STATES } from "../../utils/shippingCalculator";
@@ -10,6 +10,7 @@ const TABS = [
   { id: "general", label: "General & Brand", icon: Building },
   { id: "shipping", label: "Shipping & Tax", icon: Truck },
   { id: "payments", label: "Payment Gateways", icon: CreditCard },
+  { id: "cancellations", label: "Cancellations & Refunds", icon: Ban },
   { id: "notifications", label: "Alerts & Notifications", icon: Bell },
 ];
 
@@ -53,6 +54,15 @@ const editable = (s) => ({
     enableCashOnDelivery: s.store?.enableCashOnDelivery !== false,
     maxCodLimit: s.store?.maxCodLimit ?? 0,
   },
+  cancellations: {
+    enabled: s.cancellationPolicy?.enabled !== false,
+    allowFullCancellation: s.cancellationPolicy?.allowFullCancellation !== false,
+    allowPartialCancellation: s.cancellationPolicy?.allowPartialCancellation !== false,
+    cancellationCutoff: s.cancellationPolicy?.cancellationCutoff || "before_pickup",
+    requireAdminApproval: Boolean(s.cancellationPolicy?.requireAdminApproval),
+    automaticOnlineRefund: s.cancellationPolicy?.automaticOnlineRefund !== false,
+    allowCancellationForCOD: s.cancellationPolicy?.allowCancellationForCOD !== false,
+  },
   notifications: {
     emailOnNewOrder: Boolean(s.notifications?.emailOnNewOrder),
     smsOnDispatch: Boolean(s.notifications?.smsOnDispatch),
@@ -72,6 +82,7 @@ const toPatch = (tab, d) => {
     return { shipping, tax: { standardGstRate, gstinNumber } };
   }
   if (tab === "payments") return { store: d };
+  if (tab === "cancellations") return { cancellationPolicy: d };
   return { notifications: d };
 };
 
@@ -462,6 +473,93 @@ const SettingsPageForm = () => {
             )}
           </div>
         </AdminCard>
+      )}
+
+      {/* ---------------------------------------------------------------- Cancellations & Refunds */}
+      {activeTab === "cancellations" && (
+        <div className="space-y-6">
+          <AdminCard
+            title="Customer Order Cancellation & Policy Rules"
+            subtitle="Configure cancellation self-service, approval workflows, and automated Cashfree refunds"
+          >
+            <div className="space-y-4 max-w-2xl">
+              <Switch
+                checked={draft.enabled}
+                onChange={(v) => setField("cancellations", { enabled: v })}
+                label="Enable Customer Cancellation System"
+                description="Allow customers to request order cancellations from their account before courier handover."
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Switch
+                  checked={draft.allowFullCancellation}
+                  disabled={!draft.enabled}
+                  onChange={(v) => setField("cancellations", { allowFullCancellation: v })}
+                  label="Allow Full Order Cancellation"
+                  description="Customers can cancel the entire order in one click."
+                />
+                <Switch
+                  checked={draft.allowPartialCancellation}
+                  disabled={!draft.enabled}
+                  onChange={(v) => setField("cancellations", { allowPartialCancellation: v })}
+                  label="Allow Partial Cancellation"
+                  description="Cancel specific items and quantities from multi-item orders."
+                />
+              </div>
+
+              <div className="max-w-md">
+                <label className={labelClass}>Cancellation Cutoff Window</label>
+                <select
+                  disabled={!draft.enabled}
+                  className={inputClass}
+                  value={draft.cancellationCutoff}
+                  onChange={(e) => setField("cancellations", { cancellationCutoff: e.target.value })}
+                >
+                  <option value="before_pickup">Before Courier Handover / Pickup (Recommended)</option>
+                  <option value="before_shipped">Before Shipment Manifest Creation</option>
+                  <option value="before_packed">Before Warehouse Packing / Processing</option>
+                </select>
+                <p className={hintClass}>
+                  Once the parcel is physically handed to Shiprocket courier (Pickup done / In transit), cancellations are strictly blocked.
+                </p>
+              </div>
+
+              <Switch
+                checked={draft.allowCancellationForCOD}
+                disabled={!draft.enabled}
+                onChange={(v) => setField("cancellations", { allowCancellationForCOD: v })}
+                label="Allow Cancellation for Cash on Delivery (COD)"
+                description="COD orders are cancelled immediately without issuing financial gateway refunds."
+              />
+
+              <Switch
+                checked={draft.requireAdminApproval}
+                disabled={!draft.enabled}
+                onChange={(v) => setField("cancellations", { requireAdminApproval: v })}
+                label="Require Manual Admin Review / Approval"
+                description="When enabled, customer cancellation requests remain pending until approved in Admin. When disabled, eligible requests execute automatically."
+              />
+
+              <Switch
+                checked={draft.automaticOnlineRefund}
+                disabled={!draft.enabled}
+                onChange={(v) => setField("cancellations", { automaticOnlineRefund: v })}
+                label="Automatic Cashfree Online Refund"
+                description="Automatically invoke Cashfree Refund API for captured payments upon cancellation execution."
+              />
+
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-emerald-700" />
+                  Delivered Order Policy Reminder
+                </div>
+                <p className="text-emerald-800 leading-relaxed">
+                  Delivered orders are strictly prohibited from being cancelled. Once an order is delivered, customers must use the Returns & Exchange workflow.
+                </p>
+              </div>
+            </div>
+          </AdminCard>
+        </div>
       )}
 
       {/* ---------------------------------------------------------------- Notifications */}

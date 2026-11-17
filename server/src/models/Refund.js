@@ -19,6 +19,12 @@ const refundSchema = new mongoose.Schema(
       ref: "ReturnRequest",
       default: null,
     },
+    cancellationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "OrderCancellation",
+      default: null,
+      index: true,
+    },
     amountPaise: {
       type: Number,
       required: true,
@@ -51,7 +57,8 @@ const refundSchema = new mongoose.Schema(
     staffActorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
+      default: null,
     },
     idempotencyKey: {
       type: String,

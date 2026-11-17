@@ -1,4 +1,4 @@
-import { config } from "../../config/index.js";
+import { config, IS_DEPLOYED } from "../../config/index.js";
 import { logger } from "../../config/logger.js";
 import { verifyHmacSignature, sha256 } from "../../utils/crypto.js";
 import { toRupees } from "../../utils/currency.js";
@@ -20,7 +20,8 @@ export class CashfreeAdapter {
         : "https://sandbox.cashfree.com/pg";
 
     this.isMock = config.NODE_ENV === "test" || !this.appId || this.appId === "TEST_CF_APP_ID";
-    if (config.NODE_ENV === "production" && this.isMock) {
+    // Live server (NODE_ENV=production, or on Render): never fall back to fake results
+    if (IS_DEPLOYED && this.isMock) {
       throw new Error("Cannot run Cashfree mock payment adapter in production environment. Valid CASHFREE_APP_ID and CASHFREE_SECRET_KEY required.");
     }
     this.mock = new CashfreeMock();
