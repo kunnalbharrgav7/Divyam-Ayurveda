@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Mail, Phone, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
+import { Mail, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
 import { Link } from "react-router-dom";
 import { useStoreSettings } from "../hooks/useStoreSettings";
@@ -102,18 +102,6 @@ export const ContactPage = () => {
                   <h4 className="font-bold text-white">Central Dispensary</h4>
                   <p className="text-stone-300 text-xs mt-0.5 leading-relaxed">
                     {settings?.general?.dispensaryAddress}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3.5">
-                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                  <Phone size={18} className="text-[#A9D18E]" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-white">Telephone Support</h4>
-                  <p className="text-stone-300 text-xs mt-0.5">
-                    {settings?.general?.contactPhone}
                   </p>
                 </div>
               </div>

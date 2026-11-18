@@ -56,7 +56,7 @@ export const initialStoreSettings = {
     storeTagline: "Pure Herbal Wellness",
     contactEmail: "care@divyamayurveda.com",
     contactPhone: "+91 (080) 4567-8900",
-    dispensaryAddress: "108 Botanical Garden Road, Indiranagar, Bengaluru, Karnataka 560038",
+    dispensaryAddress: "A-142 Sector 69, Noida, Gautam Buddha Nagar, Uttar Pradesh, India 201301",
     defaultCurrency: "INR",
     timezone: "Asia/Kolkata (IST)",
   },

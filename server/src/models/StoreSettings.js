@@ -9,7 +9,11 @@ const shippingZoneSchema = new mongoose.Schema({
   freeThreshold: { type: Number, default: 499 },
   deliveryDays: { type: String, default: "2–4 Business Days" },
   // "origin" = the dispatch state, "states" = the listed destination states, "rest" = everywhere else
-  matchType: { type: String, enum: ["origin", "states", "rest"], default: "states" },
+  matchType: {
+    type: String,
+    enum: ["origin", "states", "rest"],
+    default: "states",
+  },
   states: { type: [String], default: [] },
 });
 
@@ -22,7 +26,8 @@ const storeSettingsSchema = new mongoose.Schema(
       contactPhone: { type: String, default: "+91 (080) 4567-8900" },
       dispensaryAddress: {
         type: String,
-        default: "108 Botanical Garden Road, Indiranagar, Bengaluru, Karnataka 560038",
+        default:
+          "A-142 Sector 69, Noida, Gautam Buddha Nagar, Uttar Pradesh, India 201301",
       },
       defaultCurrency: { type: String, default: "INR" },
       timezone: { type: String, default: "Asia/Kolkata" },
@@ -93,8 +98,10 @@ const storeSettingsSchema = new mongoose.Schema(
         return ret;
       },
     },
-  }
+  },
 );
 
-export const StoreSettings = mongoose.model("StoreSettings", storeSettingsSchema);
-
+export const StoreSettings = mongoose.model(
+  "StoreSettings",
+  storeSettingsSchema,
+);
