@@ -6,14 +6,20 @@ import { config } from "../config/index.js";
 export const register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body);
 
-  if (config.COOKIE_SECURE || req.secure) {
-    res.cookie("refreshToken", result.tokens.refreshToken, {
-      httpOnly: true,
-      secure: config.COOKIE_SECURE,
-      sameSite: "Lax",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
-  }
+  // Same session cookies as signing in: a customer who has just registered is signed in, so the order they place
+  // next must belong to their account (it used to be saved as a guest order because no access cookie was set).
+  res.cookie("accessToken", result.tokens.accessToken, {
+    httpOnly: true,
+    secure: config.COOKIE_SECURE,
+    sameSite: "Lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  res.cookie("refreshToken", result.tokens.refreshToken, {
+    httpOnly: true,
+    secure: config.COOKIE_SECURE,
+    sameSite: "Lax",
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
 
   return sendSuccess(res, result, undefined, 201);
 });

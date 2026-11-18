@@ -21,7 +21,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { getGuestOrder, getClaimToken, setPendingClaim, trackingLinkFor } from "../utils/guestOrders";
 import { trackEvent, purchaseEventId, contentParams } from "../utils/metaPixel";
-import { load } from "@cashfreepayments/cashfree-js";
+import { openCashfree, paymentReturnOrigin } from "../utils/cashfreeCheckout";
 import { useOrders } from "../context/OrderContext";
 import { formatINR, formatDate } from "../utils/formatters";
 import { Skeleton, SkeletonRegion } from "../components/common/Skeleton";
@@ -177,24 +177,16 @@ export const OrderConfirmationPage = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ orderNumber: ordNum }),
+        body: JSON.stringify({ orderNumber: ordNum, returnOrigin: paymentReturnOrigin() }),
       });
       const sessData = await sessRes.json();
       if (!sessData.success || !sessData.data?.paymentSessionId) {
         throw new Error(sessData.error?.message || "Could not initialize Cashfree session.");
       }
-      if (sessData.data.paymentSessionId.startsWith("session_mock_")) {
-        throw new Error("Online payment is in test mode on this server, so no real payment can be taken.");
-      }
+      const opened = await openCashfree({ paymentSessionId: sessData.data.paymentSessionId, environment: sessData.data.environment });
+      if (!opened.opened) throw new Error("Online payment is in test mode on this server, so no real payment can be taken.");
 
-      const cashfree = await load({
-        mode: sessData.data.environment === "production" ? "production" : "sandbox",
-      });
-      await cashfree.checkout({
-        paymentSessionId: sessData.data.paymentSessionId,
-        redirectTarget: "_modal",
-      });
-
+      // A pop-up payment returns here; a full-page payment leaves, and the return page checks the status itself
       await checkPaymentStatus(ordNum);
     } catch (err) {
       alert(err.message || "Payment retry failed.");

@@ -224,7 +224,7 @@ export const AccountPage = () => {
               </span>
               <h1 className="font-heading tracking-tight text-2xl sm:text-3xl font-bold">{user.name}</h1>
               <p className="text-xs text-stone-200 mt-0.5">
-                {user.email} &bull; Member since {user.memberSince || "2025"}
+                {user.email} &bull; Member since {user.memberSince || (user.createdAt ? new Date(user.createdAt).getFullYear() : new Date().getFullYear())}
               </p>
             </div>
           </div>

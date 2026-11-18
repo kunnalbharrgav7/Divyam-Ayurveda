@@ -25,6 +25,19 @@ export class CashfreeAdapter {
       throw new Error("Cannot run Cashfree mock payment adapter in production environment. Valid CASHFREE_APP_ID and CASHFREE_SECRET_KEY required.");
     }
     this.mock = new CashfreeMock();
+    if (!IS_DEPLOYED && !this.isMock && config.CASHFREE_ENV === "production") {
+      logger.warn("This is a local run, but it is using your LIVE Cashfree keys: every online order you place here creates a real payment order at Cashfree. Use sandbox keys (CASHFREE_ENV=sandbox) for local work.");
+    }
+    // Live Cashfree rejects payment orders whose callback or return address is not public https. Say so loudly at
+    // startup instead of letting every customer's payment fail one by one.
+    if (IS_DEPLOYED && !this.isMock && config.CASHFREE_ENV === "production") {
+      if (!/^https:\/\//i.test(config.CASHFREE_WEBHOOK_URL || "")) {
+        logger.error({ webhookUrl: config.CASHFREE_WEBHOOK_URL }, "CASHFREE_WEBHOOK_URL must be a public https address (https://<your-api>/api/v1/webhooks/cashfree) or live payments will be refused");
+      }
+      if (!/^https:\/\//i.test(config.CLIENT_ORIGIN || "")) {
+        logger.error({ clientOrigin: config.CLIENT_ORIGIN }, "CLIENT_ORIGIN must be your https storefront address (e.g. https://divyamayurveda.in) or live payments will be refused");
+      }
+    }
     logger.info({ mode: this.isMock ? "MOCK (fake payments)" : `LIVE API (${config.CASHFREE_ENV})`, apiVersion: this.apiVersion, webhookUrl: config.CASHFREE_WEBHOOK_URL }, "Cashfree adapter ready");
   }
 

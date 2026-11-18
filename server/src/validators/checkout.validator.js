@@ -43,6 +43,7 @@ export const orderCreateSchema = z.object({
       paymentMethod: z.string().optional(),
       paymentStatus: z.string().optional(),
       notes: z.string().max(500).optional(),
+      returnOrigin: z.string().max(200).optional(), // the site the customer is on; Cashfree sends them back to it
       // Ad attribution captured by the storefront (Meta click ids, UTM tags); trimmed again in the service
       attribution: z.record(z.any()).optional(),
     }),

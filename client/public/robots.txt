@@ -13,4 +13,4 @@ Disallow: /track/
 Disallow: /wishlist
 Disallow: /api/
 
-Sitemap: https://divyam-ayurveda.onrender.com/sitemap.xml
+Sitemap: https://divyamayurveda.in/sitemap.xml

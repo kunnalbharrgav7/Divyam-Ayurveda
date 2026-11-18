@@ -22,6 +22,7 @@ import { logAudit } from "./audit.service.js";
 import { settingsService } from "./settings.service.js";
 import { pricingService, toOrderPricing, toOrderLine, resolvePackPrice } from "./pricing.service.js";
 import { canonicalState } from "../utils/indianStates.js";
+import { stockLinesOf } from "../utils/orderLines.js";
 import { ApiError } from "../utils/apiError.js";
 import { logger } from "../config/logger.js";
 import {
@@ -261,7 +262,7 @@ export class OrderService {
           const { paymentService } = await import("./payment.service.js");
           paymentSession = await paymentService.createCashfreeSession({
             orderNumber: order.orderNumber,
-            returnUrl: payload.returnUrl,
+            returnOrigin: payload.returnOrigin,
             user,
           });
         } catch (pgErr) {
@@ -580,7 +581,7 @@ export class OrderService {
         const { paymentService } = await import("./payment.service.js");
         paymentSession = await paymentService.createCashfreeSession({
           orderNumber: order.orderNumber,
-          returnUrl: payload.returnUrl,
+          returnOrigin: payload.returnOrigin,
           user,
         });
       } catch (pgErr) {
@@ -1026,9 +1027,7 @@ export class OrderService {
     }
 
     // Inventory follows the order: delivery permanently deducts the reserved units; cancelling frees them
-    const stockLines = (order.items || [])
-      .filter((i) => i.variantId)
-      .map((i) => ({ variantId: i.variantId, productId: i.productId, sku: i.sku, quantity: i.quantity }));
+    const stockLines = stockLinesOf(order); // units cancelled earlier were already released
     if (stockLines.length > 0) {
       if (normalizedStatus === ORDER_STATUS.DELIVERED && order.stockState === "reserved") {
         await inventoryService.commitSoldStock(stockLines, order.orderNumber, staffUser?.id || "order_delivered");
@@ -1195,6 +1194,7 @@ export class OrderService {
 
       order.refundedPaise = (order.refundedPaise || 0) + refundablePaise;
       if (status === "SUCCESS") order.paymentStatus = PAYMENT_STATUS.REFUNDED;
+      order.refundStatus = status === "SUCCESS" ? "completed" : "processing"; // what the customer and admin screens show
       order.timeline.push({
         status: "Refund issued",
         time: new Date(),
@@ -1206,6 +1206,7 @@ export class OrderService {
       refund.status = "failed";
       refund.errorMessage = err.message;
       await refund.save();
+      order.refundStatus = "failed";
       order.timeline.push({
         status: "Refund failed",
         time: new Date(),
@@ -1300,6 +1301,9 @@ export class OrderService {
     }
 
     const beforeStatus = order.status;
+    // The units still on the order, worked out before the lines are marked cancelled below
+    // (units cancelled earlier were already released)
+    const stockToRelease = stockLinesOf(order);
     await this.cancelCourierShipment(order);
     order.status = ORDER_STATUS.CANCELLED;
     order.cancellationStatus = "cancelled";
@@ -1327,10 +1331,7 @@ export class OrderService {
       // Older orders that were saved before stock states existed
       await inventoryService.releaseReservedStock(order.items, order.orderNumber);
     } else {
-      const lines = (order.items || [])
-        .filter((i) => i.variantId)
-        .map((i) => ({ variantId: i.variantId, productId: i.productId, sku: i.sku, quantity: i.quantity }));
-      await this.settleStockOnCancel(order, lines, staffUser?.id);
+      await this.settleStockOnCancel(order, stockToRelease, staffUser?.id);
       if (order.isModified("stockState")) await order.save();
     }
     await this.refundCancelledOrder(order, staffUser);

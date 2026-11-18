@@ -38,6 +38,9 @@ export class ShiprocketAdapter {
     }
 
     this.mock = new ShiprocketMock();
+    if (!IS_DEPLOYED && !this.isMock) {
+      logger.warn("This is a local run, but it is using your REAL Shiprocket account: dispatching an order here books a real courier. Set AUTO_CREATE_SHIPMENTS=false and do not dispatch test orders.");
+    }
   }
 
   /**
@@ -177,6 +180,9 @@ export class ShiprocketAdapter {
     const shippingPaise = Number(orderData.pricing?.shippingPaise || 0);
     const totalPaise = Number(orderData.pricing?.totalPaise || 0);
     const discountPaise = Math.max(0, goodsPaise + shippingPaise - totalPaise);
+    // When GST is added on top of the prices the order total is above goods + delivery: the courier has to
+    // collect that extra too (it goes in as a charge, never hidden inside an item price)
+    const extraChargesPaise = Math.max(0, totalPaise - goodsPaise - shippingPaise);
 
     const address = orderData.shippingAddress || {};
     const payload = {
@@ -198,6 +204,7 @@ export class ShiprocketAdapter {
       sub_total: goodsPaise / 100,
       shipping_charges: shippingPaise / 100,
       total_discount: discountPaise / 100,
+      ...(extraChargesPaise > 0 ? { transaction_charges: extraChargesPaise / 100 } : {}),
       length: orderData.dimensions?.length || 10,
       breadth: orderData.dimensions?.breadth || 10,
       height: orderData.dimensions?.height || 10,

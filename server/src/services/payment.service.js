@@ -1,3 +1,5 @@
+import { returnUrlFor } from "../utils/allowedOrigins.js";
+import { stockLinesOf } from "../utils/orderLines.js";
 import { marketingService } from "./marketing.service.js";
 import mongoose from "mongoose";
 import { Order } from "../models/Order.js";
@@ -31,7 +33,7 @@ export class PaymentService {
   /**
    * Create or reuse a pending internal order and create a Cashfree PG session
    */
-  async createCashfreeSession({ orderNumber = null, quoteId = null, returnUrl = null, user = null, idempotencyKey = null }) {
+  async createCashfreeSession({ orderNumber = null, quoteId = null, returnOrigin = null, user = null, idempotencyKey = null }) {
     let order = null;
 
     if (orderNumber) {
@@ -82,7 +84,7 @@ export class PaymentService {
       orderNumber: orderNum,
       amountPaise,
       customer: order.customer,
-      returnUrl,
+      returnUrl: returnUrlFor(returnOrigin, orderNum), // back to the same site the customer paid from (www or not)
     });
 
     // Create or update Payment record
@@ -161,9 +163,7 @@ export class PaymentService {
       { $set: { stockState: "committed" } }
     );
     if (claim) {
-      const lines = (confirmed.items || [])
-        .filter((i) => i.variantId)
-        .map((i) => ({ variantId: i.variantId, productId: i.productId, sku: i.sku, quantity: i.quantity }));
+      const lines = stockLinesOf(confirmed);
       await inventoryService.commitSoldStock(lines, confirmed.orderNumber, "cashfree_payment_commit");
     }
 

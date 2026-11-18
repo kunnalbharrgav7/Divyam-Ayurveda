@@ -71,7 +71,14 @@ export const OrderProvider = ({ children }) => {
   }, [session]);
 
   const placeOrder = async (orderPayload) => {
-    const newOrder = await orderService.createOrder(orderPayload);
+    // A signed-in customer's session may have just gone stale (access tokens are short-lived): this call renews it
+    // when needed, so the order is saved to their account instead of as a guest order.
+    if (hasBackendSession) {
+      try {
+        await fetchRef.current("/api/v1/me/orders");
+      } catch (_) {}
+    }
+    const newOrder = await orderService.createOrder(orderPayload, { accessToken: hasBackendSession ? user?.accessToken : null });
     setOrders((prev) => [newOrder, ...prev]);
     return newOrder;
   };

@@ -6,7 +6,7 @@ export const createCashfreeSession = asyncHandler(async (req, res) => {
   const result = await paymentService.createCashfreeSession({
     quoteId: req.body.quoteId,
     orderNumber: req.body.orderNumber,
-    returnUrl: req.body.returnUrl,
+    returnOrigin: req.body.returnOrigin,
     user: req.user || null,
     idempotencyKey: req.header("Idempotency-Key") || null,
   });

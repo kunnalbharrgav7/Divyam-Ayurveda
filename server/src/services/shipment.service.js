@@ -12,7 +12,8 @@ import { settingsService } from "./settings.service.js";
 import { sha256 } from "../utils/crypto.js";
 import { ApiError } from "../utils/apiError.js";
 import { logger } from "../config/logger.js";
-import { config } from "../config/index.js";
+import { config, IS_DEPLOYED } from "../config/index.js";
+import { remainingQuantity, stockLinesOf, amountDueAfterCancellationsPaise } from "../utils/orderLines.js";
 
 // Courier statuses after which there is nothing left to track
 const FINISHED_STATUSES = ["DELIVERED", "CANCELLED", "CANCELED", "RTO_DELIVERED"];
@@ -192,7 +193,8 @@ export class ShipmentService {
     if (
       order.status !== ORDER_STATUS.CONFIRMED &&
       order.status !== ORDER_STATUS.PROCESSING &&
-      order.status !== ORDER_STATUS.PACKED
+      order.status !== ORDER_STATUS.PACKED &&
+      order.status !== ORDER_STATUS.PARTIALLY_CANCELLED // the units that were not cancelled still have to ship
     ) {
       throw ApiError.badRequest(
         `Cannot create shipment for order in "${order.status}" status. Order must be confirmed or processing.`
@@ -243,13 +245,18 @@ export class ShipmentService {
           manifestUrl: claimed.manifestUrl || "",
         };
       } else {
+        // Units cancelled earlier are not in the parcel, and a COD parcel collects only what is still owed
+        const shipItems = (order.items || [])
+          .map((i) => ({ ...(i.toObject ? i.toObject() : i), quantity: remainingQuantity(i) }))
+          .filter((i) => i.quantity > 0);
+        if (shipItems.length === 0) throw ApiError.badRequest("Every item in this order has been cancelled, so there is nothing to ship.");
         srResult = await shiprocket.createShipment({
           orderNumber: order.orderNumber,
-          items: order.items,
+          items: shipItems,
           customer: order.customer,
           shippingAddress: order.shippingAddress,
           paymentMethod: order.paymentMethod,
-          pricing: order.pricing,
+          pricing: { ...(order.pricing?.toObject ? order.pricing.toObject() : order.pricing), totalPaise: amountDueAfterCancellationsPaise(order) },
           ...(await this.#parcelFor(order)),
         });
       }
@@ -477,9 +484,7 @@ export class ShipmentService {
       const wasDelivered = order.status === ORDER_STATUS.DELIVERED;
       applyShipmentStatusToOrder(order, shipment, status, activity);
       if (!wasDelivered && order.status === ORDER_STATUS.DELIVERED && order.stockState === "reserved") {
-        const lines = (order.items || [])
-          .filter((i) => i.variantId)
-          .map((i) => ({ variantId: i.variantId, productId: i.productId, sku: i.sku, quantity: i.quantity }));
+        const lines = stockLinesOf(order); // cancelled units were already released
         await inventoryService.commitSoldStock(lines, order.orderNumber, "shiprocket_delivered");
         order.stockState = "committed";
       }
@@ -570,7 +575,8 @@ export class ShipmentService {
     let anyBox = false;
     for (const item of order.items || []) {
       const parcel = parcels.get(String(item.productId)) || {};
-      const qty = Number(item.quantity) || 1;
+      const qty = remainingQuantity(item);
+      if (qty === 0) continue;
       weightGrams += (Number(parcel.weightGrams) > 0 ? parcel.weightGrams : item.weightGrams || 250) * qty;
       const hasBox = parcel.lengthCm > 0 && parcel.breadthCm > 0 && parcel.heightCm > 0;
       if (hasBox) anyBox = true;
@@ -592,7 +598,12 @@ export class ShipmentService {
     }
 
     const payload = req.body || {};
-    const awb = payload.awb || payload.awb_code;
+    const awb = String(payload.awb || payload.awb_code || "").trim();
+    if (!awb) {
+      // A ping / test event or an event without a parcel: acknowledge it, but never match it to a shipment
+      // (a missing AWB would otherwise match shipments that have no AWB yet)
+      return { status: "ignored", reason: "no AWB in the event" };
+    }
     const rawStatus = String(payload.current_status || payload.status || "").trim();
     const currentStatus = rawStatus.toUpperCase().replace(/[\s-]+/g, "_");
     const payloadHash = sha256(payload);
@@ -665,7 +676,7 @@ export class ShipmentService {
    */
   async advanceShipmentStatus(orderNumber, nextStage, customNote = "", staffUser = null) {
     // This fabricates courier progress (and a fake AWB when none exists); live shipments move by the courier's own updates
-    if (config.NODE_ENV === "production" && process.env.ALLOW_SHIPMENT_SIMULATION !== "true") {
+    if (IS_DEPLOYED && process.env.ALLOW_SHIPMENT_SIMULATION !== "true") {
       throw ApiError.forbidden("Shipment progress is driven by the courier in production. The simulator is disabled.");
     }
     const isObjectId = mongoose.Types.ObjectId.isValid(orderNumber);

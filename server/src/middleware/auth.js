@@ -42,30 +42,25 @@ export const authenticate = asyncHandler(async (req, res, next) => {
 });
 
 export const optionalAuthenticate = asyncHandler(async (req, res, next) => {
+  // The header token and the session cookie are both the customer's own session: if one is stale (an access token
+  // only lives a few minutes) the other still counts, so a signed-in customer is never silently treated as a guest.
   const authHeader = req.headers.authorization;
-  let token = null;
+  const candidates = [];
+  if (authHeader && authHeader.startsWith("Bearer ")) candidates.push(authHeader.split(" ")[1]);
+  if (req.cookies && req.cookies.accessToken && !candidates.includes(req.cookies.accessToken)) candidates.push(req.cookies.accessToken);
 
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.split(" ")[1];
-  } else if (req.cookies && req.cookies.accessToken) {
-    token = req.cookies.accessToken;
-  }
-
-  if (!token) {
-    req.user = null;
-    return next();
-  }
-
-  try {
-    const decoded = verifyAccessToken(token);
-    const user = await User.findById(decoded.id).populate("roles");
-    if (user && user.status === "active" && (decoded.tv ?? 0) === (user.tokenVersion ?? 0)) {
-      req.user = user;
-    } else {
-      req.user = null;
+  req.user = null;
+  for (const token of candidates) {
+    try {
+      const decoded = verifyAccessToken(token);
+      const user = await User.findById(decoded.id).populate("roles");
+      if (user && user.status === "active" && (decoded.tv ?? 0) === (user.tokenVersion ?? 0)) {
+        req.user = user;
+        break;
+      }
+    } catch {
+      // try the next one
     }
-  } catch {
-    req.user = null;
   }
 
   next();

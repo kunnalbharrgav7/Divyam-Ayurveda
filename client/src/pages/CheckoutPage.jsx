@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link, Navigate, useLocation } from "react-router-dom";
-import { load } from "@cashfreepayments/cashfree-js";
+import { openCashfree, paymentOpensFullPage, paymentReturnOrigin } from "../utils/cashfreeCheckout";
 import {
   CreditCard,
   Banknote,
@@ -384,6 +384,7 @@ export const CheckoutPage = () => {
         paymentStatus: "Pending",
         notes: formData.notes.trim(),
         attribution: getAttribution(), // ad click ids / UTM tags (no personal data)
+        returnOrigin: paymentReturnOrigin(), // Cashfree sends the customer back to this same site after paying
       };
 
       const createdOrder = await placeOrder(orderPayload);
@@ -419,7 +420,7 @@ export const CheckoutPage = () => {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
-              body: JSON.stringify({ orderNumber: confirmationId }),
+              body: JSON.stringify({ orderNumber: confirmationId, returnOrigin: paymentReturnOrigin() }),
             });
             const sessData = await sessRes.json();
             if (sessData.success && sessData.data?.paymentSessionId) {
@@ -431,15 +432,13 @@ export const CheckoutPage = () => {
           }
         }
 
-        // A test-mode server (local development) hands out fake sessions: real Cashfree would reject them
-        if (paymentSessionId && paymentSessionId.startsWith("session_mock_")) {
-          console.warn("Payment server is in test mode; Cashfree checkout skipped.");
-          paymentSessionId = null;
-        }
         if (paymentSessionId) {
+          // On phones and in-app browsers payment opens as a full page and this page is left, so the cart is
+          // cleared first (the order is saved; "Complete payment" on the confirmation page can retry it).
+          if (paymentOpensFullPage()) removeCheckedOutItems();
           try {
-            const cashfree = await load({ mode: cfEnv === "production" ? "production" : "sandbox" });
-            await cashfree.checkout({ paymentSessionId, redirectTarget: "_modal" });
+            const opened = await openCashfree({ paymentSessionId, environment: cfEnv });
+            if (!opened.opened) console.warn("Payment server is in test mode; Cashfree checkout skipped.");
           } catch (sdkErr) {
             console.warn("Cashfree checkout interaction:", sdkErr);
           }

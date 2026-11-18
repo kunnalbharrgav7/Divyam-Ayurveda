@@ -592,7 +592,7 @@ export const orderService = {
   /**
    * Save a completed order to backend MongoDB API and persist into browser storage
    */
-  async createOrder(orderPayload) {
+  async createOrder(orderPayload, { accessToken = null } = {}) {
     let created = null;
 
     // 1. Try persisting order to backend MongoDB API
@@ -604,7 +604,8 @@ export const orderService = {
       }
       const response = await fetch("/api/v1/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": pendingOrderAttempt.key },
+        // The signed-in session travels with the order (header as well as cookie) so it is always saved to the account
+        headers: { "Content-Type": "application/json", "Idempotency-Key": pendingOrderAttempt.key, ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
         body: payloadText,
         credentials: "include",
       });

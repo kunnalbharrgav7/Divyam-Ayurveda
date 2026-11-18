@@ -1,3 +1,4 @@
+import { allowedOrigins } from "./utils/allowedOrigins.js";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -50,22 +51,7 @@ const serveClientStatic = (req, res, next) => {
 
 const app = express();
 
-// Render gives the static frontend a generated hostname.  Keep an explicit
-// production allowlist (with an environment override for custom domains) so
-// credentialed PATCH/DELETE responses always carry the same CORS headers as
-// their OPTIONS preflight response.
-const allowedOrigins = new Set(
-  [
-    config.CLIENT_ORIGIN,
-    "https://divyam-ayurveda-dgha.onrender.com",
-    // The storefront is reachable with and without "www"; both must be allowed or login from the other one fails
-    "https://divyamayurveda.in",
-    "https://www.divyamayurveda.in",
-    ...(process.env.CLIENT_ORIGINS || "").split(","),
-  ]
-    .map((origin) => origin.trim().replace(/\/+$/, ""))
-    .filter(Boolean)
-);
+// The storefront origins this API trusts live in utils/allowedOrigins.js (shared with the payment return address)
 
 // 1. Security Headers
 app.use(

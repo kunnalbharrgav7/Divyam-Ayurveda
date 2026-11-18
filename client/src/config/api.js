@@ -2,8 +2,8 @@
  * Centralized API & Backend Configuration for Divyam Ayurveda
  * 
  * Supports both VITE_API_URL and VITE_API_BASE_URL environment variables.
- * Automatically falls back to the production Render backend (https://divyam-ayurveda.onrender.com)
- * in production environments, and uses empty string in local development to leverage the Vite proxy.
+ * Without VITE_API_URL, API calls go to the same site as the page (relative /api/...): in production the
+ * storefront's own backend, in development Vite's local proxy.
  */
 
 const getEnv = () => {
@@ -25,11 +25,9 @@ const resolveBaseUrl = () => {
     clean = clean.replace(/\/api(\/v1)?$/i, "");
     return clean;
   }
-  // Default to deployed Render backend for production builds
-  if (env.PROD) {
-    return "https://divyam-ayurveda.onrender.com";
-  }
-  // In development, empty string allows relative fetches to be caught by Vite's local proxy
+  // No address configured: use the same site the page was loaded from (production: the storefront's own /api,
+  // so the www and non-www addresses both work; development: Vite's local proxy). A backend on another address
+  // (e.g. a separate static host) must say so explicitly with VITE_API_URL.
   return "";
 };
 
@@ -38,7 +36,7 @@ export const API_BASE_URL = resolveBaseUrl();
 /**
  * Normalizes an API path to include the backend origin.
  * Examples:
- *   apiUrl("/api/v1/products") -> "https://divyam-ayurveda.onrender.com/api/v1/products"
+ *   apiUrl("/api/v1/products") -> "/api/v1/products" (or "<VITE_API_URL>/api/v1/products" when it is set)
  *   apiUrl("https://other.com/foo") -> "https://other.com/foo"
  */
 export const apiUrl = (path = "") => {
