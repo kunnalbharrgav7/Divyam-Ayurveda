@@ -163,6 +163,9 @@ const productSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+    // GST classification. A product without its own rate uses the store's default rate (Admin -> Settings).
+    gstRate: { type: Number, default: null, min: 0, max: 40 }, // percent
+    hsnCode: { type: String, default: "", trim: true },
     // Packed parcel details for the courier (optional). Without them the pack size's weight and a 10 cm cube are used.
     parcel: {
       weightGrams: { type: Number, min: 0, default: null },

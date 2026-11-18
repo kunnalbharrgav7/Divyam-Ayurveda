@@ -63,7 +63,7 @@ export const CONTENT_PAGE_DEFAULTS = {
       },
       {
         heading: "2. Shipping Rates & Free Delivery",
-        body: "- **Free Shipping:** Automatically applied to all prepaid and COD orders exceeding **₹499** across serviceable pin codes in India.\n- **Standard Shipping Fee:** A nominal charge of **₹49** is applied to orders below ₹499 to cover temperature-neutral protective packaging.",
+        body: "- **Free Shipping:** Applies automatically, on prepaid and COD orders, once the value of the products in your order (after any discount) reaches the minimum for your delivery area. The exact amount for your address is shown in your cart and at checkout.\n- **Delivery Charge:** Below that minimum, a delivery charge for your area applies. It is shown before you pay and is never added afterwards.\n- **Express Delivery:** Where it is available for your PIN code, express delivery adds a fixed surcharge to the standard delivery charge (or only the surcharge, when standard delivery is already free).",
       },
       {
         heading: "3. Estimated Delivery Duration",

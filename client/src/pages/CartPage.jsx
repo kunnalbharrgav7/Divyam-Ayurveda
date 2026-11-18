@@ -8,7 +8,8 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useStoreSettings } from "../hooks/useStoreSettings";
 import { formatINR } from "../utils/formatters";
-import { calculateShippingAndTax, INDIAN_STATES } from "../utils/shippingCalculator";
+import { INDIAN_STATES } from "../utils/shippingCalculator";
+import { useCheckoutPricing } from "../hooks/useCheckoutPricing";
 
 export const CartPage = () => {
   const {
@@ -41,7 +42,11 @@ export const CartPage = () => {
   const { isAuthenticated } = useAuth();
   const { settings: storeSettings } = useStoreSettings();
   const navigate = useNavigate();
-  const [destState, setDestState] = useState("Karnataka");
+  // Delivery state for the estimate; starts at the store's own state once the settings have loaded
+  const [destState, setDestState] = useState("");
+  useEffect(() => {
+    if (!destState && storeSettings?.shipping?.originState) setDestState(storeSettings.shipping.originState);
+  }, [destState, storeSettings]);
 
   // Re-check live stock and running offers whenever the cart page is opened (and periodically while open)
   useEffect(() => {
@@ -58,21 +63,24 @@ export const CartPage = () => {
     navigate("/checkout");
   };
 
-  // What the customer actually pays for the items once any offer is taken off
-  const payableSubtotal = Math.max(0, subtotal - offerDiscount);
-
-  const shippingCalc = calculateShippingAndTax({
-    destinationState: destState,
-    subtotal: payableSubtotal,
-    deliveryMethod: "standard",
-    settings: storeSettings,
-  });
-
   const hasSelection = checkoutItems.length > 0;
-  const estimatedShipping = hasSelection ? shippingCalc.shippingFee : 0;
-  // Total = MRP - product savings + shipping. (`subtotal` is already net of savings, so subtracting
-  // `discountTotal` from it again would count the discount twice.)
-  const grandTotal = hasSelection ? Math.max(0, mrpSubtotal - discountTotal - offerDiscount + estimatedShipping) : 0;
+
+  // Delivery, free-delivery progress, GST and the total are calculated by the server for the chosen state
+  // (the exact PIN code and delivery speed are chosen at checkout). This page only shows the answer.
+  const pricingState = useCheckoutPricing(
+    hasSelection && destState
+      ? {
+          items: checkoutItems.map((i) => ({ productId: i.product.id, size: i.selectedSize, quantity: i.quantity })),
+          address: { state: destState },
+          deliveryMethod: "standard",
+          couponCode: appliedOffer?.code || null,
+        }
+      : null
+  );
+  const pricing = pricingState.data?.pricing || null;
+  const undeliverable = pricingState.data?.deliverable === false;
+  const estimatedShipping = hasSelection && pricing ? pricing.shipping.total : 0;
+  const grandTotal = hasSelection ? (pricing ? pricing.total : Math.max(0, subtotal - offerDiscount)) : 0;
 
   // "Select all" applies to the items that can be bought
   const availableItems = cartItems.filter((item) => getItemStockStatus(item).status === "ok");
@@ -291,13 +299,17 @@ export const CartPage = () => {
             {/* Free Shipping Progress Indicator */}
             <div className="p-4 bg-white rounded-2xl border border-[#E5E7DF] text-xs flex items-center gap-3">
               <Truck size={18} className="text-[#386B40] shrink-0" />
-              {payableSubtotal >= 499 ? (
+              {hasSelection && pricing && pricing.amountNeededForFree <= 0 ? (
                 <span className="text-emerald-700 font-semibold">
-                  🎉 Congratulations! Your order qualifies for Free Botanical Shipping across India!
+                  🎉 Congratulations! Your order qualifies for Free Botanical Shipping to {destState}!
+                </span>
+              ) : hasSelection && pricing ? (
+                <span className="text-[#666B64]">
+                  Add <strong className="text-[#173D2A]">{formatINR(pricing.amountNeededForFree)}</strong> more to qualify for Free Shipping to {destState}!
                 </span>
               ) : (
                 <span className="text-[#666B64]">
-                  Add <strong className="text-[#173D2A]">{formatINR(499 - payableSubtotal)}</strong> more to qualify for Free Shipping!
+                  Free shipping applies above a minimum order value for your delivery area. Choose your state to see it.
                 </span>
               )}
             </div>
@@ -365,6 +377,7 @@ export const CartPage = () => {
                       onChange={(e) => setDestState(e.target.value)}
                       className="w-full max-w-[145px] sm:max-w-[160px] text-xs py-1 px-2 rounded-lg border border-stone-200 bg-stone-50 font-medium text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#386B40] truncate cursor-pointer"
                     >
+                      {!destState && <option value="">Select state</option>}
                       {INDIAN_STATES.map((st) => (
                         <option key={st} value={st}>
                           {st}
@@ -373,12 +386,14 @@ export const CartPage = () => {
                     </select>
                   </div>
                 </div>
-                <div className="flex justify-between items-baseline text-xs">
+                <div className="flex justify-between items-baseline text-xs" aria-live="polite">
                   <span className="text-[11px] text-stone-400">
-                    {shippingCalc.zone.name}
+                    {undeliverable ? pricingState.data?.message : pricing ? pricing.zone.name : destState ? "Calculating..." : "Choose your state"}
                   </span>
                   <span className="font-semibold text-[#171A17]">
-                    {estimatedShipping === 0 ? (
+                    {!pricing ? (
+                      "—"
+                    ) : estimatedShipping === 0 ? (
                       <span className="text-emerald-700 font-bold uppercase text-xs">FREE</span>
                     ) : (
                       formatINR(estimatedShipping)
@@ -387,9 +402,9 @@ export const CartPage = () => {
                 </div>
               </div>
 
-              {shippingCalc.amountNeededForFree > 0 && (
+              {pricing && pricing.amountNeededForFree > 0 && (
                 <div className="p-2.5 rounded-xl bg-emerald-50 text-[11px] text-emerald-800">
-                  Add <strong>{formatINR(shippingCalc.amountNeededForFree)}</strong> more to unlock FREE shipping to {destState}!
+                  Add <strong>{formatINR(pricing.amountNeededForFree)}</strong> more to unlock FREE shipping to {destState}!
                 </div>
               )}
 
@@ -397,7 +412,9 @@ export const CartPage = () => {
                 <span className="text-base font-heading tracking-tight font-bold text-[#171A17]">Total Amount</span>
                 <span className="text-2xl font-bold text-[#173D2A]">{formatINR(grandTotal)}</span>
               </div>
-              <p className="text-[11px] text-stone-400">Includes all applicable GST ({shippingCalc.taxLabel})</p>
+              <p className="text-[11px] text-stone-400">
+                {pricing?.priceMode === "exclusive" ? "GST is added to the total" : "Includes all applicable GST"}. Final delivery charge is confirmed at checkout.
+              </p>
             </div>
 
             {/* Coupon code */}

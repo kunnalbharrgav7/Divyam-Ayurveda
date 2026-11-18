@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Save, Check, CreditCard, Truck, Bell, Building, Plus, Trash2, Info, AlertTriangle, Ban } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
@@ -30,11 +30,17 @@ const editable = (s) => ({
     bannerAnnouncementText: s.appearance?.bannerAnnouncementText ?? "",
   },
   shipping: {
+    originCountry: s.shipping?.originCountry ?? "India",
     originState: s.shipping?.originState ?? "",
     originCity: s.shipping?.originCity ?? "",
     originPincode: s.shipping?.originPincode ?? "",
     expressShippingFee: s.shipping?.expressShippingFee ?? 0,
+    expressEnabled: s.shipping?.expressEnabled !== false,
+    expressEstimate: s.shipping?.expressEstimate ?? "",
+    expressRequiresCourierSupport: s.shipping?.expressRequiresCourierSupport !== false,
+    expressMaxCourierDays: s.shipping?.expressMaxCourierDays ?? 2,
     dispatchLeadTime: s.shipping?.dispatchLeadTime ?? "",
+    pinExceptions: (s.shipping?.pinExceptions || []).map((e) => ({ id: e.id, from: e.from ?? "", to: e.to ?? "", zoneId: e.zoneId ?? "", note: e.note ?? "" })),
     zones: (s.shipping?.zones || []).map((z) => ({
       id: z.id,
       name: z.name ?? "",
@@ -45,8 +51,14 @@ const editable = (s) => ({
       deliveryDays: z.deliveryDays ?? "",
       matchType: z.matchType || "states",
       states: [...(z.states || [])],
+      enabled: z.enabled !== false,
     })),
+    taxIncludedInPrice: s.tax?.taxIncludedInPrice !== false,
     standardGstRate: s.tax?.standardGstRate ?? 0,
+    shippingTaxMode: s.tax?.shippingTaxMode ?? "none",
+    shippingGstRate: s.tax?.shippingGstRate ?? 0,
+    legalName: s.tax?.legalName ?? "",
+    invoicePrefix: s.tax?.invoicePrefix ?? "DA",
     gstinNumber: s.tax?.gstinNumber ?? "",
   },
   payments: {
@@ -78,8 +90,8 @@ const toPatch = (tab, d) => {
     return { general, appearance: { bannerAnnouncementText } };
   }
   if (tab === "shipping") {
-    const { standardGstRate, gstinNumber, ...shipping } = d;
-    return { shipping, tax: { standardGstRate, gstinNumber } };
+    const { taxIncludedInPrice, standardGstRate, shippingTaxMode, shippingGstRate, legalName, invoicePrefix, gstinNumber, ...shipping } = d;
+    return { shipping, tax: { taxIncludedInPrice, standardGstRate, shippingTaxMode, shippingGstRate, legalName, invoicePrefix, gstinNumber } };
   }
   if (tab === "payments") return { store: d };
   if (tab === "cancellations") return { cancellationPolicy: d };
@@ -101,6 +113,18 @@ const Switch = ({ checked, onChange, label, description, disabled = false }) => 
     />
   </label>
 );
+
+// The recommended starting point: Local (the dispatch state), Rest of India, Remote. Applying it only fills the
+// form; nothing changes in the live store until the admin presses Save.
+const RECOMMENDED_REMOTE_STATES = [
+  "Jammu and Kashmir", "Ladakh", "Assam", "Meghalaya", "Arunachal Pradesh", "Manipur", "Mizoram", "Nagaland",
+  "Tripura", "Sikkim", "Andaman and Nicobar Islands", "Lakshadweep",
+];
+const recommendedZones = () => [
+  { id: "zone-local", name: "Local (dispatch state)", tier: "Local", description: "Deliveries inside the dispatch state", baseFee: 40, freeThreshold: 499, deliveryDays: "1–3 business days", matchType: "origin", states: [], enabled: true },
+  { id: "zone-rest", name: "Rest of India", tier: "Rest of India", description: "Every other state and union territory", baseFee: 80, freeThreshold: 799, deliveryDays: "3–6 business days", matchType: "rest", states: [], enabled: true },
+  { id: "zone-remote", name: "Remote locations", tier: "Remote", description: "North-East, Jammu & Kashmir, Ladakh and island territories", baseFee: 120, freeThreshold: 1299, deliveryDays: "5–9 business days", matchType: "states", states: RECOMMENDED_REMOTE_STATES, enabled: true },
+];
 
 const ZONE_TYPES = [
   { id: "origin", label: "Dispatch state only" },
@@ -154,6 +178,20 @@ const ZoneCard = ({ zone, index, zones, originState, onChange, onRemove }) => {
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
+
+      <label className={`flex items-center gap-2 text-xs ${zone.matchType === "rest" ? "text-stone-400" : "text-stone-700 cursor-pointer"}`}>
+        <input
+          type="checkbox"
+          checked={zone.enabled !== false}
+          disabled={zone.matchType === "rest"}
+          onChange={(e) => onChange({ enabled: e.target.checked })}
+          className="rounded border-stone-300 text-[#173D2A] focus:ring-[#173D2A]"
+        />
+        <span>
+          Deliver to this zone
+          {zone.matchType === "rest" ? " (always on: it covers every address no other zone claims)" : zone.enabled === false ? " (off: customers here see \"we don't deliver to this area\")" : ""}
+        </span>
+      </label>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
@@ -218,9 +256,12 @@ const SettingsPageForm = () => {
   const draft = drafts[activeTab];
   const setField = (tab, patch) => setDrafts((prev) => ({ ...prev, [tab]: { ...prev[tab], ...patch } }));
 
+  // One timer at a time: an older message's timer must not hide a newer message (e.g. an error right after a save)
+  const toastTimer = useRef(null);
   const notify = (text, isError = false) => {
     setToast({ text, isError });
-    setTimeout(() => setToast(null), 4000);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), isError ? 8000 : 4000);
   };
 
   const handleSave = async (e) => {
@@ -244,10 +285,18 @@ const SettingsPageForm = () => {
     setField("shipping", {
       zones: [
         ...drafts.shipping.zones,
-        { id: `zone-${Date.now()}`, name: "New zone", tier: "Standard", description: "", baseFee: 0, freeThreshold: 0, deliveryDays: "", matchType: "states", states: [] },
+        { id: `zone-${Date.now()}`, name: "New zone", tier: "Standard", description: "", baseFee: 0, freeThreshold: 0, deliveryDays: "", matchType: "states", states: [], enabled: true },
       ],
     });
   const removeZone = (id) => setField("shipping", { zones: drafts.shipping.zones.filter((z) => z.id !== id) });
+
+  const updatePinException = (id, patch) =>
+    setField("shipping", { pinExceptions: drafts.shipping.pinExceptions.map((e) => (e.id === id ? { ...e, ...patch } : e)) });
+  const addPinException = () =>
+    setField("shipping", {
+      pinExceptions: [...drafts.shipping.pinExceptions, { id: `pin-${Date.now()}`, from: "", to: "", zoneId: drafts.shipping.zones.find((z) => z.tier === "Remote")?.id || "", note: "" }],
+    });
+  const removePinException = (id) => setField("shipping", { pinExceptions: drafts.shipping.pinExceptions.filter((e) => e.id !== id) });
 
   const restCount = drafts.shipping.zones.filter((z) => z.matchType === "rest").length;
 
@@ -350,10 +399,15 @@ const SettingsPageForm = () => {
       {/* ---------------------------------------------------------------- Shipping & Tax */}
       {activeTab === "shipping" && (
         <div className="space-y-6">
-          <AdminCard title="Dispatch Warehouse & Fulfillment Origin" subtitle="Where orders ship from. The dispatch state decides the local zone and whether GST is CGST+SGST or IGST">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* A. Dispatch location */}
+          <AdminCard title="A. Dispatch Location" subtitle="Where orders ship from. The dispatch state is the Local zone and decides whether GST is CGST + SGST or IGST">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className={labelClass}>Origin State</label>
+                <label className={labelClass}>Country</label>
+                <input className={`${inputClass} bg-stone-100 text-stone-500`} value={draft.originCountry} readOnly />
+              </div>
+              <div>
+                <label className={labelClass}>State</label>
                 <select className={inputClass} value={draft.originState} onChange={(e) => setField("shipping", { originState: e.target.value })}>
                   {INDIAN_STATES.map((st) => (
                     <option key={st} value={st}>
@@ -363,39 +417,70 @@ const SettingsPageForm = () => {
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Origin City</label>
+                <label className={labelClass}>City</label>
                 <input className={inputClass} value={draft.originCity} onChange={(e) => setField("shipping", { originCity: e.target.value })} />
               </div>
               <div>
-                <label className={labelClass}>Origin Dispatch PIN Code</label>
+                <label className={labelClass}>Dispatch PIN code</label>
                 <input inputMode="numeric" maxLength={6} className={`${inputClass} font-mono`} value={draft.originPincode} onChange={(e) => setField("shipping", { originPincode: e.target.value.replace(/\D/g, "") })} />
+                <p className={hintClass}>The courier's serviceability check starts from this PIN code.</p>
               </div>
               <div>
-                <label className={labelClass}>Express delivery fee (₹)</label>
-                <input type="number" min="0" step="1" className={inputClass} value={draft.expressShippingFee} onChange={(e) => setField("shipping", { expressShippingFee: e.target.value })} />
-                <p className={hintClass}>Added on top of the zone fee for express orders.</p>
-              </div>
-              <div>
-                <label className={labelClass}>Dispatch lead time</label>
+                <label className={labelClass}>Handling time before dispatch</label>
                 <input className={inputClass} value={draft.dispatchLeadTime} onChange={(e) => setField("shipping", { dispatchLeadTime: e.target.value })} placeholder="e.g. 24-48 Hours" />
               </div>
             </div>
           </AdminCard>
 
+          {/* B. Shipping rates */}
           <AdminCard
-            title="Shipping Zones & Rates"
-            subtitle="Each order's delivery fee comes from the zone of its delivery state"
+            title="B. Shipping Rates"
+            subtitle="The delivery fee and free-delivery minimum for each zone. Free delivery is judged on the product total after discounts"
             action={
-              <button
-                type="button"
-                onClick={addZone}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#173D2A] hover:underline"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add zone
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Fill the form with the recommended three zones (Local, Rest of India, Remote)? Nothing changes in your store until you press Save.")) {
+                      setField("shipping", { zones: recommendedZones(), pinExceptions: [] });
+                    }
+                  }}
+                  className="text-xs font-semibold text-stone-600 hover:underline"
+                >
+                  Use recommended 3 zones
+                </button>
+                <button type="button" onClick={addZone} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#173D2A] hover:underline">
+                  <Plus className="w-3.5 h-3.5" /> Add zone
+                </button>
+              </div>
             }
           >
             <div className="space-y-4">
+              <div className="overflow-x-auto rounded-xl border border-stone-200">
+                <table className="w-full text-xs">
+                  <thead className="bg-stone-50 text-stone-500 text-left">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Zone</th>
+                      <th className="px-3 py-2 font-semibold">Shipping fee</th>
+                      <th className="px-3 py-2 font-semibold">Free from</th>
+                      <th className="px-3 py-2 font-semibold">Delivery estimate</th>
+                      <th className="px-3 py-2 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {drafts.shipping.zones.map((z) => (
+                      <tr key={z.id}>
+                        <td className="px-3 py-2 font-medium text-stone-800">{z.name}</td>
+                        <td className="px-3 py-2">₹{Number(z.baseFee) || 0}</td>
+                        <td className="px-3 py-2">₹{Number(z.freeThreshold) || 0}</td>
+                        <td className="px-3 py-2">{z.deliveryDays}</td>
+                        <td className="px-3 py-2">{z.enabled === false ? <span className="text-rose-600 font-semibold">Off</span> : <span className="text-emerald-700 font-semibold">On</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
               {restCount !== 1 && (
                 <p className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
@@ -413,18 +498,151 @@ const SettingsPageForm = () => {
                   onRemove={() => removeZone(zone.id)}
                 />
               ))}
+
+              {/* PIN-code exceptions */}
+              <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-stone-900">PIN code exceptions</h4>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Send a PIN code (or a range) to a specific zone, whatever its state says. Exceptions win over state rules. Use the same PIN in both boxes for a single PIN code.
+                    </p>
+                  </div>
+                  <button type="button" onClick={addPinException} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#173D2A] hover:underline shrink-0">
+                    <Plus className="w-3.5 h-3.5" /> Add exception
+                  </button>
+                </div>
+                {drafts.shipping.pinExceptions.length === 0 ? (
+                  <p className="text-xs text-stone-400">No exceptions. Every address follows its state's zone.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {drafts.shipping.pinExceptions.map((ex) => (
+                      <div key={ex.id} className="grid grid-cols-2 md:grid-cols-[1fr_1fr_1.4fr_1.6fr_auto] gap-2 items-end">
+                        <div>
+                          <label className={labelClass}>From PIN</label>
+                          <input inputMode="numeric" maxLength={6} className={`${inputClass} font-mono`} value={ex.from} onChange={(e) => updatePinException(ex.id, { from: e.target.value.replace(/\D/g, "") })} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>To PIN</label>
+                          <input inputMode="numeric" maxLength={6} className={`${inputClass} font-mono`} value={ex.to} onChange={(e) => updatePinException(ex.id, { to: e.target.value.replace(/\D/g, "") })} />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Zone</label>
+                          <select className={inputClass} value={ex.zoneId} onChange={(e) => updatePinException(ex.id, { zoneId: e.target.value })}>
+                            <option value="">Choose zone</option>
+                            {drafts.shipping.zones.map((z) => (
+                              <option key={z.id} value={z.id}>
+                                {z.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className={labelClass}>Note (optional)</label>
+                          <input className={inputClass} value={ex.note} onChange={(e) => updatePinException(ex.id, { note: e.target.value })} placeholder="e.g. Leh district" />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removePinException(ex.id)}
+                          aria-label="Remove PIN code exception"
+                          className="p-2 rounded-lg border border-stone-200 text-stone-500 hover:text-rose-600 hover:bg-rose-50 transition-colors justify-self-start"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </AdminCard>
 
-          <AdminCard title="GST (Tax) Configuration" subtitle="Product prices include GST; the tax shown on invoices is worked out from them">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+          {/* C. Express delivery */}
+          <AdminCard title="C. Express Delivery" subtitle="An extra surcharge on top of the zone's standard fee (and the only charge when standard delivery is free)">
+            <div className="space-y-4 max-w-3xl">
+              <Switch
+                checked={draft.expressEnabled}
+                onChange={(v) => setField("shipping", { expressEnabled: v })}
+                label="Offer express delivery"
+                description="Customers choose it at checkout, only where it is available for their PIN code."
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Express surcharge (₹)</label>
+                  <input type="number" min="0" step="1" className={inputClass} value={draft.expressShippingFee} onChange={(e) => setField("shipping", { expressShippingFee: e.target.value })} />
+                  <p className={hintClass}>Set once here. Shown everywhere the same: express total = zone fee + this surcharge.</p>
+                </div>
+                <div>
+                  <label className={labelClass}>Express delivery estimate</label>
+                  <input className={inputClass} value={draft.expressEstimate} onChange={(e) => setField("shipping", { expressEstimate: e.target.value })} placeholder="e.g. 1–2 business days" />
+                </div>
+              </div>
+              <Switch
+                checked={draft.expressRequiresCourierSupport}
+                onChange={(v) => setField("shipping", { expressRequiresCourierSupport: v })}
+                label="Only where the courier confirms a fast service"
+                description="Recommended. Express is offered for a PIN code only if the courier's quickest delivery there is within the limit below. If the courier cannot be reached, express is not offered."
+              />
+              {draft.expressRequiresCourierSupport && (
+                <div className="max-w-xs">
+                  <label className={labelClass}>Courier's quickest delivery must be within (days)</label>
+                  <input type="number" min="1" max="14" step="1" className={inputClass} value={draft.expressMaxCourierDays} onChange={(e) => setField("shipping", { expressMaxCourierDays: e.target.value })} />
+                </div>
+              )}
+            </div>
+          </AdminCard>
+
+          {/* D. GST */}
+          <AdminCard title="D. GST (Tax)" subtitle="Each product can have its own GST rate and HSN code in the product form; products without one use the default below">
+            <div className="space-y-4 max-w-3xl">
               <div>
-                <label className={labelClass}>Standard GST rate (%)</label>
-                <input type="number" min="0" max="40" step="0.5" className={inputClass} value={draft.standardGstRate} onChange={(e) => setField("shipping", { standardGstRate: e.target.value })} />
+                <label className={labelClass}>How product prices are set</label>
+                <select className={inputClass} value={draft.taxIncludedInPrice ? "inclusive" : "exclusive"} onChange={(e) => setField("shipping", { taxIncludedInPrice: e.target.value === "inclusive" })}>
+                  <option value="inclusive">Prices include GST (the tax is shown inside the price)</option>
+                  <option value="exclusive">Prices exclude GST (GST is added at checkout)</option>
+                </select>
+                {!draft.taxIncludedInPrice && (
+                  <p className="flex items-start gap-2 mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+                    Customers will see GST added to the total at checkout. Product prices on the shop pages are shown as entered, so label them as "excl. GST" yourself.
+                  </p>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Default GST rate (%)</label>
+                  <input type="number" min="0" max="40" step="0.5" className={inputClass} value={draft.standardGstRate} onChange={(e) => setField("shipping", { standardGstRate: e.target.value })} />
+                  <p className={hintClass}>Used for products that have no GST rate of their own.</p>
+                </div>
+                <div>
+                  <label className={labelClass}>GSTIN</label>
+                  <input maxLength={15} className={`${inputClass} font-mono uppercase`} value={draft.gstinNumber} onChange={(e) => setField("shipping", { gstinNumber: e.target.value.toUpperCase() })} placeholder="15-character GSTIN" />
+                  <p className={hintClass}>Leave empty if you are not GST-registered: invoices are then not marked as tax invoices.</p>
+                </div>
+                <div>
+                  <label className={labelClass}>Registered business name</label>
+                  <input className={inputClass} value={draft.legalName} onChange={(e) => setField("shipping", { legalName: e.target.value })} placeholder="As on your GST registration" />
+                </div>
+                <div>
+                  <label className={labelClass}>Invoice number prefix</label>
+                  <input maxLength={10} className={`${inputClass} font-mono uppercase`} value={draft.invoicePrefix} onChange={(e) => setField("shipping", { invoicePrefix: e.target.value.toUpperCase() })} />
+                </div>
               </div>
               <div>
-                <label className={labelClass}>GSTIN</label>
-                <input maxLength={15} className={`${inputClass} font-mono uppercase`} value={draft.gstinNumber} onChange={(e) => setField("shipping", { gstinNumber: e.target.value.toUpperCase() })} placeholder="15-character GSTIN" />
+                <label className={labelClass}>GST on delivery charges</label>
+                <select className={inputClass} value={draft.shippingTaxMode} onChange={(e) => setField("shipping", { shippingTaxMode: e.target.value })}>
+                  <option value="none">No separate GST line on delivery (current default)</option>
+                  <option value="fixed">Apply a fixed GST rate to delivery charges</option>
+                </select>
+                {draft.shippingTaxMode === "fixed" && (
+                  <div className="mt-2 max-w-xs">
+                    <label className={labelClass}>Delivery GST rate (%)</label>
+                    <input type="number" min="0" max="40" step="0.5" className={inputClass} value={draft.shippingGstRate} onChange={(e) => setField("shipping", { shippingGstRate: e.target.value })} />
+                  </div>
+                )}
+                <p className={hintClass}>
+                  How delivery is taxed depends on your business and invoicing. Confirm the right treatment with your accountant before changing this.
+                </p>
               </div>
             </div>
           </AdminCard>

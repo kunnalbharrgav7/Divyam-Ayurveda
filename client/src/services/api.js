@@ -483,6 +483,28 @@ export const reviewService = {
   },
 };
 
+export const checkoutService = {
+  /**
+   * The basket's price for an address and delivery choice, calculated by the server (delivery, free-delivery
+   * progress, express, discounts, GST). The storefront only displays what comes back.
+   */
+  async price(payload, { signal } = {}) {
+    const response = await fetch("/api/v1/checkout/pricing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      cache: "no-store",
+      body: JSON.stringify(payload),
+      signal,
+    });
+    const json = await response.json().catch(() => null);
+    if (!response.ok || !json?.success) {
+      throw new Error(json?.error?.details?.[0]?.message || json?.error?.message || "We couldn't calculate your total. Please try again.");
+    }
+    return json.data;
+  },
+};
+
 export const settingsService = {
   /** Public store settings as saved in Admin -> Settings. Throws if the API can't be reached. */
   async getPublic() {

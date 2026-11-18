@@ -18,6 +18,13 @@ const orderItemSchema = new mongoose.Schema({
   cancelledQuantity: { type: Number, default: 0, min: 0 },
   isCancelled: { type: Boolean, default: false },
   cancelledAt: { type: Date, default: null },
+  // Tax snapshot for this line (saved at checkout; later settings or product changes never touch it)
+  mrpUnitPaise: { type: Number, default: 0 },
+  discountPaise: { type: Number, default: 0 }, // this line's share of the offer / referral discounts
+  gstRate: { type: Number, default: null }, // percent
+  hsnCode: { type: String, default: "" },
+  taxablePaise: { type: Number, default: 0 },
+  taxPaise: { type: Number, default: 0 },
 });
 
 const timelineEntrySchema = new mongoose.Schema({
@@ -105,6 +112,25 @@ const orderSchema = new mongoose.Schema(
       appliedCoupon: { type: String, default: null },
       storeCreditPaise: { type: Number, default: 0 }, // store credit the customer spent on this order
       referralCode: { type: String, default: null },
+      // ---- pricing snapshot (see services/pricing.service.js) ----
+      sellingSubtotalPaise: { type: Number, default: 0 }, // products at selling price, before discounts
+      offerDiscountPaise: { type: Number, default: 0 },
+      eligibleSubtotalPaise: { type: Number, default: 0 }, // what free-delivery eligibility was judged on
+      zoneId: { type: String, default: "" },
+      zoneName: { type: String, default: "" },
+      zoneTier: { type: String, default: "" },
+      zoneVia: { type: String, default: "" }, // pin | origin | state | rest
+      deliveryMethod: { type: String, default: "standard" },
+      standardShippingPaise: { type: Number, default: 0 }, // after any free-delivery waiver
+      standardShippingBasePaise: { type: Number, default: 0 }, // the zone's fee before the waiver
+      freeShippingThresholdPaise: { type: Number, default: 0 },
+      freeShippingApplied: { type: Boolean, default: false },
+      expressSurchargePaise: { type: Number, default: 0 },
+      shippingTaxPaise: { type: Number, default: 0 },
+      shippingTaxRate: { type: Number, default: 0 },
+      gstMode: { type: String, default: "inclusive" }, // inclusive | exclusive
+      taxableValuePaise: { type: Number, default: 0 },
+      goodsTaxPaise: { type: Number, default: 0 },
     },
     storeCreditRestored: { type: Boolean, default: false }, // spent credit already returned (cancellation / return)
     refundedPaise: { type: Number, default: 0 }, // cash refunded so far

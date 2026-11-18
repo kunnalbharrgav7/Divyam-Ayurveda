@@ -126,3 +126,15 @@ export const claimLimiter = rateLimit({
     error: { code: "TOO_MANY_REQUESTS", message: "Too many attempts. Please wait a few minutes and try again." },
   },
 });
+
+// Price previews run while a customer fills in checkout (every address or quantity change): generous, but still capped
+export const pricingLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: config.NODE_ENV === "test" ? 5000 : 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: { code: "TOO_MANY_REQUESTS", message: "Too many price checks. Please wait a moment and try again." },
+  },
+});

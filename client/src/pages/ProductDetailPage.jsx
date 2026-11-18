@@ -36,6 +36,7 @@ import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
 import { useAdmin } from "../context/AdminContext";
 import { storage } from "../utils/storage";
+import { FreeShippingNote } from "../components/common/FreeShippingNote";
 import { trackEvent, contentParams } from "../utils/metaPixel";
 import {
   Star,
@@ -860,7 +861,7 @@ export const ProductDetailPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs text-stone-600">
                 <div className="flex items-center gap-2">
                   <Truck size={16} className="text-[#386B40] shrink-0" />
-                  <span>Free shipping above ₹499</span>
+                  <FreeShippingNote />
                 </div>
                 <div className="flex items-center gap-2">
                   <RotateCcw size={16} className="text-[#386B40] shrink-0" />

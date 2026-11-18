@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as adminController from "../../controllers/admin.controller.js";
+import * as orderController from "../../controllers/order.controller.js";
 import * as returnController from "../../controllers/return.controller.js";
 import * as cancellationController from "../../controllers/cancellation.controller.js";
 import { authenticate, requireStaff } from "../../middleware/auth.js";
@@ -73,6 +74,7 @@ router.patch("/orders/:orderNumber/tracking", requirePermission(PERMISSIONS.ORDE
 router.get("/orders/:orderNumber/shipment", requirePermission(PERMISSIONS.ORDERS_VIEW), adminController.getOrderShipment);
 router.get("/orders/:orderNumber/shipment/live", requirePermission(PERMISSIONS.ORDERS_VIEW), adminController.getLiveShipmentTracking);
 router.post("/orders/:orderNumber/cancel", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.cancelOrder);
+router.get("/orders/:orderNumber/invoice", requirePermission(PERMISSIONS.ORDERS_VIEW), orderController.getInvoice);
 router.post("/orders/:orderNumber/notes", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.addOrderNote);
 router.post("/orders/:orderNumber/tracking-code", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.regenerateOrderTrackingCode);
 router.delete("/orders/:orderNumber/tracking-code", requirePermission(PERMISSIONS.ORDERS_UPDATE), adminController.revokeOrderTrackingCode);

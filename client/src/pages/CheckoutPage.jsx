@@ -23,7 +23,8 @@ import { orderService } from "../services/api";
 import { useStoreSettings } from "../hooks/useStoreSettings";
 import { useReferrals } from "../context/ReferralContext";
 import { formatINR } from "../utils/formatters";
-import { calculateShippingAndTax, INDIAN_STATES } from "../utils/shippingCalculator";
+import { INDIAN_STATES } from "../utils/shippingCalculator";
+import { useCheckoutPricing } from "../hooks/useCheckoutPricing";
 import { getAttribution, trackEvent, contentParams } from "../utils/metaPixel";
 
 const inputBase =
@@ -49,7 +50,7 @@ const addressFromSaved = (a = {}) => ({
   area: a.line2 || "",
   landmark: "",
   city: a.city || "",
-  state: a.state || "Karnataka",
+  state: a.state || "",
   pincode: a.pincode || "",
 });
 
@@ -87,11 +88,10 @@ export const CheckoutPage = () => {
   const [useCredit, setUseCredit] = useState(false);
   const { placeOrder } = useOrders();
   const { settings: storeSettings, status: settingsStatus, retry: retrySettings } = useStoreSettings();
-  const { activeAttribution, previewDiscount, clearAttribution, applyReferralCode } = useReferrals();
+  const { activeAttribution, clearAttribution, applyReferralCode } = useReferrals();
   const [codeInput, setCodeInput] = useState("");
   const [codeMessage, setCodeMessage] = useState("");
   const [applyingCode, setApplyingCode] = useState(false);
-  const [referralPreview, setReferralPreview] = useState({ discount: 0, reason: "" });
 
   // Signed-in customers: saved addresses (default first). Guests: none.
   const savedAddresses = isAuthenticated ? addresses : [];
@@ -155,6 +155,8 @@ export const CheckoutPage = () => {
   // PIN code -> city / state. Only fills a field that is empty or still holds our own earlier suggestion,
   // so nothing the customer typed is overwritten.
   const autoFilledRef = useRef({ city: "", state: "" });
+  const formRef = useRef(formData);
+  formRef.current = formData;
   const [pinInfo, setPinInfo] = useState({ status: "idle", city: "", state: "" });
   useEffect(() => {
     const pin = formData.pincode;
@@ -172,13 +174,16 @@ export const CheckoutPage = () => {
       }
       const state = matchState(res.state);
       setPinInfo({ status: "found", city: res.city, state: state || res.state });
-      setFormData((prev) => {
-        const next = { ...prev };
-        if (res.city && (!prev.city.trim() || prev.city === autoFilledRef.current.city)) next.city = res.city;
-        if (state && (prev.state === autoFilledRef.current.state || !autoFilledRef.current.state)) next.state = state;
-        autoFilledRef.current = { city: next.city === res.city ? res.city : autoFilledRef.current.city, state: next.state === state ? state : autoFilledRef.current.state };
-        return next;
-      });
+      // Decided here, outside the state updater (React may run an updater twice in development, and the
+      // "what did we fill in last time" memory must not change inside it).
+      const cur = formRef.current;
+      const nextCity = res.city && (!cur.city.trim() || cur.city === autoFilledRef.current.city) ? res.city : cur.city;
+      const nextState = state && (!cur.state || cur.state === autoFilledRef.current.state) ? state : cur.state;
+      autoFilledRef.current = {
+        city: nextCity === res.city ? res.city : autoFilledRef.current.city,
+        state: nextState === state ? state : autoFilledRef.current.state,
+      };
+      setFormData((prev) => ({ ...prev, city: nextCity, state: nextState }));
     });
     return () => {
       cancelled = true;
@@ -202,33 +207,33 @@ export const CheckoutPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Dynamic Shipping & Tax calculation based on destination state & distance zone
-  const shippingTaxCalc = calculateShippingAndTax({
-    destinationState: formData.state,
-    subtotal: Math.max(0, subtotal - offerDiscount), // GST and free-shipping eligibility use the amount actually paid
-    deliveryMethod,
-    settings: storeSettings,
-  });
-
-  // Referral discount: the server decides what the invitation is worth (and checks it again when the order is placed).
-  // It applies to a signed-in customer's first order and cannot be combined with a coupon or offer.
+  // Delivery, discounts, GST and the total come from the server (the one place that calculates them); this page
+  // only displays them. Every change to the address, items, delivery speed, offer or referral asks again.
   const referralCode = activeAttribution?.code || "";
-  const offerApplied = Boolean(appliedOffer);
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(formData.email.trim());
+  const pricingRequest =
+    cartItems.length > 0 && formData.state
+      ? {
+          items: cartItems.map((i) => ({ productId: i.product.id, size: i.selectedSize, quantity: i.quantity })),
+          address: {
+            state: formData.state,
+            pincode: /^[1-9]\d{5}$/.test(formData.pincode) ? formData.pincode : undefined,
+            email: validEmail ? formData.email.trim() : undefined,
+            phone: /^[6-9]\d{9}$/.test(formData.phone) ? formData.phone : undefined,
+          },
+          deliveryMethod,
+          couponCode: appliedOffer?.code || null,
+          referralCode: referralCode || null,
+        }
+      : null;
+  const pricingState = useCheckoutPricing(pricingRequest);
+  const priced = pricingState.data;
+  const pricing = priced?.pricing || null;
+
+  // Express can disappear when the address changes (courier cannot do it there): fall back to standard
   useEffect(() => {
-    if (!referralCode) return setReferralPreview({ discount: 0, reason: "" });
-    if (!isAuthenticated) return setReferralPreview({ discount: 0, reason: "Sign in or create an account to use your friend's referral code." });
-    if (offerApplied) return setReferralPreview({ discount: 0, reason: "A referral code cannot be combined with a coupon or offer." });
-    if (subtotal <= 0) return undefined;
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      const res = await previewDiscount(referralCode, subtotal);
-      if (!cancelled) setReferralPreview(res.valid ? { discount: res.discount, reason: "" } : { discount: 0, reason: res.reason || "" });
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [referralCode, isAuthenticated, offerApplied, subtotal, previewDiscount]);
+    if (deliveryMethod === "express" && priced?.options && !priced.options.express.available) setDeliveryMethod("standard");
+  }, [priced, deliveryMethod]);
 
   // Meta Ads: checkout started (once per visit to this page)
   const initiatedRef = useRef(false);
@@ -248,18 +253,17 @@ export const CheckoutPage = () => {
     return <Navigate to={buyNowRequested ? "/products" : "/cart"} replace />;
   }
 
-  const standardFee = shippingTaxCalc.isFreeEligible ? 0 : Number(shippingTaxCalc.zone?.baseFee || 50);
-  const expressFee = shippingTaxCalc.isFreeEligible ? 60 : standardFee + 50;
-  const calculatedShipping = shippingTaxCalc.shippingFee;
-
-  const referralDiscount = referralPreview.discount;
-  const totalCombinedDiscounts = discountTotal + offerDiscount + referralDiscount;
-  // MRP - product savings - referral + shipping. (`subtotal` is already net of product savings,
-  // so deducting `totalCombinedDiscounts` from it would count the savings twice.)
-  const orderTotal = Math.max(0, mrpSubtotal - totalCombinedDiscounts + calculatedShipping);
+  const deliverable = priced?.deliverable !== false;
+  const options = priced?.options || null;
+  const calculatedShipping = pricing?.shipping.total ?? 0;
+  const referralDiscount = pricing?.referralDiscount || 0;
+  const referralReason = priced?.referral?.reason || "";
+  const offerProblem = priced?.offer?.error || "";
+  // Until the server has priced the basket (no state chosen yet) show the goods total as an estimate
+  const orderTotal = pricing ? pricing.total : Math.max(0, subtotal - offerDiscount);
   // Store credit (from refunds) can cover everything except the last rupee, so there is always something to pay
   const creditApplied = useCredit ? Math.min(storeCredit, Math.max(0, Math.floor(orderTotal) - 1)) : 0;
-  const finalTotal = Math.max(0, orderTotal - creditApplied);
+  const finalTotal = Math.max(0, Math.round((orderTotal - creditApplied) * 100) / 100);
 
   // Which payment options the store currently offers (Admin -> Settings). COD can also be switched off for
   // big orders by its limit. The server enforces the same rules when the order is placed.
@@ -314,6 +318,15 @@ export const CheckoutPage = () => {
       focusFirstError(validationErrors);
       return;
     }
+    if (!pricing || !pricingState.isCurrent) {
+      showSubmitError("We're still updating your total. Please try again in a moment.");
+      pricingState.refresh();
+      return;
+    }
+    if (!deliverable) {
+      showSubmitError(priced?.message || "We can't deliver to this address.");
+      return;
+    }
 
     submittingRef.current = true;
     setIsSubmitting(true);
@@ -356,24 +369,15 @@ export const CheckoutPage = () => {
           quantity: item.quantity,
           total: item.price * item.quantity,
         })),
+        // Only what the server needs to verify: which offer, the credit used, and the total the customer was shown.
+        // Delivery, GST and the amount charged are calculated again on the server.
         pricing: {
-          subtotal: mrpSubtotal, // subtotal - discount - referral + shipping = total
-          shipping: calculatedShipping,
-          discount: discountTotal + offerDiscount, // product savings + offer/coupon saving
-          offerDiscount,
-          couponCode: appliedOffer?.code || null,
+          couponCode: appliedOffer && !offerProblem ? appliedOffer.code : null,
+          offerDiscount: pricing.offerDiscount,
           referralDiscount,
           referralCode: referralDiscount > 0 ? referralCode : null,
-          totalCombinedDiscounts,
           storeCredit: creditApplied,
-          total: finalTotal,
-          tax: shippingTaxCalc.totalTax,
-          taxType: shippingTaxCalc.taxType,
-          taxLabel: shippingTaxCalc.taxLabel,
-          cgst: shippingTaxCalc.cgstAmount,
-          sgst: shippingTaxCalc.sgstAmount,
-          igst: shippingTaxCalc.igstAmount,
-          zone: shippingTaxCalc.zone?.name || "Standard Delivery",
+          expectedTotal: finalTotal,
         },
         deliveryMethod,
         paymentMethod: paymentMethod === "cod" ? "Cash on Delivery (COD)" : "Online Payment",
@@ -448,6 +452,7 @@ export const CheckoutPage = () => {
     } catch (err) {
       console.error("Order creation failed:", err);
       refreshOffers(); // e.g. the offer changed while the customer was on this page
+      pricingState.refresh(); // and show the up-to-date total (e.g. after "the price changed")
       showSubmitError(err.message || "We couldn't place your order. Please check your details and try again.");
     } finally {
       submittingRef.current = false;
@@ -455,10 +460,15 @@ export const CheckoutPage = () => {
     }
   };
 
-  const placeDisabled = isSubmitting || !settingsReady || noPaymentAvailable;
+  const pricingBusy = Boolean(pricingRequest) && (!pricingState.isCurrent || !pricing);
+  const placeDisabled = isSubmitting || !settingsReady || noPaymentAvailable || pricingBusy || !deliverable;
   const placeLabel = isSubmitting
     ? "Placing your order..."
-    : paymentMethod === "online"
+    : !pricingRequest
+      ? "Enter your address to continue"
+      : pricingBusy
+        ? "Updating your total..."
+        : paymentMethod === "online"
       ? `Pay ${formatINR(finalTotal)}`
       : `Place Order • ${formatINR(finalTotal)}`;
 
@@ -686,8 +696,8 @@ export const CheckoutPage = () => {
                         <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-stone-400" aria-hidden="true" />
                       )}
                     </div>
-                    {errors.pincode ? (
-                      <FieldError id="co-pincode-err" message={errors.pincode} />
+                    {errors.pincode || priced?.addressIssue?.message ? (
+                      <FieldError id="co-pincode-err" message={errors.pincode || priced.addressIssue.message} />
                     ) : (
                       <p id="co-pincode-hint" className="text-[11px] text-stone-400 mt-1" aria-live="polite">
                         {pinInfo.status === "found"
@@ -722,6 +732,7 @@ export const CheckoutPage = () => {
                       onChange={(e) => setField("state", e.target.value)}
                       className={`${inputBase} ${border(errors.state)}`}
                     >
+                      <option value="">Select your state / UT</option>
                       {INDIAN_STATES.map((st) => (
                         <option key={st} value={st}>
                           {st}
@@ -753,27 +764,46 @@ export const CheckoutPage = () => {
                     </label>
                   )}
 
-                  {/* Delivery zone & free-shipping progress */}
-                  <div className="sm:col-span-2 p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                        <span className="font-semibold text-emerald-950">{shippingTaxCalc.zone.name}</span>
-                        <span className="text-emerald-700 font-medium">&bull; {shippingTaxCalc.estimatedDelivery}</span>
+                  {/* Delivery zone & free-shipping progress (all figures from the server) */}
+                  <div className="sm:col-span-2 p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl space-y-2" aria-live="polite">
+                    {!deliverable ? (
+                      <div className="flex items-start gap-2 text-xs text-rose-700">
+                        <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                        <span>{priced?.message || "We can't deliver to this address."}</span>
                       </div>
-                      <span className="font-bold text-[#173D2A]">
-                        {shippingTaxCalc.shippingFee === 0 ? "FREE Delivery" : `Delivery: ${formatINR(shippingTaxCalc.shippingFee)}`}
-                      </span>
-                    </div>
-                    {shippingTaxCalc.amountNeededForFree > 0 ? (
-                      <div className="pt-2 border-t border-emerald-200/60 text-[11px] text-emerald-800">
-                        Add <strong>{formatINR(shippingTaxCalc.amountNeededForFree)}</strong> more for <strong>FREE delivery</strong> to {formData.state}.
+                    ) : !pricing ? (
+                      <div className="text-xs text-emerald-900 flex items-center gap-2">
+                        {pricingState.isLoading ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
+                        <span>{formData.state ? "Calculating delivery..." : "Choose your state or enter your PIN code to see delivery charges."}</span>
                       </div>
                     ) : (
-                      <div className="pt-1.5 border-t border-emerald-200/60 text-[11px] text-emerald-800 font-medium flex items-center gap-1.5">
-                        <CheckCircle2 size={13} className="text-emerald-700" />
-                        <span>Your order qualifies for FREE standard delivery to {formData.state}.</span>
-                      </div>
+                      <>
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                            <span className="font-semibold text-emerald-950">{pricing.zone.name}</span>
+                            <span className="text-emerald-700 font-medium">&bull; {options?.standard.estimate}</span>
+                          </div>
+                          <span className="font-bold text-[#173D2A]">
+                            {options?.standard.total === 0 ? "FREE Delivery" : `Delivery: ${formatINR(options?.standard.total ?? 0)}`}
+                          </span>
+                        </div>
+                        {pricing.amountNeededForFree > 0 ? (
+                          <div className="pt-2 border-t border-emerald-200/60 space-y-1.5">
+                            <div className="h-1.5 rounded-full bg-emerald-100 overflow-hidden" role="progressbar" aria-valuenow={pricing.freeProgressPercent} aria-valuemin={0} aria-valuemax={100} aria-label="Progress towards free delivery">
+                              <div className="h-full bg-emerald-600 transition-all" style={{ width: `${pricing.freeProgressPercent}%` }} />
+                            </div>
+                            <p className="text-[11px] text-emerald-800">
+                              Add <strong>{formatINR(pricing.amountNeededForFree)}</strong> more for <strong>FREE delivery</strong> to {pricing.state}.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="pt-1.5 border-t border-emerald-200/60 text-[11px] text-emerald-800 font-medium flex items-center gap-1.5">
+                            <CheckCircle2 size={13} className="text-emerald-700" />
+                            <span>Your order qualifies for FREE standard delivery to {pricing.state}.</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -784,14 +814,30 @@ export const CheckoutPage = () => {
                 <SectionTitle n={3}>Delivery Speed</SectionTitle>
                 <div className="space-y-3 text-xs" role="radiogroup" aria-label="Delivery speed">
                   {[
-                    { value: "standard", title: "Standard Delivery (3-5 business days)", sub: "Secure herbal packaging", fee: standardFee === 0 ? "FREE" : formatINR(standardFee) },
-                    { value: "express", title: "Express Delivery (1-2 business days)", sub: "Priority dispatch", fee: formatINR(expressFee) },
+                    {
+                      value: "standard",
+                      title: `Standard Delivery${options ? ` (${options.standard.estimate})` : ""}`,
+                      sub: "Secure herbal packaging",
+                      fee: options ? (options.standard.total === 0 ? "FREE" : formatINR(options.standard.total)) : "—",
+                      disabled: false,
+                    },
+                    ...(options?.express.enabled !== false
+                      ? [
+                          {
+                            value: "express",
+                            title: `Express Delivery${options?.express.estimate ? ` (${options.express.estimate})` : ""}`,
+                            sub: options && !options.express.available ? options.express.reason || "Not available for this address" : "Priority dispatch",
+                            fee: options?.express.total != null ? formatINR(options.express.total) : "—",
+                            disabled: !options || !options.express.available,
+                          },
+                        ]
+                      : []),
                   ].map((opt) => (
                     <label
                       key={opt.value}
-                      className={`flex items-center justify-between gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                        deliveryMethod === opt.value ? "border-[#173D2A] bg-[#FBFAF6] ring-1 ring-[#173D2A]" : "border-[#E5E7DF] hover:bg-stone-50"
-                      }`}
+                      className={`flex items-center justify-between gap-3 p-3.5 rounded-2xl border transition-all ${
+                        opt.disabled ? "opacity-60 cursor-not-allowed border-[#E5E7DF]" : "cursor-pointer"
+                      } ${deliveryMethod === opt.value && !opt.disabled ? "border-[#173D2A] bg-[#FBFAF6] ring-1 ring-[#173D2A]" : "border-[#E5E7DF] hover:bg-stone-50"}`}
                     >
                       <span className="flex items-center gap-3">
                         <input
@@ -799,6 +845,7 @@ export const CheckoutPage = () => {
                           name="delivery"
                           value={opt.value}
                           checked={deliveryMethod === opt.value}
+                          disabled={opt.disabled}
                           onChange={() => setDeliveryMethod(opt.value)}
                           className="text-[#173D2A] focus:ring-[#386B40]"
                         />
@@ -810,6 +857,9 @@ export const CheckoutPage = () => {
                       <span className="font-bold text-[#171A17] shrink-0">{opt.fee}</span>
                     </label>
                   ))}
+                  {priced?.expressAdjusted && (
+                    <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">{priced.expressAdjusted} We've switched you to standard delivery.</p>
+                  )}
                 </div>
               </section>
 
@@ -934,15 +984,15 @@ export const CheckoutPage = () => {
               <div className="border-t border-[#E5E7DF] pt-4 space-y-2 text-xs sm:text-sm">
                 <div className="flex justify-between text-[#666B64]">
                   <span>Subtotal (MRP)</span>
-                  <span className="font-semibold text-[#171A17]">{formatINR(mrpSubtotal)}</span>
+                  <span className="font-semibold text-[#171A17]">{formatINR(pricing ? pricing.mrp : mrpSubtotal)}</span>
                 </div>
-                {discountTotal > 0 && (
+                {(pricing ? pricing.productDiscount : discountTotal) > 0 && (
                   <div className="flex justify-between text-emerald-700">
                     <span>Discount</span>
-                    <span className="font-semibold">-{formatINR(discountTotal)}</span>
+                    <span className="font-semibold">-{formatINR(pricing ? pricing.productDiscount : discountTotal)}</span>
                   </div>
                 )}
-                {offerDiscount > 0 && appliedOffer && (
+                {pricing && pricing.offerDiscount > 0 && appliedOffer && (
                   <div className="flex justify-between text-emerald-700">
                     <span>
                       {appliedOffer.title || appliedOffer.code}
@@ -950,8 +1000,11 @@ export const CheckoutPage = () => {
                         {appliedOffer.source === "auto" ? "Offer auto-applied" : `Coupon ${appliedOffer.code}`}
                       </span>
                     </span>
-                    <span className="font-semibold">-{formatINR(offerDiscount)}</span>
+                    <span className="font-semibold">-{formatINR(pricing.offerDiscount)}</span>
                   </div>
+                )}
+                {offerProblem && (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5">{offerProblem}</p>
                 )}
                 {referralDiscount > 0 && (
                   <div className="flex justify-between items-center text-emerald-800 bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200">
@@ -999,41 +1052,52 @@ export const CheckoutPage = () => {
                     Remove referral code {referralCode}
                   </button>
                 )}
-                {referralCode && referralDiscount === 0 && referralPreview.reason && (
+                {referralCode && referralDiscount === 0 && referralReason && (
                   <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5">
-                    Referral code {referralCode}: {referralPreview.reason}
+                    Referral code {referralCode}: {referralReason}
                   </p>
                 )}
                 <div className="flex justify-between text-[#666B64]">
                   <div>
-                    <span>Shipping</span>
+                    <span>{pricing?.shipping.deliveryMethod === "express" ? "Delivery (Express)" : "Delivery"}</span>
                     <span className="block text-[10px] text-stone-400">
-                      {shippingTaxCalc.zone?.name || "Standard Delivery"} ({formData.state})
+                      {pricing ? `${pricing.zone.name} (${pricing.state})` : "Calculated once you enter your address"}
                     </span>
+                    {pricing?.shipping.deliveryMethod === "express" && (
+                      <span className="block text-[10px] text-stone-400">
+                        Standard {pricing.shipping.standard === 0 ? "FREE" : formatINR(pricing.shipping.standard)} + Express {formatINR(pricing.shipping.expressSurcharge)}
+                      </span>
+                    )}
                   </div>
                   <span className="font-semibold text-[#171A17]">
-                    {calculatedShipping === 0 ? <span className="text-emerald-700 font-bold">FREE</span> : formatINR(calculatedShipping)}
+                    {!pricing ? "—" : calculatedShipping === 0 ? <span className="text-emerald-700 font-bold">FREE</span> : formatINR(calculatedShipping)}
                   </span>
                 </div>
 
-                {/* GST (included in prices) */}
-                <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200/80 text-[11px] space-y-1">
-                  <div className="flex justify-between text-stone-700 font-medium">
-                    <span>{shippingTaxCalc.taxLabel}</span>
-                    <span className="font-bold text-stone-900">{formatINR(shippingTaxCalc.totalTax)}</span>
+                {/* GST, as calculated by the server (each product has its own rate) */}
+                {pricing && (
+                  <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200/80 text-[11px] space-y-1">
+                    <div className="flex justify-between text-stone-700 font-medium">
+                      <span>{pricing.tax.type === "intra_state" ? "GST (CGST + SGST)" : "GST (IGST, inter-state)"}</span>
+                      <span className="font-bold text-stone-900">{formatINR(pricing.tax.total)}</span>
+                    </div>
+                    {pricing.tax.type === "intra_state" ? (
+                      <div className="flex justify-between text-[10px] text-stone-500">
+                        <span>CGST: {formatINR(pricing.tax.cgst)}</span>
+                        <span>SGST: {formatINR(pricing.tax.sgst)}</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between text-[10px] text-stone-500">
+                        <span>IGST: {formatINR(pricing.tax.igst)}</span>
+                        <span className="text-emerald-700 font-medium">Inter-State Dispatch</span>
+                      </div>
+                    )}
+                    <div className="text-[10px] text-stone-400 italic pt-0.5">
+                      {pricing.priceMode === "inclusive" ? "Included in the prices." : "Added to the total above."}
+                      {pricing.tax.shipping > 0 ? ` Includes ${formatINR(pricing.tax.shipping)} on delivery.` : ""}
+                    </div>
                   </div>
-                  {shippingTaxCalc.taxType === "INTRA_STATE" ? (
-                    <div className="flex justify-between text-[10px] text-stone-500">
-                      <span>CGST ({shippingTaxCalc.cgstRate}%): {formatINR(shippingTaxCalc.cgstAmount)}</span>
-                      <span>SGST ({shippingTaxCalc.sgstRate}%): {formatINR(shippingTaxCalc.sgstAmount)}</span>
-                    </div>
-                  ) : (
-                    <div className="flex justify-between text-[10px] text-stone-500">
-                      <span>IGST ({shippingTaxCalc.igstRate}%): {formatINR(shippingTaxCalc.igstAmount)}</span>
-                    </div>
-                  )}
-                  <div className="text-[10px] text-stone-400 italic pt-0.5">Included in the product prices.</div>
-                </div>
+                )}
 
                 {storeCredit > 0 && (
                   <label className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs cursor-pointer">
@@ -1048,9 +1112,13 @@ export const CheckoutPage = () => {
                 <div className="border-t border-[#E5E7DF] pt-3 flex justify-between items-baseline">
                   <div>
                     <span className="text-base font-heading tracking-tight font-bold text-[#171A17] block">Total Payable</span>
-                    <span className="text-[11px] text-stone-400">Inclusive of all taxes &amp; shipping</span>
+                    <span className="text-[11px] text-stone-400">
+                      {pricing?.priceMode === "exclusive" ? "GST added; delivery included" : "Inclusive of all taxes & delivery"}
+                    </span>
                   </div>
-                  <span className="text-2xl font-bold text-[#173D2A]">{formatINR(finalTotal)}</span>
+                  <span className={`text-2xl font-bold text-[#173D2A] transition-opacity ${pricingBusy ? "opacity-50" : ""}`} aria-live="polite">
+                    {formatINR(finalTotal)}
+                  </span>
                 </div>
               </div>
 
@@ -1095,7 +1163,7 @@ export const CheckoutPage = () => {
                 className="flex-1 py-3.5 px-4 bg-[#173D2A] active:bg-[#0B2416] text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-                <span>{isSubmitting ? "Placing order..." : paymentMethod === "online" ? "Pay Securely" : "Place Order"}</span>
+                <span>{isSubmitting ? "Placing order..." : !pricingRequest ? "Enter address" : pricingBusy ? "Updating total..." : paymentMethod === "online" ? "Pay Securely" : "Place Order"}</span>
               </button>
             </div>
           </div>

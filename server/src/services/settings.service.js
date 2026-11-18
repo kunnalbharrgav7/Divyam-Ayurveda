@@ -1,9 +1,8 @@
 import { StoreSettings } from "../models/StoreSettings.js";
 import { ApiError } from "../utils/apiError.js";
-import { INDIAN_STATES, defaultZones } from "../constants/shippingDefaults.js";
-
-const canonicalState = (value) =>
-  INDIAN_STATES.find((s) => s.toLowerCase() === String(value || "").trim().toLowerCase());
+import { defaultZones } from "../constants/shippingDefaults.js";
+import { canonicalState } from "../utils/indianStates.js";
+import { isValidPin, rangesOverlap } from "../utils/shippingRules.js";
 
 const text = (value, label, { max = 200, required = false } = {}) => {
   const v = String(value ?? "").trim();
@@ -66,8 +65,13 @@ const validateZones = (zones, originState) => {
       deliveryDays: text(z.deliveryDays, `${label} delivery time`, { max: 60, required: true }),
       matchType,
       states,
+      enabled: z.enabled !== false,
     };
   });
+  const rest = cleaned.find((z) => z.matchType === "rest");
+  if (rest && rest.enabled === false) {
+    throw ApiError.badRequest('"Rest of India" covers every address no other zone claims, so it must stay switched on.');
+  }
   if (restCount !== 1) {
     throw ApiError.badRequest('Exactly one zone must be the "all other states" zone, so every address has a rate.');
   }
@@ -77,6 +81,36 @@ const validateZones = (zones, originState) => {
     throw ApiError.badRequest(
       `${origin} is the dispatch state, so it can't also be listed in "${seenStates.get(origin)}".`
     );
+  }
+  return cleaned;
+};
+
+// PIN-code exceptions: each one sends a PIN range to a zone, and beats the state rules
+const validatePinExceptions = (exceptions, zones) => {
+  if (!Array.isArray(exceptions)) throw ApiError.badRequest("PIN code exceptions must be a list.");
+  if (exceptions.length > 300) throw ApiError.badRequest("At most 300 PIN code exceptions are allowed.");
+  const zoneIds = new Set(zones.map((z) => z.id));
+  const seen = new Set();
+  const cleaned = exceptions.map((e, i) => {
+    const label = `PIN exception ${i + 1}`;
+    const from = String(e.from ?? "").trim();
+    const to = String(e.to ?? e.from ?? "").trim() || from;
+    if (!isValidPin(from) || !isValidPin(to)) throw ApiError.badRequest(`${label}: PIN codes must be 6 digits.`);
+    if (Number(from) > Number(to)) throw ApiError.badRequest(`${label}: the first PIN code must not be higher than the last.`);
+    if (!zoneIds.has(e.zoneId)) throw ApiError.badRequest(`${label}: choose one of your shipping zones.`);
+    let id = text(e.id, `${label} id`, { max: 60 }) || `pin-${from}-${to}`;
+    while (seen.has(id)) id = `${id}-${i + 1}`;
+    seen.add(id);
+    return { id, from, to, zoneId: e.zoneId, note: text(e.note, `${label} note`, { max: 120 }) };
+  });
+  for (let i = 0; i < cleaned.length; i += 1) {
+    for (let j = i + 1; j < cleaned.length; j += 1) {
+      if (rangesOverlap(cleaned[i], cleaned[j])) {
+        throw ApiError.badRequest(
+          `PIN ranges ${cleaned[i].from}-${cleaned[i].to} and ${cleaned[j].from}-${cleaned[j].to} overlap. Each PIN code can belong to only one exception.`
+        );
+      }
+    }
   }
   return cleaned;
 };
@@ -152,16 +186,40 @@ export class SettingsService {
         if (!/^[1-9]\d{5}$/.test(pin)) throw ApiError.badRequest("The dispatch PIN code must be 6 digits.");
         settings.shipping.originPincode = pin;
       }
+      if (s.originCountry !== undefined) {
+        const country = text(s.originCountry, "Dispatch country", { max: 60, required: true });
+        if (country.toLowerCase() !== "india") throw ApiError.badRequest("Deliveries are currently set up for dispatch within India only.");
+        settings.shipping.originCountry = "India";
+      }
       if (s.expressShippingFee !== undefined) {
         settings.shipping.expressShippingFee = money(s.expressShippingFee, "Express delivery fee", { max: 10000 });
+      }
+      if (s.expressEnabled !== undefined) settings.shipping.expressEnabled = Boolean(s.expressEnabled);
+      if (s.expressEstimate !== undefined) {
+        settings.shipping.expressEstimate = text(s.expressEstimate, "Express delivery estimate", { max: 60, required: true });
+      }
+      if (s.expressRequiresCourierSupport !== undefined) {
+        settings.shipping.expressRequiresCourierSupport = Boolean(s.expressRequiresCourierSupport);
+      }
+      if (s.expressMaxCourierDays !== undefined) {
+        const days = Number(s.expressMaxCourierDays);
+        if (!Number.isFinite(days) || days < 1 || days > 14) throw ApiError.badRequest("Express courier time must be between 1 and 14 days.");
+        settings.shipping.expressMaxCourierDays = days;
       }
       if (s.dispatchLeadTime !== undefined) {
         settings.shipping.dispatchLeadTime = text(s.dispatchLeadTime, "Dispatch lead time", { max: 60, required: true });
       }
-      if (s.zones !== undefined || s.originState !== undefined) {
-        const zones = s.zones ?? settings.shipping.zones.map((z) => z.toObject());
-        settings.shipping.zones = validateZones(zones, settings.shipping.originState);
+      if (s.zones !== undefined || s.originState !== undefined || s.pinExceptions !== undefined) {
+        const zones = validateZones(s.zones ?? settings.shipping.zones.map((z) => z.toObject()), settings.shipping.originState);
+        // exceptions are checked against the zones as they will be saved, so removing a zone that an exception uses is refused
+        const exceptions = validatePinExceptions(
+          s.pinExceptions ?? (settings.shipping.pinExceptions || []).map((e) => (e.toObject ? e.toObject() : e)),
+          zones
+        );
+        settings.shipping.zones = zones;
+        settings.shipping.pinExceptions = exceptions;
         settings.markModified("shipping.zones");
+        settings.markModified("shipping.pinExceptions");
       }
       changed.push("shipping");
     }
@@ -172,6 +230,25 @@ export class SettingsService {
         const rate = Number(t.standardGstRate);
         if (!Number.isFinite(rate) || rate < 0 || rate > 40) throw ApiError.badRequest("The GST rate must be between 0 and 40.");
         settings.tax.standardGstRate = rate;
+      }
+      if (t.taxIncludedInPrice !== undefined) settings.tax.taxIncludedInPrice = Boolean(t.taxIncludedInPrice);
+      if (t.shippingTaxMode !== undefined) {
+        if (!["none", "fixed"].includes(t.shippingTaxMode)) throw ApiError.badRequest("Choose how GST applies to delivery charges.");
+        settings.tax.shippingTaxMode = t.shippingTaxMode;
+      }
+      if (t.shippingGstRate !== undefined) {
+        const rate = Number(t.shippingGstRate);
+        if (!Number.isFinite(rate) || rate < 0 || rate > 40) throw ApiError.badRequest("The delivery GST rate must be between 0 and 40.");
+        settings.tax.shippingGstRate = rate;
+      }
+      if (settings.tax.shippingTaxMode === "fixed" && !(Number(settings.tax.shippingGstRate) > 0)) {
+        throw ApiError.badRequest("Enter the GST rate to apply to delivery charges, or choose \"No GST line on delivery\".");
+      }
+      if (t.legalName !== undefined) settings.tax.legalName = text(t.legalName, "Registered business name", { max: 120 });
+      if (t.invoicePrefix !== undefined) {
+        const prefix = text(t.invoicePrefix, "Invoice prefix", { max: 10 }).toUpperCase();
+        if (prefix && !/^[A-Z0-9-]+$/.test(prefix)) throw ApiError.badRequest("The invoice prefix can use letters, numbers and dashes only.");
+        settings.tax.invoicePrefix = prefix || "DA";
       }
       if (t.gstinNumber !== undefined) {
         const gstin = text(t.gstinNumber, "GSTIN", { max: 15 }).toUpperCase();
@@ -244,6 +321,8 @@ export class SettingsService {
       shipping: {
         originState: json.shipping.originState,
         expressShippingFee: json.shipping.expressShippingFee,
+        expressEnabled: json.shipping.expressEnabled !== false,
+        expressEstimate: json.shipping.expressEstimate,
         dispatchLeadTime: json.shipping.dispatchLeadTime,
         zones: json.shipping.zones.map(({ _id, ...zone }) => zone),
       },
@@ -251,6 +330,7 @@ export class SettingsService {
         originState: json.shipping.originState,
         taxIncludedInPrice: json.tax.taxIncludedInPrice,
         standardGstRate: json.tax.standardGstRate,
+        shippingTaxMode: json.tax.shippingTaxMode,
       },
       appearance: { bannerAnnouncementText: json.appearance.bannerAnnouncementText },
       cancellationPolicy: json.cancellationPolicy || {

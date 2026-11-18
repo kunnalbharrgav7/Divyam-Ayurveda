@@ -189,6 +189,15 @@ export class CancellationService {
     let grossCancelledPaise = 0;
     const itemBreakdown = [];
 
+    // Orders placed with the pricing snapshot know each line's own share of the discounts and its tax, so a partial
+    // refund is exact. Older orders keep the earlier proportional estimate.
+    const exclusiveGst = order.pricing?.gstMode === "exclusive";
+    const hasSnapshot = Number(order.pricing?.sellingSubtotalPaise) > 0 && (order.items || []).every((it) => Number(it.mrpUnitPaise) > 0);
+    const goodsPayablePaise = (order.items || []).reduce(
+      (sum, it) => sum + (it.lineTotalPaise || 0) - (it.discountPaise || 0) + (exclusiveGst ? it.taxPaise || 0 : 0),
+      0
+    );
+
     for (const reqItem of itemsToCancel) {
       const orderItem = (order.items || []).find(
         (it) =>
@@ -213,11 +222,23 @@ export class CancellationService {
       const itemGross = orderItem.unitPricePaise * cancelQty;
       grossCancelledPaise += itemGross;
 
-      // Proportional discount factor for this item line
-      const fraction = originalSubtotal > 0 ? itemGross / originalSubtotal : 0;
-      const allocatedDiscount = Math.round(fraction * (originalCouponDiscount + originalReferralDiscount));
-      const allocatedStoreCredit = Math.round(fraction * originalStoreCredit);
-      const netRefund = Math.max(0, itemGross - allocatedDiscount - allocatedStoreCredit);
+      let allocatedDiscount;
+      let allocatedStoreCredit;
+      let netRefund;
+      if (hasSnapshot) {
+        // This line's discount share and (if GST is added on top of prices) its tax, for the units being cancelled
+        allocatedDiscount = Math.round(((orderItem.discountPaise || 0) * cancelQty) / orderItem.quantity);
+        const addedTax = exclusiveGst ? Math.round(((orderItem.taxPaise || 0) * cancelQty) / orderItem.quantity) : 0;
+        const itemPayable = itemGross - allocatedDiscount + addedTax;
+        allocatedStoreCredit = goodsPayablePaise > 0 ? Math.round((originalStoreCredit * itemPayable) / goodsPayablePaise) : 0;
+        netRefund = Math.max(0, itemPayable - allocatedStoreCredit);
+      } else {
+        // Proportional discount factor for this item line (orders placed before the pricing snapshot)
+        const fraction = originalSubtotal > 0 ? itemGross / originalSubtotal : 0;
+        allocatedDiscount = Math.round(fraction * (originalCouponDiscount + originalReferralDiscount));
+        allocatedStoreCredit = Math.round(fraction * originalStoreCredit);
+        netRefund = Math.max(0, itemGross - allocatedDiscount - allocatedStoreCredit);
+      }
 
       itemBreakdown.push({
         orderItemId: orderItem._id ? orderItem._id.toString() : "",

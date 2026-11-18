@@ -32,6 +32,25 @@ import { compressImages } from "../utils/imageCompression.js";
 
 /** Admin-facing product shape: product doc + variants + aggregated available stock. */
 // Parcel numbers from the admin form: blanks and invalid values become "not set", never zero
+// GST classification from the product form: blank rate = use the store's default rate
+const cleanGst = (data = {}) => {
+  const out = {};
+  if (data.gstRate !== undefined) {
+    if (data.gstRate === null || data.gstRate === "") out.gstRate = null;
+    else {
+      const rate = Number(data.gstRate);
+      if (!Number.isFinite(rate) || rate < 0 || rate > 40) throw ApiError.badRequest("The GST rate must be between 0 and 40.");
+      out.gstRate = rate;
+    }
+  }
+  if (data.hsnCode !== undefined) {
+    const hsn = String(data.hsnCode || "").trim();
+    if (hsn && !/^\d{4,8}$/.test(hsn)) throw ApiError.badRequest("The HSN code must be 4 to 8 digits.");
+    out.hsnCode = hsn;
+  }
+  return out;
+};
+
 const cleanParcel = (parcel = {}) => {
   const num = (v) => {
     const n = Number(v);
@@ -501,6 +520,7 @@ export class AdminService {
       isTrending: Boolean(data.isTrending),
       isNew: Boolean(data.isNewArrival || data.isNew),
       parcel: cleanParcel(data.parcel || {}),
+      ...cleanGst(data),
       seo: {
         metaTitle: String(data.seo?.metaTitle ?? "").trim().slice(0, 120),
         metaDescription: String(data.seo?.metaDescription ?? "").trim().slice(0, 320),
@@ -584,6 +604,7 @@ export class AdminService {
     if (data.parcel && typeof data.parcel === "object") {
       product.parcel = cleanParcel(data.parcel);
     }
+    Object.assign(product, cleanGst(data));
     // The form round-trips images it loaded as image-endpoint URLs; map those back to the stored data
     if (data.images) {
       const existingImages = [...product.images];

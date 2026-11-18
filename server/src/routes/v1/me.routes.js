@@ -53,6 +53,7 @@ router.get("/store-credit", returnController.getStoreCredit);
 // Customer Orders
 router.get("/orders", orderController.getMyOrders);
 router.get("/orders/:orderNumber", orderController.getMyOrder);
+router.get("/orders/:orderNumber/invoice", orderController.getInvoice);
 router.get("/cancellations", cancellationController.listMyCancellations);
 
 // Customer Cart

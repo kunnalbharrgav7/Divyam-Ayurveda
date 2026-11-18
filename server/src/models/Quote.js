@@ -42,6 +42,8 @@ const quoteSchema = new mongoose.Schema(
     taxType: { type: String, enum: ["intra_state", "inter_state"], default: "intra_state" },
     totalPaise: { type: Number, required: true },
     zoneName: { type: String, default: "Standard Delivery" },
+    // The full pricing snapshot (zone, delivery, GST per line) the order is created from
+    pricingSnapshot: { type: mongoose.Schema.Types.Mixed, default: null },
     expiresAt: {
       type: Date,
       default: () => new Date(Date.now() + 15 * 60 * 1000), // 15 minutes TTL

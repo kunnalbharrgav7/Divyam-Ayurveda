@@ -20,7 +20,8 @@ import { referralService } from "./referral.service.js";
 import { walletService } from "./wallet.service.js";
 import { logAudit } from "./audit.service.js";
 import { settingsService } from "./settings.service.js";
-import { computeShipping, computeTax } from "../utils/shippingRules.js";
+import { pricingService, toOrderPricing, toOrderLine, resolvePackPrice } from "./pricing.service.js";
+import { canonicalState } from "../utils/indianStates.js";
 import { ApiError } from "../utils/apiError.js";
 import { logger } from "../config/logger.js";
 import {
@@ -205,7 +206,8 @@ export class OrderService {
           state: quote.shippingAddress.state,
           pincode: quote.shippingAddress.pincode,
         },
-        items: quote.items.map((it) => ({
+        items: quote.items.map((it, i) => ({
+          ...(quote.pricingSnapshot?.lines?.[i] || {}),
           variantId: it.variantId,
           productId: it.productId,
           sku: it.sku,
@@ -218,6 +220,8 @@ export class OrderService {
           weightGrams: it.weightGrams,
         })),
         pricing: {
+          ...(quote.pricingSnapshot?.pricing || {}), // zone, delivery and GST snapshot
+          // the quote's own figures stay authoritative for what was shown and is charged
           subtotalPaise: quote.subtotalPaise,
           couponDiscountPaise: quote.couponDiscountPaise,
           referralDiscountPaise: quote.referralDiscountPaise,
@@ -295,7 +299,8 @@ export class OrderService {
 
     const street = String(payload.shippingAddress?.street || payload.shippingAddress?.line1 || "").trim();
     const city = String(payload.shippingAddress?.city || "").trim();
-    const state = String(payload.shippingAddress?.state || "").trim();
+    const stateInput = String(payload.shippingAddress?.state || "").trim();
+    const state = canonicalState(stateInput) || stateInput; // "Orissa" -> "Odisha"; an unknown state is refused when priced
     const pincode = String(payload.shippingAddress?.pincode || "").trim();
 
     // Couriers and the payment gateway need real contact and delivery details; never substitute placeholders
@@ -305,6 +310,7 @@ export class OrderService {
     }
     if (!street || !city || !state) throw ApiError.badRequest("Please enter your full delivery address.");
     if (!/^\d{6}$/.test(pincode)) throw ApiError.badRequest("Please enter a valid 6-digit PIN code.");
+    await pricingService.assertPinMatchesState({ state, pincode });
     await shipmentService.assertDeliverable({ pincode, cod: isCOD });
 
     const mappedItems = await Promise.all(
@@ -376,17 +382,16 @@ export class OrderService {
         throw ApiError.conflict(`"${item.name}" is no longer available. Please remove it from your cart.`);
       }
       const packs = await ProductVariant.find({ productId: item.productId, isActive: true }).sort({ createdAt: 1 }).lean();
-      // A product with no pack sizes is sold at its base price
-      const priced = packs.find((v) => v.label === item.size) || packs[0] || (await Product.findById(item.productId).select("basePricePaise compareAtPricePaise").lean());
-      const unit = priced?.pricePaise ?? priced?.basePricePaise;
+      const productDoc = await Product.findById(item.productId).select("basePricePaise compareAtPricePaise gstRate hsnCode").lean();
+      // A product with no pack sizes is sold at its base price (same rule the price preview uses)
+      const { unitPaise: unit, mrpUnitPaise } = resolvePackPrice({ product: productDoc, packs, size: item.size });
       if (!Number.isFinite(unit) || unit <= 0) throw ApiError.conflict(`"${item.name}" is no longer available. Please remove it from your cart.`);
-      const compareAt = priced.compareAtPricePaise;
       item.unitPricePaise = unit;
       item.lineTotalPaise = unit * item.quantity;
-      item.mrpLinePaise = (compareAt > unit ? compareAt : unit) * item.quantity;
+      item.mrpUnitPaise = mrpUnitPaise;
+      item.gstRate = productDoc?.gstRate ?? null;
+      item.hsnCode = productDoc?.hsnCode || "";
     }
-    const goodsPaise = mappedItems.reduce((sum, it) => sum + it.lineTotalPaise, 0);
-    const mrpPaise = mappedItems.reduce((sum, it) => sum + it.mrpLinePaise, 0);
 
     // The client says which offer it applied and how much it took off; verify that against the database
     // (dates, limits, eligible products) so nobody can invent a discount, then count the redemption.
@@ -437,20 +442,28 @@ export class OrderService {
       referralDiscountPaise = referral.discountPaise;
     }
 
-    // Shipping, GST and the total are worked out here from the saved settings (zones, rates, GST); the
-    // browser's figures are only what the customer was shown and are not trusted.
+    // Shipping, GST and the total come from the one pricing engine (services/pricing.service.js), from the saved
+    // settings and database prices; the browser's figures are only what the customer was shown and are not trusted.
     const deliveryMethod = payload.deliveryMethod === "express" ? "express" : "standard";
-    const payablePaise = Math.max(0, goodsPaise - offerDiscountPaise);
-    const shippingCalc = computeShipping({ settings, destinationState: state, payablePaise, deliveryMethod });
-    const taxCalc = computeTax({ settings, destinationState: state, payablePaise });
-    const subtotalPaise = mrpPaise;
-    const couponDiscountPaise = mrpPaise - goodsPaise + offerDiscountPaise; // product savings + offer
-    const shippingPaise = shippingCalc.shippingPaise;
-    const taxPaise = taxCalc.totalTaxPaise;
-    const cgstPaise = taxCalc.cgstPaise;
-    const sgstPaise = taxCalc.sgstPaise;
-    const igstPaise = taxCalc.igstPaise;
-    const payableTotalPaise = Math.max(0, goodsPaise - offerDiscountPaise - referralDiscountPaise + shippingPaise);
+    const breakdown = await pricingService.price({
+      settings,
+      lines: mappedItems.map((it) => ({
+        productId: it.productId,
+        name: it.name,
+        size: it.size,
+        quantity: it.quantity,
+        unitPricePaise: it.unitPricePaise,
+        mrpUnitPaise: it.mrpUnitPaise,
+        gstRate: it.gstRate,
+        hsnCode: it.hsnCode,
+      })),
+      address: { state, pincode },
+      deliveryMethod,
+      offerDiscountPaise,
+      referralDiscountPaise,
+    });
+    mappedItems.forEach((it, i) => Object.assign(it, toOrderLine(breakdown.lines[i])));
+    const payableTotalPaise = breakdown.totalPaise;
 
     // Store credit (from refunds) used on this order: debited atomically, refunded if the order fails
     let storeCreditPaise = 0;
@@ -460,6 +473,15 @@ export class OrderService {
       throw ApiError.conflict("Your store credit can't cover this order in full. Please review your order and try again.");
     }
     const totalPaise = payableTotalPaise - claimedCreditPaise;
+    // The total the customer saw must be the total they are charged: if anything moved since (price, offer,
+    // delivery rule, GST setting) they are asked to review it first instead of paying a different amount.
+    const expectedTotalPaise = payload.pricing?.expectedTotal;
+    if (expectedTotalPaise !== undefined && expectedTotalPaise !== null && Math.round(Number(expectedTotalPaise) * 100) !== totalPaise) {
+      throw ApiError.conflict("The price changed while you were checking out. Please review the updated total and try again.", {
+        expectedTotal: Number(expectedTotalPaise),
+        actualTotal: totalPaise / 100,
+      });
+    }
     assertCodWithinLimit(totalPaise);
     if (claimedCreditPaise > 0) {
       if (!user?._id) throw ApiError.badRequest("Please sign in to use store credit.");
@@ -513,29 +535,19 @@ export class OrderService {
         street,
         line2: payload.shippingAddress?.line2 || "",
         city,
-        state,
+        state: breakdown.destinationState,
         pincode,
       },
       items: mappedItems,
       pricing: {
-        subtotalPaise,
-        couponDiscountPaise,
-        referralDiscountPaise,
-        shippingPaise,
-        taxPaise,
-        cgstPaise,
-        sgstPaise,
-        igstPaise,
-        taxType: taxCalc.taxType,
-        totalPaise,
-        appliedCoupon: verifiedOfferCode,
+        ...toOrderPricing(breakdown, { appliedCoupon: verifiedOfferCode, referralCode: verifiedReferralCode }),
+        totalPaise, // what is actually charged (after any store credit)
         storeCreditPaise,
-        referralCode: verifiedReferralCode,
       },
       status: initialStatus,
       paymentStatus: initialPaymentStatus,
       paymentMethod: canonicalMethod,
-      deliveryMethod,
+      deliveryMethod: breakdown.shipping.deliveryMethod,
       timeline: initialTimeline,
       notes,
       });
@@ -626,6 +638,100 @@ export class OrderService {
       fullOrder.shipment = toPublicShipment(shipment);
     }
     return fullOrder;
+  }
+
+  /**
+   * Structured invoice data for an order, built only from the pricing snapshot saved when the order was placed
+   * (never from today's settings), so it always matches what was charged. The customer who owns the order and
+   * staff can read it.
+   */
+  async getInvoice(orderNumber, user) {
+    const order = await Order.findOne({ orderNumber });
+    if (!order || (!user?.isStaff && !ownsOrder(order, user))) throw ApiError.notFound("Order not found.");
+
+    const settings = await settingsService.get();
+    const p = order.pricing || {};
+    const exclusive = p.gstMode === "exclusive";
+    const snapshot = Number(p.sellingSubtotalPaise) > 0 && (order.items || []).every((it) => Number(it.mrpUnitPaise) > 0);
+
+    const lines = (order.items || []).map((it) => {
+      const discountPaise = it.discountPaise || 0;
+      const netPaise = (it.lineTotalPaise || 0) - discountPaise;
+      return {
+        name: it.name,
+        size: it.size,
+        sku: it.sku,
+        hsnCode: it.hsnCode || "",
+        quantity: it.quantity,
+        unitPricePaise: it.unitPricePaise,
+        discountPaise,
+        taxablePaise: snapshot ? it.taxablePaise : null,
+        gstRate: snapshot ? it.gstRate : null,
+        taxPaise: snapshot ? it.taxPaise : null,
+        totalPaise: snapshot ? netPaise + (exclusive ? it.taxPaise || 0 : 0) : netPaise,
+      };
+    });
+
+    const shippingPaise = p.shippingPaise || 0;
+    const shippingTaxPaise = p.shippingTaxPaise || 0;
+    const shipping = {
+      description: p.deliveryMethod === "express" ? "Express delivery" : "Delivery",
+      standardPaise: p.standardShippingPaise ?? shippingPaise,
+      expressSurchargePaise: p.expressSurchargePaise || 0,
+      freeShippingApplied: Boolean(p.freeShippingApplied),
+      zone: p.zoneName || "",
+      taxRate: p.shippingTaxRate || 0,
+      taxPaise: shippingTaxPaise,
+      totalPaise: shippingPaise + (exclusive ? shippingTaxPaise : 0),
+    };
+
+    // Delivery is part of the taxable value only when a GST rate has been set for it
+    const shippingTaxable = shippingTaxPaise > 0 ? (exclusive ? shippingPaise : shippingPaise - shippingTaxPaise) : 0;
+    const grossTotalPaise = lines.reduce((sum, l) => sum + l.totalPaise, 0) + shipping.totalPaise;
+    const gstin = settings.tax?.gstinNumber || "";
+    return {
+      orderNumber: order.orderNumber,
+      invoiceNumber: `${settings.tax?.invoicePrefix || "DA"}-${order.orderNumber}`,
+      invoiceDate: order.createdAt,
+      isTaxInvoice: Boolean(gstin),
+      seller: {
+        name: settings.tax?.legalName || settings.general?.storeName || "",
+        gstin,
+        address: settings.general?.dispensaryAddress || "",
+        state: settings.shipping?.originState || "",
+      },
+      buyer: {
+        name: order.customer?.name,
+        email: order.customer?.email,
+        phone: order.customer?.phone,
+        address: {
+          street: order.shippingAddress?.street,
+          line2: order.shippingAddress?.line2 || "",
+          city: order.shippingAddress?.city,
+          state: order.shippingAddress?.state,
+          pincode: order.shippingAddress?.pincode,
+        },
+      },
+      placeOfSupply: order.shippingAddress?.state,
+      taxType: p.taxType,
+      priceMode: snapshot ? p.gstMode || "inclusive" : "inclusive",
+      lines,
+      shipping,
+      totals: {
+        taxableValuePaise: snapshot ? (p.taxableValuePaise || 0) + shippingTaxable : null,
+        cgstPaise: p.cgstPaise || 0,
+        sgstPaise: p.sgstPaise || 0,
+        igstPaise: p.igstPaise || 0,
+        totalTaxPaise: p.taxPaise || 0,
+        discountPaise: lines.reduce((sum, l) => sum + l.discountPaise, 0),
+        grossTotalPaise, // everything the customer is billed
+        storeCreditPaise: p.storeCreditPaise || 0,
+        amountPayablePaise: p.totalPaise || 0, // after any store credit: what is paid by card / UPI / cash
+      },
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      snapshot,
+    };
   }
 
   /**

@@ -88,3 +88,30 @@ export const discountPreviewSchema = z.object({
   }),
 });
 
+
+// Storefront price preview: what the basket costs for this address and delivery choice.
+// Only identifiers and quantities are accepted; every price comes from the database.
+export const pricingSchema = z.object({
+  body: z.object({
+    items: z
+      .array(
+        z.object({
+          productId: z.string().min(1),
+          size: z.string().max(80).optional().nullable(),
+          quantity: z.number().int().min(1).max(100),
+          name: z.string().max(200).optional(),
+        })
+      )
+      .min(1, "Your basket is empty.")
+      .max(50),
+    address: z.object({
+      state: z.string().trim().min(1, "Please choose a state.").max(80),
+      pincode: z.string().trim().max(6).optional().nullable(),
+      email: z.string().max(200).optional().nullable(),
+      phone: z.string().max(30).optional().nullable(),
+    }),
+    deliveryMethod: z.enum(["standard", "express"]).optional().default("standard"),
+    couponCode: z.string().max(60).optional().nullable(),
+    referralCode: z.string().max(60).optional().nullable(),
+  }),
+});

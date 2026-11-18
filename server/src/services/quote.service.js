@@ -2,7 +2,8 @@ import { ProductVariant } from "../models/ProductVariant.js";
 import { toPublicImages } from "../utils/productImages.js";
 import { Product } from "../models/Product.js";
 import { settingsService } from "./settings.service.js";
-import { computeShipping, computeTax } from "../utils/shippingRules.js";
+import { pricingService, toOrderPricing, toOrderLine } from "./pricing.service.js";
+import { canonicalState } from "../utils/indianStates.js";
 import { Quote } from "../models/Quote.js";
 import { couponService } from "./coupon.service.js";
 import { referralService } from "./referral.service.js";
@@ -10,22 +11,6 @@ import { ApiError } from "../utils/apiError.js";
 import { toRupees } from "../utils/currency.js";
 
 export class QuoteService {
-  /** Shipping from the zones saved in Admin -> Settings (see utils/shippingRules.js). */
-  getShippingDetails(destinationState, subtotalPaise, deliveryMethod, settings) {
-    const { shippingPaise, zoneName, isFreeEligible } = computeShipping({
-      settings,
-      destinationState,
-      payablePaise: subtotalPaise,
-      deliveryMethod,
-    });
-    return { shippingFeePaise: shippingPaise, zoneName, isFreeEligible };
-  }
-
-  /** GST included in the goods value: CGST+SGST inside the dispatch state, IGST elsewhere. */
-  calculateTaxBreakdown(taxableBasePaise, destinationState, settings) {
-    return computeTax({ settings, destinationState, payablePaise: taxableBasePaise });
-  }
-
   /**
    * Calculate server-authoritative checkout quote
    */
@@ -45,6 +30,8 @@ export class QuoteService {
     if (!address || !address.state || !address.pincode) {
       throw ApiError.badRequest("Complete delivery address including state and PIN code is required.");
     }
+    const stateName = canonicalState(address.state) || address.state;
+    await pricingService.assertPinMatchesState({ state: stateName, pincode: address.pincode });
 
     // Load store settings for rules
     const settings = await settingsService.get();
@@ -94,6 +81,9 @@ export class QuoteService {
         quantity: requestedItem.quantity,
         lineTotalPaise,
         weightGrams: variant.weightGrams || 250,
+        mrpUnitPaise: variant.compareAtPricePaise > variant.pricePaise ? variant.compareAtPricePaise : variant.pricePaise,
+        gstRate: p.gstRate ?? null,
+        hsnCode: p.hsnCode || "",
       });
     }
 
@@ -134,20 +124,38 @@ export class QuoteService {
       }
     }
 
-    // 4. Calculate Shipping
-    const netGoodsPaise = Math.max(0, subtotalPaise - couponDiscountPaise - referralDiscountPaise);
-    const shipping = this.getShippingDetails(
-      address.state,
-      netGoodsPaise,
+    // 4-6. Delivery, GST and the total, all from the one pricing engine
+    const breakdown = await pricingService.price({
+      settings,
+      lines: quoteItems.map((it) => ({
+        productId: it.productId,
+        variantId: it.variantId,
+        name: it.name,
+        size: it.label,
+        quantity: it.quantity,
+        unitPricePaise: it.unitPricePaise,
+        mrpUnitPaise: it.mrpUnitPaise,
+        gstRate: it.gstRate,
+        hsnCode: it.hsnCode,
+      })),
+      address: { state: stateName, pincode: address.pincode },
       deliveryMethod,
-      settings
-    );
-
-    // 5. Calculate Tax
-    const tax = this.calculateTaxBreakdown(netGoodsPaise, address.state, settings);
-
-    // 6. Calculate Final Total
-    const totalPaise = netGoodsPaise + shipping.shippingFeePaise;
+      offerDiscountPaise: couponDiscountPaise,
+      referralDiscountPaise,
+    });
+    const shipping = { shippingFeePaise: breakdown.shipping.totalPaise, zoneName: breakdown.zone.name };
+    const tax = {
+      totalTaxPaise: breakdown.tax.totalPaise,
+      cgstPaise: breakdown.tax.cgstPaise,
+      sgstPaise: breakdown.tax.sgstPaise,
+      igstPaise: breakdown.tax.igstPaise,
+      taxType: breakdown.tax.type,
+    };
+    const totalPaise = breakdown.totalPaise;
+    const pricingSnapshot = {
+      pricing: toOrderPricing(breakdown, { appliedCoupon, referralCode: appliedReferralCode }),
+      lines: breakdown.lines.map(toOrderLine),
+    };
 
     // 7. Store expiring quote in DB
     const quote = await Quote.create({
@@ -161,9 +169,10 @@ export class QuoteService {
         line1: address.line1 || address.street || "",
         line2: address.line2 || "",
         city: address.city,
-        state: address.state,
+        state: breakdown.destinationState,
         pincode: address.pincode,
       },
+      pricingSnapshot,
       subtotalPaise,
       couponDiscountPaise,
       appliedCoupon,

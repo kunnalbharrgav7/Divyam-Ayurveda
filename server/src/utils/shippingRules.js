@@ -1,50 +1,69 @@
-/**
- * Shipping and GST rules driven by the zones and rates saved in Admin → Settings.
- * The same rules run in the browser (to show the customer a price) and here (the price that counts).
- * Amounts are in paise.
- */
-const norm = (s) => String(s || "").trim().toLowerCase();
+import { canonicalState, sameState } from "./indianStates.js";
 
-/** Picks the zone for a destination state: origin zone, then a zone listing the state, then the "rest" zone. */
-export const resolveZone = (zones, destinationState, originState) => {
-  const list = Array.isArray(zones) ? zones : [];
-  const dest = norm(destinationState);
-  if (dest && dest === norm(originState)) {
-    const origin = list.find((z) => z.matchType === "origin");
-    if (origin) return origin;
-  }
-  const listed = list.find((z) => z.matchType === "states" && (z.states || []).some((s) => norm(s) === dest));
-  if (listed) return listed;
-  return list.find((z) => z.matchType === "rest") || list[list.length - 1] || null;
+/**
+ * Where a parcel is going, according to the zones and PIN-code exceptions saved in Admin -> Settings.
+ * Pure functions (no database, no network). Amounts are handled in services/pricing.service.js.
+ *
+ * Precedence (first match wins, always the same order):
+ *   1. PIN-code exception (a range, narrowest range first)
+ *   2. the dispatch-state zone ("origin")
+ *   3. a zone that lists the state
+ *   4. the "rest" zone
+ * A destination is never quietly given a cheaper rate: an unknown state or a switched-off zone is refused.
+ */
+export const isValidPin = (pin) => /^[1-9]\d{5}$/.test(String(pin || ""));
+
+const pinNumber = (pin) => Number.parseInt(String(pin), 10);
+
+export const findPinException = (exceptions, pincode) => {
+  if (!isValidPin(pincode)) return null;
+  const pin = pinNumber(pincode);
+  const hits = (Array.isArray(exceptions) ? exceptions : []).filter((e) => pin >= pinNumber(e.from) && pin <= pinNumber(e.to));
+  if (hits.length === 0) return null;
+  // Narrowest range wins so a single-PIN rule beats a wider range, deterministically
+  return hits.sort((a, b) => pinNumber(a.to) - pinNumber(a.from) - (pinNumber(b.to) - pinNumber(b.from)) || String(a.id).localeCompare(String(b.id)))[0];
 };
 
 /**
- * Shipping for a basket. `payablePaise` is the goods value after any coupon/offer (what the customer pays for
- * the items); free-shipping eligibility is judged on that. Express adds the flat express fee on top.
+ * @returns {{ ok: true, zone, via: "pin"|"origin"|"state"|"rest", state: string }
+ *          | { ok: false, code: string, message: string }}
  */
-export const computeShipping = ({ settings, destinationState, payablePaise, deliveryMethod = "standard" }) => {
+export const resolveDestination = ({ settings, state, pincode = null }) => {
   const shipping = settings?.shipping || {};
-  const zone = resolveZone(shipping.zones, destinationState, shipping.originState);
-  if (!zone) return { shippingPaise: 0, zone: null, zoneName: "Standard Delivery", isFreeEligible: false };
-  const freeThresholdPaise = Math.round(Number(zone.freeThreshold || 0) * 100);
-  const isFreeEligible = payablePaise >= freeThresholdPaise;
-  let shippingPaise = isFreeEligible ? 0 : Math.round(Number(zone.baseFee || 0) * 100);
-  let zoneName = zone.name;
-  if (deliveryMethod === "express") {
-    shippingPaise += Math.round(Number(shipping.expressShippingFee || 0) * 100);
-    zoneName += " [Express]";
+  const zones = Array.isArray(shipping.zones) ? shipping.zones : [];
+  const dest = canonicalState(state);
+  if (!dest) {
+    return { ok: false, code: "UNKNOWN_STATE", message: "Please choose a valid state or union territory for delivery." };
   }
-  return { shippingPaise, zone, zoneName, isFreeEligible };
+
+  let zone = null;
+  let via = null;
+
+  const exception = pincode ? findPinException(shipping.pinExceptions, pincode) : null;
+  if (exception) {
+    zone = zones.find((z) => z.id === exception.zoneId) || null;
+    via = "pin";
+  }
+  if (!zone && sameState(dest, shipping.originState)) {
+    zone = zones.find((z) => z.matchType === "origin") || null;
+    via = "origin";
+  }
+  if (!zone) {
+    zone = zones.find((z) => z.matchType === "states" && (z.states || []).some((s) => sameState(s, dest))) || null;
+    via = "state";
+  }
+  if (!zone) {
+    zone = zones.find((z) => z.matchType === "rest") || null;
+    via = "rest";
+  }
+  if (!zone) {
+    return { ok: false, code: "NO_ZONE", message: "Delivery rates are not set up for this address yet. Please contact us." };
+  }
+  if (zone.enabled === false) {
+    return { ok: false, code: "ZONE_DISABLED", message: "Sorry, we don't deliver to this area right now." };
+  }
+  return { ok: true, zone, via, state: dest };
 };
 
-/** GST included in the (tax-inclusive) goods value, split CGST+SGST within the origin state, IGST outside it. */
-export const computeTax = ({ settings, destinationState, payablePaise }) => {
-  const rate = Number(settings?.tax?.standardGstRate ?? 12) / 100;
-  const originState = settings?.shipping?.originState || settings?.tax?.originState;
-  const totalTaxPaise = Math.round(payablePaise - payablePaise / (1 + rate));
-  if (norm(destinationState) === norm(originState)) {
-    const cgstPaise = Math.round(totalTaxPaise / 2);
-    return { totalTaxPaise, cgstPaise, sgstPaise: totalTaxPaise - cgstPaise, igstPaise: 0, taxType: "intra_state" };
-  }
-  return { totalTaxPaise, cgstPaise: 0, sgstPaise: 0, igstPaise: totalTaxPaise, taxType: "inter_state" };
-};
+/** Is `from..to` overlapping any of the other exception ranges? (used when the admin saves exceptions) */
+export const rangesOverlap = (a, b) => pinNumber(a.from) <= pinNumber(b.to) && pinNumber(b.from) <= pinNumber(a.to);

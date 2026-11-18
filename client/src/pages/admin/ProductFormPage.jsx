@@ -881,6 +881,39 @@ export const ProductFormPage = () => {
             </p>
           </AdminCard>
 
+          {/* GST classification: drives the tax on checkout and invoices */}
+          <AdminCard title="GST (Tax)" subtitle="This product's GST rate and HSN code. Leave the rate blank to use the store's default rate">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">GST rate (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="40"
+                  step="0.5"
+                  value={formData.gstRate ?? ""}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, gstRate: e.target.value }))}
+                  placeholder="Store default"
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white focus:ring-[#173D2A]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">HSN code</label>
+                <input
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={formData.hsnCode ?? ""}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, hsnCode: e.target.value.replace(/\D/g, "") }))}
+                  placeholder="4 to 8 digits"
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-stone-300 bg-white font-mono focus:ring-[#173D2A]"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-stone-500 mt-3">
+              Use the rate and HSN code your accountant has assigned to this product. The store never guesses them.
+            </p>
+          </AdminCard>
+
           {/* Section 3: Ayurvedic Formulation & Doshas */}
           <AdminCard
             title="3. Ayurvedic Formulation & Dosha Profile"

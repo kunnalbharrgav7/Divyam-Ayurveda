@@ -39,6 +39,12 @@ export const getMyOrder = asyncHandler(async (req, res) => {
   return sendSuccess(res, await orderService.getOwnedOrder(req.params.orderNumber, req.user));
 });
 
+// Invoice data for an order (owner or staff)
+export const getInvoice = asyncHandler(async (req, res) => {
+  res.set("Cache-Control", "no-store, private");
+  return sendSuccess(res, await orderService.getInvoice(req.params.orderNumber, req.user));
+});
+
 export const getMyOrders = asyncHandler(async (req, res) => {
   const orders = await orderService.getCustomerOrders(req.user._id);
   return sendSuccess(res, orders);

@@ -136,8 +136,11 @@ export class ShiprocketAdapter {
     }
 
     const best = availableCouriers[0];
+    // Quickest courier delivery estimate in days (used to decide whether express can be offered here)
+    const dayCounts = availableCouriers.map((c) => Number.parseFloat(c.estimated_delivery_days)).filter((n) => Number.isFinite(n) && n > 0);
     return {
       serviceable: true,
+      fastestDays: dayCounts.length > 0 ? Math.min(...dayCounts) : null,
       rate: best.rate,
       courierName: best.courier_name,
       courierId: best.courier_company_id,

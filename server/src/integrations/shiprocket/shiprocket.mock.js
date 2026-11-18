@@ -13,6 +13,7 @@ export class ShiprocketMock {
 
     return {
       serviceable: isServiceable,
+      fastestDays: isFast ? 2 : 5,
       rate: isFast ? 40 : 65,
       courierName: isFast ? "Bluedart Express" : "Delhivery Surface",
       courierId: isFast ? 101 : 202,
