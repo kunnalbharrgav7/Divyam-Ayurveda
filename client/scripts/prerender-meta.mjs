@@ -17,7 +17,9 @@ if (!existsSync(templatePath)) {
 }
 
 process.env.NODE_ENV = "production";
-const vite = await createServer({ root, mode: "production", logLevel: "silent", server: { middlewareMode: true }, appType: "custom" });
+// Its own cache folder: this production-mode server must never write into the cache that `npm run dev` uses
+// (sharing it filled the dev cache with production React files and made the dev site a blank page: "_jsxDEV is not a function")
+const vite = await createServer({ root, mode: "production", cacheDir: join(root, "node_modules/.vite-prerender"), logLevel: "silent", server: { middlewareMode: true }, appType: "custom" });
 
 try {
   const seo = await vite.ssrLoadModule("/src/config/seoPages.js");

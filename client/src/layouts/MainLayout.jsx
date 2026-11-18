@@ -55,7 +55,7 @@ export const MainLayout = () => {
         <CategoryNav
           isMobileMenuOpen={isMobileMenuOpen}
           onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
-          hideMobileDrawer={isFixedNavVisible}
+          hideMobileDrawer // the one mobile drawer is drawn by the fixed navigation below, so it never swaps or re-animates while scrolling
         />
       </div>
 
@@ -75,7 +75,7 @@ export const MainLayout = () => {
         <CategoryNav
           isMobileMenuOpen={isMobileMenuOpen}
           onCloseMobileMenu={() => setIsMobileMenuOpen(false)}
-          hideMobileDrawer={!isFixedNavVisible}
+          hideMobileDrawer={false}
         />
       </div>
 

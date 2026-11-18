@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutGrid,
@@ -27,6 +28,17 @@ export const CategoryNav = ({
   const [expandedMobileCat, setExpandedMobileCat] = useState(null);
   const navigate = useNavigate();
   const { user, isAuthenticated, isAdmin, logout, logoutAdmin } = useAuth();
+
+  // While the drawer is open the page behind it must not scroll (it used to keep scrolling underneath)
+  const drawerVisible = isMobileMenuOpen && !hideMobileDrawer;
+  useEffect(() => {
+    if (!drawerVisible) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [drawerVisible]);
 
   useEffect(() => {
     let isMounted = true;
@@ -247,9 +259,12 @@ export const CategoryNav = ({
         </div>
       </nav>
 
-      {/* Mobile Drawer Menu (Sidebar for screens < 1024px) */}
-      {isMobileMenuOpen && !hideMobileDrawer && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+      {/* Mobile Drawer Menu (Sidebar for screens < 1024px).
+          Rendered into <body> on purpose: on the homepage this component sits inside a container that slides with a
+          CSS transform, and a `fixed` element inside a transformed parent is positioned against that parent instead
+          of the screen (the drawer shrank to the height of the header once the hero section was scrolled past). */}
+      {drawerVisible && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[60] lg:hidden" data-lenis-prevent="true">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
@@ -485,7 +500,8 @@ export const CategoryNav = ({
               </Link>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
