@@ -71,15 +71,16 @@ if (!parsed.success) {
 export const config = parsed.success ? parsed.data : envSchema.parse({});
 
 
-// A real deployment: NODE_ENV=production, or running on Render (which sets RENDER=true) even if NODE_ENV was
-// forgotten. Safety checks key off this so a missing setting can never quietly turn the live shop into a
-// test shop (fake payments, fake courier bookings, publicly known signing keys).
-export const IS_DEPLOYED = config.NODE_ENV === "production" || (process.env.RENDER === "true" && config.NODE_ENV !== "test");
+// A real deployment is the default. Only an explicit NODE_ENV=development (local work) or NODE_ENV=test counts as
+// local, so a host where NODE_ENV was never set (Hostinger, Render, a VPS...) can never quietly turn the live shop
+// into a test shop with fake payments, fake courier bookings and publicly known signing keys.
+const EXPLICITLY_LOCAL = ["development", "test"].includes(String(process.env.NODE_ENV || "").trim());
+export const IS_DEPLOYED = config.NODE_ENV === "production" || !EXPLICITLY_LOCAL;
 
 if (IS_DEPLOYED) {
   if (config.NODE_ENV !== "production") {
     logger.error(
-      "Running on Render without NODE_ENV=production: set NODE_ENV=production so error details stay private and the unpaid-order, tracking and refund jobs run"
+      "NODE_ENV is not set to production on this server: set NODE_ENV=production so error details stay private and the unpaid-order, tracking and refund jobs run (local work: set NODE_ENV=development)"
     );
   }
   // Login tokens signed with the built-in keys (published in this repository) could be forged by anyone

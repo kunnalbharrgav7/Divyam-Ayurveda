@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/apiError.js";
 import { sendError } from "../utils/response.js";
 import { logger } from "../config/logger.js";
-import { config } from "../config/index.js";
+import { IS_DEPLOYED } from "../config/index.js";
 
 export const errorHandler = (err, req, res, next) => {
   // 1. Handled ApiError
@@ -70,7 +70,7 @@ export const errorHandler = (err, req, res, next) => {
   logger.error(
     {
       err: err.message,
-      stack: config.NODE_ENV !== "production" ? err.stack : undefined,
+      stack: !IS_DEPLOYED ? err.stack : undefined,
       requestId: req.id,
       url: req.originalUrl,
       method: req.method,
@@ -82,7 +82,7 @@ export const errorHandler = (err, req, res, next) => {
     res,
     {
       code: "INTERNAL_SERVER_ERROR",
-      message: config.NODE_ENV === "production" ? "An internal server error occurred" : err.message,
+      message: IS_DEPLOYED ? "An internal server error occurred" : err.message,
       details: null,
     },
     500

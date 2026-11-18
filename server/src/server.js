@@ -1,5 +1,5 @@
 import app from "./app.js";
-import { config } from "./config/index.js";
+import { config, IS_DEPLOYED } from "./config/index.js";
 import { logger } from "./config/logger.js";
 import { connectDB, disconnectDB } from "./db/connection.js";
 import { referralService } from "./services/referral.service.js";
@@ -33,7 +33,7 @@ const startServer = async () => {
     // Cancel online orders that were never paid so their reserved stock goes back on sale
     const sweepUnpaidOrders = () => orderService.expireUnpaidOrders().catch((err) => logger.error({ err: err.message }, "Unpaid order sweep failed"));
     // (production, or set ENABLE_ORDER_EXPIRY=true; a local run against a shared database should not cancel orders)
-    if (config.NODE_ENV === "production" || process.env.ENABLE_ORDER_EXPIRY === "true") {
+    if (IS_DEPLOYED || process.env.ENABLE_ORDER_EXPIRY === "true") {
       setInterval(sweepUnpaidOrders, 15 * 60 * 1000).unref();
       sweepUnpaidOrders();
       // Safety net for the tracking webhook: read the courier's own status for open shipments every 30 minutes
