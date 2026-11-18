@@ -81,7 +81,8 @@ try {
   }
 
   // Dynamic pages from the live API. A cold or unreachable API must not fail the build.
-  const apiBase = API_BASE_URL || process.env.PRERENDER_API_URL || "";
+  // No API address configured means "the storefront's own backend", which lives at the site address
+  const apiBase = API_BASE_URL || process.env.PRERENDER_API_URL || SITE_URL || "";
   const getJson = async (path) => {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
