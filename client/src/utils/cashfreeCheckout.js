@@ -1,5 +1,3 @@
-import { load } from "@cashfreepayments/cashfree-js";
-
 /**
  * Opens Cashfree's payment page.
  *
@@ -29,6 +27,9 @@ export const openCashfree = async ({ paymentSessionId, environment }) => {
   if (!paymentSessionId || String(paymentSessionId).startsWith("session_mock_")) {
     return { opened: false, fullPage: false, reason: "test-mode" };
   }
+  // Loaded only now: importing the package at the top would fetch Cashfree's script on every checkout and
+  // confirmation page, even for cash-on-delivery orders that never open a payment page
+  const { load } = await import("@cashfreepayments/cashfree-js");
   const cashfree = await load({ mode: environment === "production" ? "production" : "sandbox" });
   const fullPage = paymentOpensFullPage();
   await cashfree.checkout({ paymentSessionId, redirectTarget: fullPage ? "_self" : "_modal" });

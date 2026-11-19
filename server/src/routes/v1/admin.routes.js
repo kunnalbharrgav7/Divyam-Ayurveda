@@ -136,6 +136,7 @@ router.get("/blog", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminControll
 router.post("/blog", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.createBlogPost);
 router.patch("/blog/:id", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.updateBlogPost);
 router.delete("/blog/:id", requirePermission(PERMISSIONS.CONTENT_MANAGE), adminController.deleteBlogPost);
+router.get("/system/integrations", requirePermission(PERMISSIONS.SETTINGS_MANAGE), adminController.getIntegrationStatus);
 router.get("/settings", requirePermission(PERMISSIONS.SETTINGS_MANAGE), adminController.getSettings);
 router.patch("/settings", requirePermission(PERMISSIONS.SETTINGS_MANAGE), adminController.updateSettings);
 

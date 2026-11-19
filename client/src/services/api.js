@@ -686,14 +686,18 @@ export const orderService = {
   async getOrderById(orderId) {
     if (!orderId) return null;
     const localMatch = recentOrders.get(orderId) || null;
+    // An order placed as a guest on this device (and not linked to an account) is read with its private tracking
+    // code; the account endpoint would only answer "not found" for it
+    const guestOnThisDevice = getGuestOrder(orderId);
+    const guestFirst = Boolean(guestOnThisDevice && !guestOnThisDevice.linked);
 
     // Always attempt fetching the freshest live order status from backend API first
     try {
-      const response = await fetch(`/api/v1/orders/${encodeURIComponent(orderId)}?_t=${Date.now()}`, {
+      const response = guestFirst ? null : await fetch(`/api/v1/orders/${encodeURIComponent(orderId)}?_t=${Date.now()}`, {
         cache: "no-store",
         credentials: "include",
       });
-      if (response.ok) {
+      if (response?.ok) {
         const json = await response.json();
         if (json.success && json.data) {
           const raw = json.data;

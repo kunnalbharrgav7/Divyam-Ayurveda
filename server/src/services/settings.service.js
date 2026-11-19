@@ -1,6 +1,9 @@
 import { StoreSettings } from "../models/StoreSettings.js";
 import { ApiError } from "../utils/apiError.js";
 import { defaultZones } from "../constants/shippingDefaults.js";
+import { config, IS_DEPLOYED } from "../config/index.js";
+import { cashfree } from "../integrations/cashfree/cashfree.adapter.js";
+import { shiprocket } from "../integrations/shiprocket/shiprocket.adapter.js";
 import { canonicalState } from "../utils/indianStates.js";
 import { isValidPin, rangesOverlap } from "../utils/shippingRules.js";
 
@@ -116,6 +119,32 @@ const validatePinExceptions = (exceptions, zones) => {
 };
 
 export class SettingsService {
+  /**
+   * Which real services this server is talking to, for the admin panel. Only yes/no answers and public
+   * settings: never a key, password or secret.
+   */
+  integrationStatus() {
+    const https = (value) => /^https:\/\//i.test(String(value || ""));
+    const cashfreeLive = !cashfree.isMock;
+    return {
+      deployedAsLiveServer: IS_DEPLOYED,
+      nodeEnv: config.NODE_ENV,
+      cashfree: {
+        live: cashfreeLive,
+        mode: cashfreeLive ? (config.CASHFREE_ENV === "production" ? "live (production)" : "sandbox (test account)") : "FAKE payments (mock)",
+        environment: config.CASHFREE_ENV,
+        webhookUrlIsHttps: https(config.CASHFREE_WEBHOOK_URL),
+        returnAddressIsHttps: https(config.CLIENT_ORIGIN),
+      },
+      shiprocket: {
+        live: !shiprocket.isMock,
+        mode: shiprocket.isMock ? "FAKE courier (mock)" : "real Shiprocket account",
+        autoBooksCourier: String(config.AUTO_CREATE_SHIPMENTS).toLowerCase() !== "false",
+        pickupLocationSet: Boolean(config.SHIPROCKET_PICKUP_LOCATION),
+      },
+    };
+  }
+
   /** The single settings record, created from defaults if missing, with zone rules filled in for older records. */
   async get() {
     let settings = await StoreSettings.findOne();

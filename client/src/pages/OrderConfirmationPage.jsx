@@ -34,6 +34,14 @@ export const OrderConfirmationPage = () => {
   const { isAuthenticated, isAdmin } = useAuth();
   const [copied, setCopied] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  // Set by checkout when the payment page could not be opened (the server had no real payment session to give)
+  const paymentUnavailable = (() => {
+    try {
+      return sessionStorage.getItem(`divyam_pay_unavailable_${orderId}`) === "1";
+    } catch (_) {
+      return false;
+    }
+  })();
   const [claimResult, setClaimResult] = useState(null);
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -184,7 +192,7 @@ export const OrderConfirmationPage = () => {
         throw new Error(sessData.error?.message || "Could not initialize Cashfree session.");
       }
       const opened = await openCashfree({ paymentSessionId: sessData.data.paymentSessionId, environment: sessData.data.environment });
-      if (!opened.opened) throw new Error("Online payment is in test mode on this server, so no real payment can be taken.");
+      if (!opened.opened) throw new Error("Online payment is not available at the moment, so we couldn't open the payment page. Your order is saved. Please try again a little later, or contact us and we will help you complete it.");
 
       // A pop-up payment returns here; a full-page payment leaves, and the return page checks the status itself
       await checkPaymentStatus(ordNum);
@@ -264,6 +272,14 @@ export const OrderConfirmationPage = () => {
             <p className="text-sm text-stone-600 max-w-lg mx-auto leading-relaxed">
               We received your order, but your online payment is currently pending confirmation from Cashfree Payment Gateway.
             </p>
+
+            {paymentUnavailable && (
+              <p role="alert" className="mt-4 max-w-lg mx-auto text-xs text-amber-900 bg-amber-100/70 border border-amber-300 rounded-xl px-3 py-2">
+                We couldn&apos;t open the online payment page right now, so no payment has been taken. Your order is saved. Please
+                try &ldquo;Complete Online Payment&rdquo; again a little later, or contact us to pay another way. An unpaid order is cancelled
+                automatically after about 2 hours.
+              </p>
+            )}
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <button

@@ -732,6 +732,12 @@ export const getSettings = asyncHandler(async (req, res) => {
   return sendSuccess(res, await settingsService.get());
 });
 
+// Are payments and the courier real or fake on this server? (no secrets are returned)
+export const getIntegrationStatus = asyncHandler(async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  return sendSuccess(res, settingsService.integrationStatus());
+});
+
 export const updateSettings = asyncHandler(async (req, res) => {
   const { settings, changed } = await settingsService.update(req.body || {});
 

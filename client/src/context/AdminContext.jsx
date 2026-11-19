@@ -904,6 +904,16 @@ export const AdminProvider = ({ children }) => {
     return json.data;
   };
 
+  // Are payments and the courier real or fake on this server? (yes/no answers only, never a key)
+  const fetchIntegrationStatus = async () => {
+    try {
+      const res = await adminApiFetch("/api/v1/admin/system/integrations");
+      return res.data || null;
+    } catch (_) {
+      return null; // an older server has no such endpoint
+    }
+  };
+
   // Approve (pay now) or void a referral reward; refreshes the list so statuses and metrics stay true
   const runReferralAction = async (id, action, body = {}) => {
     const json = await adminApiFetch(`/api/v1/admin/referrals/${id}/${action}`, { method: "POST", body: JSON.stringify(body) });
@@ -2131,6 +2141,7 @@ export const AdminProvider = ({ children }) => {
         fetchAdminUsers,
         fetchAdminAuditLogs,
         fetchAdminSettings,
+        fetchIntegrationStatus,
         loadAdminData,
         refreshAdminData,
         isAdminLoading,

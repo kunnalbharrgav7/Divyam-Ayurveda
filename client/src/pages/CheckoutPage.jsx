@@ -438,7 +438,13 @@ export const CheckoutPage = () => {
           if (paymentOpensFullPage()) removeCheckedOutItems();
           try {
             const opened = await openCashfree({ paymentSessionId, environment: cfEnv });
-            if (!opened.opened) console.warn("Payment server is in test mode; Cashfree checkout skipped.");
+            if (!opened.opened) {
+              // The server could not give a real payment page. The order is saved; say so plainly
+              console.warn("The payment server did not provide a real payment session; Cashfree was not opened.");
+              try {
+                sessionStorage.setItem(`divyam_pay_unavailable_${confirmationId}`, "1");
+              } catch (_) {}
+            }
           } catch (sdkErr) {
             console.warn("Cashfree checkout interaction:", sdkErr);
           }

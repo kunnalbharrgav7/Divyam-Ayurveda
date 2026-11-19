@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Save, Check, CreditCard, Truck, Bell, Building, Plus, Trash2, Info, AlertTriangle, Ban } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { AdminCard } from "../../components/admin/common/AdminCard";
@@ -245,7 +245,17 @@ const ZoneCard = ({ zone, index, zones, originState, onChange, onRemove }) => {
 };
 
 const SettingsPageForm = () => {
-  const { storeSettings, saveStoreSettings } = useAdmin();
+  const { storeSettings, saveStoreSettings, fetchIntegrationStatus } = useAdmin();
+  // Is this server really connected to Cashfree and Shiprocket? (null = still loading / an older server)
+  const [integrations, setIntegrations] = useState(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    fetchIntegrationStatus?.().then((status) => !cancelled && setIntegrations(status));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const saved = useMemo(() => editable(storeSettings), [storeSettings]);
   const [drafts, setDrafts] = useState(saved);
   const [activeTab, setActiveTab] = useState("general");
@@ -651,6 +661,39 @@ const SettingsPageForm = () => {
 
       {/* ---------------------------------------------------------------- Payments */}
       {activeTab === "payments" && (
+        <div className="space-y-6">
+        <AdminCard title="Live connection status" subtitle="Is this server really talking to Cashfree and Shiprocket? (no keys are shown here)">
+          {integrations === undefined ? (
+            <p className="text-xs text-stone-400">Checking...</p>
+          ) : integrations === null ? (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              This server could not report its status. It is probably running an older version of the software: deploy the latest backend, then reload this page.
+            </p>
+          ) : (
+            <div className="space-y-3 max-w-2xl text-sm">
+              {[
+                { name: "Cashfree (online payments)", live: integrations.cashfree.live, mode: integrations.cashfree.mode, fix: "Set CASHFREE_APP_ID, CASHFREE_SECRET_KEY and CASHFREE_ENV=production in the server settings, then restart." },
+                { name: "Shiprocket (courier)", live: integrations.shiprocket.live, mode: integrations.shiprocket.mode, fix: "Set SHIPROCKET_EMAIL, SHIPROCKET_PASSWORD and SHIPROCKET_PICKUP_LOCATION in the server settings, then restart." },
+              ].map((row) => (
+                <div key={row.name} className={`p-3 rounded-xl border ${row.live ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-stone-900">{row.name}</span>
+                    <span className={`text-xs font-bold ${row.live ? "text-emerald-800" : "text-rose-700"}`}>{row.live ? "CONNECTED" : "NOT CONNECTED"}</span>
+                  </div>
+                  <p className="text-xs text-stone-600 mt-0.5">Mode: {row.mode}</p>
+                  {!row.live && <p className="text-xs text-rose-700 mt-1">Customers cannot really pay / ship while this shows fake mode. {row.fix}</p>}
+                </div>
+              ))}
+              {integrations.cashfree.live && integrations.cashfree.environment === "production" && (!integrations.cashfree.webhookUrlIsHttps || !integrations.cashfree.returnAddressIsHttps) && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  Cashfree needs https addresses: set CASHFREE_WEBHOOK_URL (https://&lt;your site&gt;/api/v1/webhooks/cashfree) and CLIENT_ORIGIN (your https storefront address).
+                </p>
+              )}
+              {!integrations.deployedAsLiveServer && <p className="text-[11px] text-stone-400">This server is running in local/development mode (NODE_ENV={integrations.nodeEnv}).</p>}
+            </div>
+          )}
+        </AdminCard>
+
         <AdminCard title="Payment Processing Channels" subtitle="Which payment options customers see at checkout">
           <div className="space-y-4 max-w-2xl">
             <Switch
@@ -691,6 +734,7 @@ const SettingsPageForm = () => {
             )}
           </div>
         </AdminCard>
+        </div>
       )}
 
       {/* ---------------------------------------------------------------- Cancellations & Refunds */}
