@@ -264,20 +264,20 @@ export const OrderConfirmationPage = () => {
               <AlertCircle size={36} className="text-amber-700" />
             </div>
             <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
-              Payment Pending Verification
+              Payment Not Completed Yet
             </span>
             <h1 className="font-heading tracking-tight text-3xl font-bold text-[#171A17] mt-1 mb-2">
-              Order Registered, Awaiting Payment Confirmation
+              Your Order Is On Hold Until Payment
             </h1>
             <p className="text-sm text-stone-600 max-w-lg mx-auto leading-relaxed">
-              We received your order, but your online payment is currently pending confirmation from Cashfree Payment Gateway.
+              Your order is not confirmed yet: we have not received your online payment. Nothing is charged unless you pay, and we keep these items aside for you for about 30 minutes. If you do not pay by then, this order is cancelled automatically and the items go back on sale. If you already paid, tap "Refresh Payment Status".
             </p>
 
             {paymentUnavailable && (
               <p role="alert" className="mt-4 max-w-lg mx-auto text-xs text-amber-900 bg-amber-100/70 border border-amber-300 rounded-xl px-3 py-2">
-                We couldn&apos;t open the online payment page right now, so no payment has been taken. Your order is saved. Please
+                We couldn&apos;t open the online payment page right now, so no payment has been taken. Your items are held for you for a short while. Please
                 try &ldquo;Complete Online Payment&rdquo; again a little later, or contact us to pay another way. An unpaid order is cancelled
-                automatically after about 2 hours.
+                automatically after about 30 minutes.
               </p>
             )}
 

@@ -341,6 +341,9 @@ export const listAdminOrders = asyncHandler(async (req, res) => {
   const { q, status, paymentStatus, page = 1, limit = 20 } = req.query;
   const filter = {};
   if (status && status !== "all") filter.status = status;
+  // An online order whose payment has not come through is not an order yet: it stays out of the staff list
+  // (and out of the counts) until it is paid. Ask for status=pending_payment to see those checkouts.
+  else filter.status = { $ne: "pending_payment" };
   if (paymentStatus && paymentStatus !== "all") filter.paymentStatus = paymentStatus;
   if (q) {
     filter.$or = [

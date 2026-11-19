@@ -34,7 +34,7 @@ const startServer = async () => {
     const sweepUnpaidOrders = () => orderService.expireUnpaidOrders().catch((err) => logger.error({ err: err.message }, "Unpaid order sweep failed"));
     // (production, or set ENABLE_ORDER_EXPIRY=true; a local run against a shared database should not cancel orders)
     if (IS_DEPLOYED || process.env.ENABLE_ORDER_EXPIRY === "true") {
-      setInterval(sweepUnpaidOrders, 15 * 60 * 1000).unref();
+      setInterval(sweepUnpaidOrders, 5 * 60 * 1000).unref();
       sweepUnpaidOrders();
       // Safety net for the tracking webhook: read the courier's own status for open shipments every 30 minutes
       const sweepTracking = () => shipmentService.syncOpenShipments().catch((err) => logger.error({ err: err.message }, "Shipment tracking refresh failed"));

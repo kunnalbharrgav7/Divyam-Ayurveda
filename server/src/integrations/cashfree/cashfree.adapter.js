@@ -7,7 +7,10 @@ import { CashfreeMock } from "./cashfree.mock.js";
 
 const REQUEST_TIMEOUT_MS = 20000;
 // How long a customer has to pay before the order is cancelled and its stock released
-export const PAYMENT_WINDOW_MS = 2 * 60 * 60 * 1000;
+// How long a customer has to pay. The goods are held for them meanwhile, so this is kept short: an abandoned payment
+// must not keep stock off sale for hours. Cashfree needs at least 15 minutes.
+export const PAYMENT_WINDOW_MINUTES = Math.max(15, Number(process.env.PAYMENT_WINDOW_MINUTES) || 30);
+export const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000;
 
 export class CashfreeAdapter {
   constructor() {

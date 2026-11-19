@@ -392,8 +392,8 @@ export class AdminService {
       revenueReport,
       recentOrders,
     ] = await Promise.all([
-      Order.countDocuments({ status: { $ne: "cancelled" } }),
-      Order.countDocuments({ status: { $in: ["pending_payment", "confirmed", "processing"] } }),
+      Order.countDocuments({ status: { $nin: ["cancelled", "pending_payment"] } }),
+      Order.countDocuments({ status: { $in: ["confirmed", "processing"] } }),
       ProductVariant.countDocuments({
         $expr: { $lte: [{ $subtract: ["$stockOnHand", "$reservedStock"] }, "$reorderThreshold"] },
         isActive: true,
@@ -402,7 +402,7 @@ export class AdminService {
       Review.countDocuments({ status: "pending" }),
       SupportTicket.countDocuments({ status: { $in: ["Open", "In Progress"] } }),
       analyticsService.getRevenueReport({ days: "all", months: 1 }),
-      Order.find().sort({ createdAt: -1 }).limit(5).lean(),
+      Order.find({ status: { $ne: "pending_payment" } }).sort({ createdAt: -1 }).limit(5).lean(),
     ]);
 
     return {

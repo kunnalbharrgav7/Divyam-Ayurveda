@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { Order } from "../models/Order.js";
 import { Shipment } from "../models/Shipment.js";
 import { Refund } from "../models/Refund.js";
-import { cashfree } from "../integrations/cashfree/cashfree.adapter.js";
+import { cashfree, PAYMENT_WINDOW_MS } from "../integrations/cashfree/cashfree.adapter.js";
 import { shiprocket } from "../integrations/shiprocket/shiprocket.adapter.js";
 import { shipmentService, toPublicShipment } from "./shipment.service.js";
 import { Quote } from "../models/Quote.js";
@@ -1238,7 +1238,7 @@ export class OrderService {
    * Cancel online orders nobody paid for within the payment window, so their reserved stock goes back on sale.
    * Cashfree is asked first: a payment whose webhook was missed is confirmed instead of cancelled.
    */
-  async expireUnpaidOrders({ olderThanMs = 2 * 60 * 60 * 1000 + 10 * 60 * 1000 } = {}) {
+  async expireUnpaidOrders({ olderThanMs = PAYMENT_WINDOW_MS + 5 * 60 * 1000 } = {}) {
     const { paymentService } = await import("./payment.service.js");
     const cutoff = new Date(Date.now() - olderThanMs);
     const stale = await Order.find({
