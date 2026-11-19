@@ -1,0 +1,1 @@
+import{a as e,s as t}from"./createLucideIcon-De2iPR49.js";import{bt as n}from"./index-C94OTHGV.js";var r=t(e(),1),i=()=>{let[e,t]=(0,r.useState)(0);return(0,r.useEffect)(()=>{let e=()=>t(e=>e+1);return window.addEventListener(n,e),()=>window.removeEventListener(n,e)},[]),e};export{i as t};

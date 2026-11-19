@@ -1,0 +1,1 @@
+import{a as e,n as t}from"./createLucideIcon-De2iPR49.js";import{K as n}from"./index-C94OTHGV.js";import{t as r}from"./PolicyPage-B4IARxaA.js";e();var i=t(),a=()=>(0,i.jsx)(r,{slug:`shipping`,icon:n,fallbackTitle:`Shipping & Delivery Policy`});export{a as ShippingPage};

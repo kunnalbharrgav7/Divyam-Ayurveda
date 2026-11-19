@@ -1,0 +1,1 @@
+import{a as e,n as t}from"./createLucideIcon-De2iPR49.js";import{t as n}from"./lock-CsoUAxVB.js";import{t as r}from"./PolicyPage-B4IARxaA.js";e();var i=t(),a=()=>(0,i.jsx)(r,{slug:`privacy`,icon:n,fallbackTitle:`Privacy Policy`});export{a as PrivacyPage};

@@ -6,7 +6,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "build": "npm --prefix ../client install && npm --prefix ../client run build",
+    "build": "echo no build step required",
     "dev": "node --watch src/server.js",
     "seed": "node scripts/seed.js",
     "create-admin": "node scripts/create-admin.js",
